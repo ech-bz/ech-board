@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ech-board-manager-script
+  namespace: {{ .Release.Namespace }}
+data:
+  reconcile.sh: |
+{{ .Files.Get "files/reconcile.sh" | nindent 4 }}

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sui-validator-list
+  namespace: {{ .Values.namespace }}
+data:
+  validators.txt: |
+{{- range $i := until (int .Values.validator.replicas) }}
+    sui-validator-{{ $i }}-0.sui-validator.{{ $.Values.namespace }}.svc.cluster.local:{{ $.Values.validator.port_p2p }}
+{{- end }}

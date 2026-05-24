@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ech-board-manager
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: "*/1 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          serviceAccountName: ech-board-manager
+          restartPolicy: Never
+          containers:
+            - name: sync
+              image: alpine/kubectl:1.36.1
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "/scripts/reconcile.sh"]
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+          volumes:
+            - name: script
+              configMap:
+                name: ech-board-manager-script

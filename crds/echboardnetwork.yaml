@@ -1,0 +1,199 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: echboardnetworks.ech.bz
+spec:
+  group: ech.bz
+  scope: Namespaced
+  names:
+    plural: echboardnetworks
+    singular: echboardnetwork
+    kind: EchBoardNetwork
+    shortNames:
+      - ebn
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Validators
+          type: integer
+          jsonPath: .status.validatorCount
+        - name: Ready
+          type: string
+          jsonPath: .status.ready
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - gitops
+                - images
+                - relay
+                - fullnode
+                - validator
+                - protocol_overrides
+              properties:
+                gitops:
+                  type: object
+                  required:
+                    - sourceNamespace
+                    - sourceName
+                    - artifactSubdir
+                  properties:
+                    sourceNamespace:
+                      type: string
+                    sourceName:
+                      type: string
+                    artifactSubdir:
+                      type: string
+                images:
+                  type: object
+                  required:
+                    - sui_node
+                    - sui_tools
+                    - relay
+                  properties:
+                    sui_node:
+                      type: string
+                    sui_tools:
+                      type: string
+                    relay:
+                      type: string
+                relay:
+                  type: object
+                  required:
+                    - replicas
+                    - port
+                    - cpu
+                    - memory
+                    - sponsor
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                    port:
+                      type: integer
+                      minimum: 1
+                    cpu:
+                      type: string
+                    memory:
+                      type: string
+                    sponsor:
+                      type: object
+                      required:
+                        - gas_object_count
+                        - gas_budget
+                        - gas_price
+                      properties:
+                        gas_object_count:
+                          type: integer
+                          minimum: 1
+                        gas_budget:
+                          type: string
+                        gas_price:
+                          type: string
+                fullnode:
+                  type: object
+                  required:
+                    - replicas
+                    - port_rpc
+                    - port_metrics
+                    - port_p2p
+                    - port_net
+                    - port_admin
+                    - cpu
+                    - memory
+                    - storage
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                    port_rpc:
+                      type: integer
+                      minimum: 1
+                    port_metrics:
+                      type: integer
+                      minimum: 1
+                    port_p2p:
+                      type: integer
+                      minimum: 1
+                    port_net:
+                      type: integer
+                      minimum: 1
+                    port_admin:
+                      type: integer
+                      minimum: 1
+                    cpu:
+                      type: string
+                    memory:
+                      type: string
+                    storage:
+                      type: object
+                      required:
+                        - size
+                      properties:
+                        size:
+                          type: string
+                        className:
+                          type: string
+                validator:
+                  type: object
+                  required:
+                    - port_p2p
+                    - cpu
+                    - memory
+                    - storage
+                  properties:
+                    port_p2p:
+                      type: integer
+                      minimum: 1
+                    cpu:
+                      type: string
+                    memory:
+                      type: string
+                    storage:
+                      type: object
+                      required:
+                        - size
+                      properties:
+                        size:
+                          type: string
+                        className:
+                          type: string
+                protocol_overrides:
+                  type: object
+                  required:
+                    - base_tx_cost_fixed
+                    - storage_gas_price
+                  properties:
+                    base_tx_cost_fixed:
+                      type: string
+                    storage_gas_price:
+                      type: string
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                observedGeneration:
+                  type: integer
+                validatorCount:
+                  type: integer
+                relayReady:
+                  type: integer
+                fullnodesReady:
+                  type: integer
+                validatorsReady:
+                  type: integer
+                ready:
+                  type: string

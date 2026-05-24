@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sui-fullnode
+  namespace: {{ .Values.namespace }}
+spec:
+  serviceName: sui-fullnode
+  replicas: {{ .Values.fullnode.replicas }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: sui-fullnode
+  template:
+    metadata:
+      labels:
+        app: sui-fullnode
+    spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      initContainers:
+        - name: fullnode-prepare
+          image: {{ .Values.images.sui_tools | quote }}
+          env:
+            - name: FULLNODE_RPC_PORT
+              value: {{ .Values.fullnode.port_rpc | quote }}
+            - name: FULLNODE_METRICS_PORT
+              value: {{ .Values.fullnode.port_metrics | quote }}
+            - name: FULLNODE_P2P_PORT
+              value: "{{ .Values.fullnode.port_p2p }}"
+            - name: FULLNODE_NET_PORT
+              value: "{{ .Values.fullnode.port_net }}"
+            - name: FULLNODE_ADMIN_PORT
+              value: "{{ .Values.fullnode.port_admin }}"
+            - name: SEED_PEERS_FILE
+              value: /seed-peers/seed-peers.yaml
+            - name: VALIDATOR_LIST_FILE
+              value: /validator-list/validators.txt
+            - name: OUTPUT_CONFIG
+              value: /work/fullnode.yaml
+            - name: OUTPUT_KEYS_DIR
+              value: /work/keys
+            - name: SUI_CONFIG_DIR
+              value: /tmp/sui
+          command: ["/bin/bash", "-ec"]
+          args:
+            - |
+{{ .Files.Get "files/sui-utils.sh" | nindent 14 }}
+{{ .Files.Get "files/fullnode-prepare.sh" | nindent 14 }}
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /config
+              readOnly: true
+            - name: bootstrap
+              mountPath: /seed-peers
+              readOnly: true
+            - name: work
+              mountPath: /work
+            - name: validator-list
+              mountPath: /validator-list
+              readOnly: true
+      containers:
+        - name: fullnode
+          image: {{ .Values.images.sui_node | quote }}
+          env:
+            - name: SUI_PROTOCOL_CONFIG_OVERRIDE_ENABLE
+              value: "1"
+            - name: SUI_PROTOCOL_CONFIG_OVERRIDE_base_tx_cost_fixed
+              value: {{ .Values.protocol_overrides.base_tx_cost_fixed | quote }}
+            - name: SUI_PROTOCOL_CONFIG_OVERRIDE_storage_gas_price
+              value: {{ .Values.protocol_overrides.storage_gas_price | quote }}
+          command: ["sui-node", "--config-path", "/work/fullnode.yaml"]
+          ports:
+            - name: rpc
+              containerPort: {{ .Values.fullnode.port_rpc }}
+          resources:
+            requests:
+              cpu: {{ .Values.fullnode.cpu | quote }}
+              memory: {{ .Values.fullnode.memory | quote }}
+            limits:
+              cpu: {{ .Values.fullnode.cpu | quote }}
+              memory: {{ .Values.fullnode.memory | quote }}
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /config
+              readOnly: true
+            - name: work
+              mountPath: /work
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: bootstrap
+          configMap:
+            name: {{ .Release.Name }}-ech-board-bootstrap
+        - name: work
+          emptyDir:
+            medium: Memory
+        - name: validator-list
+          configMap:
+            name: sui-validator-list
+            optional: false
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+{{- if .Values.fullnode.storage.className }}
+        storageClassName: {{ .Values.fullnode.storage.className | quote }}
+{{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.fullnode.storage.size | quote }}

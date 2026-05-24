@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sui-validator
+  namespace: {{ .Values.namespace }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: sui-validator
+  ports:
+    - name: p2p
+      port: {{ .Values.validator.port_p2p }}
+      targetPort: {{ .Values.validator.port_p2p }}
+      protocol: TCP

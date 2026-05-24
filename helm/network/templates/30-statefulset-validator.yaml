@@ -1,0 +1,72 @@
+{{- range $i := until (int .Values.validator.replicas) }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sui-validator-{{ $i }}
+  namespace: {{ $.Values.namespace }}
+spec:
+  serviceName: sui-validator
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sui-validator
+      validator-index: "{{ $i }}"
+  template:
+    metadata:
+      labels:
+        app: sui-validator
+        validator-index: "{{ $i }}"
+    spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: validator
+          image: {{ $.Values.images.sui_node | quote }}
+          env:
+            - name: SUI_PROTOCOL_CONFIG_OVERRIDE_ENABLE
+              value: "1"
+            - name: SUI_PROTOCOL_CONFIG_OVERRIDE_base_tx_cost_fixed
+              value: {{ $.Values.protocol_overrides.base_tx_cost_fixed | quote }}
+            - name: SUI_PROTOCOL_CONFIG_OVERRIDE_storage_gas_price
+              value: {{ $.Values.protocol_overrides.storage_gas_price | quote }}
+          command: ["sui-node", "--config-path", "/validator-config/validator.yaml"]
+          resources:
+            requests:
+              cpu: {{ $.Values.validator.cpu | quote }}
+              memory: {{ $.Values.validator.memory | quote }}
+            limits:
+              cpu: {{ $.Values.validator.cpu | quote }}
+              memory: {{ $.Values.validator.memory | quote }}
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /config
+              readOnly: true
+            - name: validator-config
+              mountPath: /validator-config
+              readOnly: true
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: bootstrap
+          configMap:
+            name: {{ $.Release.Name }}-ech-board-bootstrap
+        - name: validator-config
+          secret:
+            secretName: sui-validator-config-{{ $i }}
+            items:
+              - key: validator.yaml
+                path: validator.yaml
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+{{- if $.Values.validator.storage.className }}
+        storageClassName: {{ $.Values.validator.storage.className | quote }}
+{{- end }}
+        resources:
+          requests:
+            storage: {{ $.Values.validator.storage.size | quote }}
+{{- end }}

@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: relay
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: relay
+  ports:
+    - name: http
+      port: {{ .Values.relay.port }}
+      targetPort: {{ .Values.relay.port }}
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: relay
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.relay.replicas }}
+  selector:
+    matchLabels:
+      app: relay
+  template:
+    metadata:
+      labels:
+        app: relay
+    spec:
+      containers:
+        - name: relay
+          image: {{ .Values.images.relay }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: RELAY_SERVER_BIND
+              value: 0.0.0.0:{{ .Values.relay.port }}
+            - name: RELAY_CAPTCHA_PROVIDER
+              value: disabled
+            - name: RELAY_UPSTREAM_SUBMIT_URL
+              value: http://sui-fullnode-rpc.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.fullnode.port_rpc }}
+            - name: RELAY_UPSTREAM_REQUEST_TIMEOUT_MS
+              value: "20000"
+            - name: RELAY_SPONSOR_PRIVATE_KEY_BASE64
+              valueFrom:
+                secretKeyRef:
+                  name: relay-sponsor
+                  key: private_key_base64
+                  optional: false
+            - name: RELAY_SPONSOR_GAS_BUDGET
+              value: {{ .Values.relay.sponsor.gas_budget | quote }}
+            - name: RELAY_SPONSOR_GAS_PRICE
+              value: {{ .Values.relay.sponsor.gas_price | quote }}
+          ports:
+            - containerPort: {{ .Values.relay.port }}
+          resources:
+            requests:
+              cpu: {{ .Values.relay.cpu | quote }}
+              memory: {{ .Values.relay.memory | quote }}
+            limits:
+              cpu: {{ .Values.relay.cpu | quote }}
+              memory: {{ .Values.relay.memory | quote }}
