@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ech-board-operator-crds
+description: CRDs for ech-board-operator (EchBoardNetwork bootstrap and runtime objects).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
