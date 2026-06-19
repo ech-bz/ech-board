@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}
+      containers:
+        - name: operator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: OPERATOR_WORKER_IMAGE
+              value: {{ printf "%s:%s" .Values.worker.repository .Values.worker.tag | quote }}
+            - name: OPERATOR_LEADER_LEASE_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: OPERATOR_LEADER_LEASE_NAME
+              value: {{ .Values.leader.name | quote }}
+            - name: OPERATOR_LEADER_HOLDER_ID
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: OPERATOR_LEADER_LEASE_DURATION_SECONDS
+              value: {{ .Values.leader.leaseDurationSeconds | quote }}
+            - name: OPERATOR_LEADER_LEASE_GRACE_SECONDS
+              value: {{ .Values.leader.leaseGraceSeconds | quote }}
+            - name: OPERATOR_HEALTH_PORT
+              value: {{ .Values.healthPort | quote }}
+            - name: OPERATOR_RECONCILE_INTERVAL_SECONDS
+              value: {{ .Values.reconcileIntervalSeconds | quote }}
+            - name: OPERATOR_ERROR_BACKOFF_SECONDS
+              value: {{ .Values.errorBackoffSeconds | quote }}
+            - name: OPERATOR_MOVE_REPO
+              value: {{ .Values.move.repo | quote }}
+            - name: OPERATOR_MOVE_GIT_REF
+              value: {{ .Values.move.gitRef | quote }}
+            - name: OPERATOR_MOVE_PACKAGE_PATH
+              value: {{ .Values.move.packagePath | quote }}
+            - name: OPERATOR_RELAY_IMAGE
+              value: {{ printf "%s:%s" .Values.relay.repository .Values.relay.tag | quote }}
+            - name: OPERATOR_SUI_NODE_IMAGE
+              value: {{ printf "%s:%s" .Values.suiNode.repository .Values.suiNode.tag | quote }}
+            - name: OPERATOR_CHECKPOINT_BLOB_INDEXER_IMAGE
+              value: {{ printf "%s:%s" .Values.checkpointBlobIndexer.repository .Values.checkpointBlobIndexer.tag | quote }}
+            - name: OPERATOR_INDEXER_ALT_IMAGE
+              value: {{ printf "%s:%s" .Values.indexerAlt.repository .Values.indexerAlt.tag | quote }}
+            - name: OPERATOR_GRAPHQL_IMAGE
+              value: {{ printf "%s:%s" .Values.graphql.repository .Values.graphql.tag | quote }}
+            - name: RUST_LOG
+              value: info
+          ports:
+            - name: health
+              containerPort: {{ .Values.healthPort }}
+          livenessProbe:
+            httpGet: { path: /healthz, port: health }
+          readinessProbe:
+            httpGet: { path: /readyz, port: health }
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }

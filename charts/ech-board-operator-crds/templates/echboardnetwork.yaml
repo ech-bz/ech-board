@@ -1,0 +1,223 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: echboardnetworks.ech.bz
+spec:
+  group: ech.bz
+  scope: Namespaced
+  names:
+    plural: echboardnetworks
+    singular: echboardnetwork
+    kind: EchBoardNetwork
+    shortNames:
+      - ebn
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Validators
+          type: integer
+          jsonPath: .status.validatorCount
+        - name: Ready
+          type: string
+          jsonPath: .status.ready
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - relay
+                - fullnode
+                - validator
+                - archive
+                - protocol_overrides
+              properties:
+                relay:
+                  type: object
+                  required:
+                    - replicas
+                    - port
+                    - adminPort
+                    - cpu
+                    - memory
+                    - sponsor
+                    - seaweedFilerUrl
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                    port:
+                      type: integer
+                      minimum: 1
+                    adminPort:
+                      type: integer
+                      minimum: 1
+                    cpu:
+                      type: string
+                    memory:
+                      type: string
+                    seaweedFilerUrl:
+                      type: string
+                    sponsor:
+                      type: object
+                      required:
+                        - gas_object_count
+                        - gas_budget
+                        - gas_price
+                      properties:
+                        gas_object_count:
+                          type: integer
+                          minimum: 1
+                          x-kubernetes-validations:
+                            - rule: self == oldSelf
+                              message: sponsor gas_object_count is immutable after creation
+                        gas_budget:
+                          type: string
+                        gas_price:
+                          type: string
+                fullnode:
+                  type: object
+                  required:
+                    - replicas
+                    - port_rpc
+                    - port_metrics
+                    - port_p2p
+                    - port_net
+                    - port_admin
+                    - cpu
+                    - memory
+                    - storage
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                    port_rpc:
+                      type: integer
+                      minimum: 1
+                    port_metrics:
+                      type: integer
+                      minimum: 1
+                    port_p2p:
+                      type: integer
+                      minimum: 1
+                    port_net:
+                      type: integer
+                      minimum: 1
+                    port_admin:
+                      type: integer
+                      minimum: 1
+                    cpu:
+                      type: string
+                    memory:
+                      type: string
+                    storage:
+                      type: object
+                      required:
+                        - size
+                      properties:
+                        size:
+                          type: string
+                        className:
+                          type: string
+                validator:
+                  type: object
+                  required:
+                    - replicas
+                    - port_p2p
+                    - cpu
+                    - memory
+                    - storage
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                      x-kubernetes-validations:
+                        - rule: self == oldSelf
+                          message: validator replica count is immutable after creation
+                    port_p2p:
+                      type: integer
+                      minimum: 1
+                    cpu:
+                      type: string
+                    memory:
+                      type: string
+                    storage:
+                      type: object
+                      required:
+                        - size
+                      properties:
+                        size:
+                          type: string
+                        className:
+                          type: string
+                archive:
+                  type: object
+                  required:
+                    - endpoint
+                    - region
+                    - bucket
+                    - intervalEpochs
+                    - storage
+                  properties:
+                    endpoint:
+                      type: string
+                    region:
+                      type: string
+                    bucket:
+                      type: string
+                    intervalEpochs:
+                      type: integer
+                      minimum: 1
+                    storage:
+                      type: object
+                      required:
+                        - size
+                      properties:
+                        size:
+                          type: string
+                        className:
+                          type: string
+                protocol_overrides:
+                  type: object
+                  required:
+                    - max_gas_computation_bucket
+                    - base_tx_cost_fixed
+                    - max_num_new_move_object_ids
+                  properties:
+                    max_gas_computation_bucket:
+                      type: string
+                    base_tx_cost_fixed:
+                      type: string
+                    max_num_new_move_object_ids:
+                      type: string
+            status:
+              type: object
+              properties:
+                observedGeneration:
+                  type: integer
+                phase:
+                  type: string
+                ready:
+                  type: boolean
+                totalNodes:
+                  type: integer
+                completedNodes:
+                  type: integer
+                pendingNodes:
+                  type: integer
+                pending:
+                  type: array
+                  items:
+                    type: string
+                message:
+                  type: string
