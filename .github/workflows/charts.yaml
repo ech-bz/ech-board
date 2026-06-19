@@ -1,0 +1,55 @@
+name: charts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'charts/**'
+      - '.github/workflows/charts.yaml'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  CHARTS_REPO: ghcr.io/${{ github.repository_owner }}/charts
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  push:
+    name: push ${{ matrix.chart.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        chart:
+          - name: ech-board-operator
+            path: charts/ech-board-operator
+          - name: ech-board-operator-crds
+            path: charts/ech-board-operator-crds
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+
+      - uses: oras-project/setup-oras@v1
+
+      - name: login to ghcr
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login \
+            ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+      - name: package
+        run: helm package ${{ matrix.chart.path }} -d /tmp/charts
+
+      - name: push (sha tag)
+        run: |
+          pkg=$(find /tmp/charts -name '${{ matrix.chart.name }}-*.tgz' | head -1)
+          echo '{}' > /tmp/helm-config.json
+          oras push --disable-path-validation \
+            ${{ env.CHARTS_REPO }}/${{ matrix.chart.name }}:${{ github.sha }} \
+            --config /tmp/helm-config.json:application/vnd.cncf.helm.config.v1+json \
+            "$pkg":application/vnd.cncf.helm.chart.content.v1.tar+gzip
