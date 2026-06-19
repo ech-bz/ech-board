@@ -1,0 +1,13 @@
+pub(crate) const NODE_CONFIG_KEY: &str = "node.yaml";
+pub(crate) const PVC_PATH: &str = "/opt/sui/pvc";
+pub(crate) const DB_PATH: &str = "/opt/sui/pvc/db";
+pub(crate) const CONSENSUS_DB_PATH: &str = "/opt/sui/pvc/consensus-db";
+pub(crate) const GENESIS_MOUNT_DIR: &str = "/opt/sui/genesis";
+pub(crate) const GENESIS_BLOB_PATH: &str = "/opt/sui/genesis/genesis.blob";
+pub(crate) const SUI_CONFIG_DIR: &str = "/opt/sui/config";
+pub(crate) const WORKER_CONFIG_DIR: &str = "/opt/ech-board/config";
+pub(crate) const WORKER_CONFIG_FILE_NAME: &str = "config.json";
+pub(crate) const GENESIS_DOWNLOAD_CONFIG_DIR: &str = "/opt/ech-board/config/genesis-download";
+pub(crate) const DB_SNAPSHOT_CONFIG_DIR: &str = "/opt/ech-board/config/db-snapshot";
+pub(crate) const S3_CREDS_DIR: &str = "/opt/ech-board/s3-creds";
+pub(crate) const WORKER_SERVICE_ACCOUNT_NAME: &str = "ech-board-worker";
