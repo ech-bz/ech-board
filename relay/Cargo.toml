@@ -1,0 +1,29 @@
+[package]
+name = "ech-board-relay"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+actix-web = "4.9.0"
+actix-multipart = "0.7.2"
+actix-cors = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+reqwest = { version = "0.12.9", default-features = false, features = ["rustls-tls", "http2", "json"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+thiserror = "2"
+sui-rpc = "0.3.1"
+sui-sdk-types = { version = "0.3.1", features = ["serde", "hash"] }
+bcs = "0.1.6"
+blake2 = "0.10"
+async-trait = "0.1"
+ed25519-dalek = "2.1.1"
+base64 = "0.22"
+rand = "0.8.5"
+futures = "0.3.31"
+hex = "0.4"
+graphql_client = { version = "0.14", default-features = false, features = ["graphql_query_derive"] }
+jsonwebtoken = "9"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+ech-board-common = { path = "../common" }
