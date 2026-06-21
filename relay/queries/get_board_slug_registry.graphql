@@ -1,0 +1,22 @@
+query GetBoardSlugRegistry($packageId: SuiAddress!) {
+  package(address: $packageId) {
+    previousTransaction {
+      effects {
+        objectChanges {
+          nodes {
+            address
+            outputState {
+              asMoveObject {
+                contents {
+                  type {
+                    signature
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

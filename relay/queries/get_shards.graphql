@@ -1,0 +1,29 @@
+query GetShards($packageId: SuiAddress!, $first: Int, $after: String) {
+  package(address: $packageId) {
+    previousTransaction {
+      effects {
+        objectChanges(first: $first, after: $after) {
+          pageInfo {
+            endCursor
+            hasNextPage
+          }
+          nodes {
+            address
+            outputState {
+              asMoveObject {
+                contents {
+                  extract(path: "index") {
+                    json
+                  }
+                  type {
+                    signature
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

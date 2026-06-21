@@ -1,0 +1,67 @@
+schema {
+  query: Query
+}
+
+type Query {
+  package(address: SuiAddress!): Package
+}
+
+type Package {
+  previousTransaction: TransactionBlock
+}
+
+type TransactionBlock {
+  effects: TransactionBlockEffects
+}
+
+type TransactionBlockEffects {
+  objectChanges(first: Int, after: String): ObjectChangeConnection
+}
+
+type ObjectChangeConnection {
+  pageInfo: PageInfo!
+  nodes: [ObjectChange!]!
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+}
+
+type ObjectChange {
+  address: SuiAddress!
+  outputState: Object
+}
+
+type Object {
+  asMoveObject: MoveObject
+}
+
+type MoveObject {
+  contents: MoveValue
+}
+
+type MoveValue {
+  extract(path: String!): ExtractResult
+  type: MoveType!
+}
+
+type ExtractResult {
+  json: String
+}
+
+type MoveType {
+  signature: OpenMoveTypeSignature
+}
+
+type OpenMoveTypeSignature {
+  datatype: OpenMoveTypeSignatureDataType
+}
+
+type OpenMoveTypeSignatureDataType {
+  package: String!
+  module: String!
+  type: String!
+}
+
+scalar SuiAddress
