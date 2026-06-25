@@ -1,5 +1,5 @@
 use crate::constants::{
-    DB_PATH, GENESIS_MOUNT_DIR, NODE_CONFIG_KEY, S3_CREDS_DIR, SUI_CONFIG_DIR,
+    GENESIS_MOUNT_DIR, NODE_CONFIG_KEY, PVC_PATH, S3_CREDS_DIR, SUI_CONFIG_DIR,
 };
 use crate::crds::{ExternalSecret, PushSecret};
 use crate::error::Result;
@@ -302,7 +302,7 @@ pub(crate) trait SingletonStatefulSetExt: ResourcesExt<StatefulSet> {
                             volume_mounts: Some(vec![
                                 VolumeMount {
                                     name: "data".into(),
-                                    mount_path: DB_PATH.into(),
+                                    mount_path: PVC_PATH.into(),
                                     read_only: Some(false),
                                     ..Default::default()
                                 },
