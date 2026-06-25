@@ -1,8 +1,8 @@
 module forum::forum;
 
-use forum::intent::{Self, IntentGateShard};
+use forum::intent;
+use forum::nonce::NonceGateShard;
 use std::string::{Self, String};
-use sui::bcs;
 use sui::event;
 
 // ----- errors
@@ -31,23 +31,21 @@ public struct BoardCreated has copy, drop {
 
 public fun create_board_intent(
     ctx: &mut TxContext,
-    shard: &mut IntentGateShard,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
+    shard: &mut NonceGateShard,
 ) {
-    let intent = intent::decode(intent_bytes);
-    intent.verify(
-        ctx,
-        shard,
-        signature,
+    let mut intent = intent::decode(
+        intent_bytes,
         b"forum",
         b"create_board_intent",
-        vector[],
+        signature,
+        vector[object::id(shard)],
     );
+    shard.advance(ctx, intent.sender(), intent.nonce());
 
-    let mut decoded = bcs::new(intent.payload());
-    let slug = string::utf8(decoded.peel_vec_u8());
-    intent::assert_payload_consumed(decoded);
+    let slug = string::utf8(intent.bcs().peel_vec_u8());
+    intent.end();
 
     create_board(ctx, slug);
 }
@@ -77,24 +75,22 @@ public struct ThreadCreated has copy, drop {
 
 public fun create_thread_intent(
     ctx: &mut TxContext,
-    shard: &mut IntentGateShard,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
+    shard: &mut NonceGateShard,
     board: &mut Board,
 ) {
-    let intent = intent::decode(intent_bytes);
-    intent.verify(
-        ctx,
-        shard,
-        signature,
+    let mut intent = intent::decode(
+        intent_bytes,
         b"forum",
         b"create_thread_intent",
-        vector[object::id(board)],
+        signature,
+        vector[object::id(shard), object::id(board)],
     );
+    shard.advance(ctx, intent.sender(), intent.nonce());
 
-    let mut decoded = bcs::new(intent.payload());
-    let content_hash = decoded.peel_vec_u8();
-    intent::assert_payload_consumed(decoded);
+    let content_hash = intent.bcs().peel_vec_u8();
+    intent.end();
 
     create_thread(ctx, board, content_hash);
 }
@@ -131,25 +127,23 @@ public struct PostCreated has copy, drop {
 
 public fun create_post_intent(
     ctx: &mut TxContext,
-    shard: &mut IntentGateShard,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
+    shard: &mut NonceGateShard,
     board: &mut Board,
     thread: &Thread,
 ) {
-    let intent = intent::decode(intent_bytes);
-    intent.verify(
-        ctx,
-        shard,
-        signature,
+    let mut intent = intent::decode(
+        intent_bytes,
         b"forum",
         b"create_post_intent",
-        vector[object::id(board), object::id(thread)],
+        signature,
+        vector[object::id(shard), object::id(board), object::id(thread)],
     );
+    shard.advance(ctx, intent.sender(), intent.nonce());
 
-    let mut decoded = bcs::new(intent.payload());
-    let content_hash = decoded.peel_vec_u8();
-    intent::assert_payload_consumed(decoded);
+    let content_hash = intent.bcs().peel_vec_u8();
+    intent.end();
 
     create_post(ctx, board, thread, content_hash);
 }
