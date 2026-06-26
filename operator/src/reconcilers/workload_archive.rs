@@ -37,9 +37,8 @@ impl Reconciler for WorkloadArchiveReconciler {
                 &instance_name,
                 BTreeMap::from([(
                     NODE_CONFIG_KEY.to_string(),
-                    yamls::fullnode::render(
+                    yamls::fullnode::render_archive(
                         network,
-                        0,
                         &serde_json::from_str(
                             &client
                                 .namespaced::<Secret>(&namespace)
@@ -107,8 +106,8 @@ impl Reconciler for WorkloadArchiveReconciler {
                         ..Default::default()
                     },
                 ],
-                &network.spec.fullnode.storage.size,
-                network.spec.fullnode.storage.class_name.clone(),
+                &network.spec.archive.storage.size,
+                network.spec.archive.storage.class_name.clone(),
                 &network.spec.fullnode.cpu,
                 &network.spec.fullnode.memory,
                 network,

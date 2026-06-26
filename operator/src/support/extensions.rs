@@ -9,10 +9,11 @@ use ech_k8s::{Component, CrMeta, NamespacedApi, NodeState, ResourcesExt};
 use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec, StatefulSet, StatefulSetSpec};
 use k8s_openapi::api::batch::v1::Job;
 use k8s_openapi::api::core::v1::{
-    Affinity, Container, EmptyDirVolumeSource, EnvVar, PersistentVolumeClaim,
+    Affinity, Container, EmptyDirVolumeSource, EnvVar, EnvVarSource, PersistentVolumeClaim,
     PersistentVolumeClaimSpec, PodAffinityTerm, PodAntiAffinity, PodSecurityContext, PodSpec,
-    PodTemplateSpec, ResourceRequirements, SecretVolumeSource, Service, ServicePort, ServiceSpec,
-    Volume, VolumeMount, VolumeResourceRequirements, WeightedPodAffinityTerm,
+    PodTemplateSpec, ResourceRequirements, SecretKeySelector, SecretVolumeSource, Service,
+    ServicePort, ServiceSpec, Volume, VolumeMount, VolumeResourceRequirements,
+    WeightedPodAffinityTerm,
 };
 use k8s_openapi::apimachinery::pkg::{
     api::resource::Quantity, apis::meta::v1::LabelSelector,
@@ -318,6 +319,12 @@ pub(crate) trait SingletonStatefulSetExt: ResourcesExt<StatefulSet> {
                                     read_only: Some(true),
                                     ..Default::default()
                                 },
+                                VolumeMount {
+                                    name: "s3-creds".into(),
+                                    mount_path: S3_CREDS_DIR.into(),
+                                    read_only: Some(true),
+                                    ..Default::default()
+                                },
                             ]),
                             ports: Some(ports),
                             env: Some(vec![
@@ -356,6 +363,30 @@ pub(crate) trait SingletonStatefulSetExt: ResourcesExt<StatefulSet> {
                                             .max_num_new_move_object_ids
                                             .clone(),
                                     ),
+                                    ..Default::default()
+                                },
+                                EnvVar {
+                                    name: "AWS_ACCESS_KEY_ID".into(),
+                                    value_from: Some(EnvVarSource {
+                                        secret_key_ref: Some(SecretKeySelector {
+                                            key: S3_ACCESS_KEY.into(),
+                                            name: S3CredsComponent.instance_name(&network_name)?,
+                                            optional: Some(false),
+                                        }),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                },
+                                EnvVar {
+                                    name: "AWS_SECRET_ACCESS_KEY".into(),
+                                    value_from: Some(EnvVarSource {
+                                        secret_key_ref: Some(SecretKeySelector {
+                                            key: S3_SECRET_KEY.into(),
+                                            name: S3CredsComponent.instance_name(&network_name)?,
+                                            optional: Some(false),
+                                        }),
+                                        ..Default::default()
+                                    }),
                                     ..Default::default()
                                 },
                             ]),

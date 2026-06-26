@@ -47,7 +47,7 @@ impl Reconciler for WorkloadFullnodeReconciler {
                 &instance_name,
                 BTreeMap::from([(
                     NODE_CONFIG_KEY.to_string(),
-                    yamls::fullnode::render(
+                    yamls::fullnode::render_read(
                         network,
                         self.ordinal,
                         &serde_json::from_str(
