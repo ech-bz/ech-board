@@ -48,7 +48,7 @@ pub(crate) fn render(
         },
         enable_index_processing: false,
         authority_store_pruning_config: AuthorityStorePruningConfig {
-            num_latest_epoch_dbs_to_retain: 3,
+            num_latest_epoch_dbs_to_retain: 1,
             epoch_db_pruning_period_secs: 3600,
             num_epochs_to_retain: 0,
             num_epochs_to_retain_for_checkpoints: 2,
