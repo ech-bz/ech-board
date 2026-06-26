@@ -2,7 +2,6 @@ module forum::nonce;
 
 use sui::event;
 use sui::object_table::{Self, ObjectTable};
-use sui::vec_map::{Self, VecMap};
 
 const SHARD_COUNT: u64 = 1024;
 
@@ -22,24 +21,19 @@ public fun code(self: NonceError): u64 {
 
 // ----- nonce
 
-public struct NonceShardRegistry has key, store {
+public struct NonceGateShard has key, store {
     id: UID,
-    shards: VecMap<u64, ID>,
+    index: u64,
+    gates: ObjectTable<address, NonceGate>,
 }
 
-public struct NonceShardRegistryCreated has copy, drop {
-    registry_id: ID,
+public struct NonceGateShardCreated has copy, drop {
+    shard_id: ID,
 }
 
 public struct NonceGate has key, store {
     id: UID,
     nonce: u64,
-}
-
-public struct NonceGateShard has key, store {
-    id: UID,
-    index: u64,
-    gates: ObjectTable<address, NonceGate>,
 }
 
 public(package) fun advance(
@@ -63,11 +57,9 @@ public(package) fun advance(
     gate.nonce = nonce + 1;
 }
 
+// ----- init
+
 fun init(ctx: &mut TxContext) {
-    let mut registry = NonceShardRegistry {
-        id: object::new(ctx),
-        shards: vec_map::empty(),
-    };
     let mut index = 0u64;
     while (index < SHARD_COUNT) {
         let shard = NonceGateShard {
@@ -75,10 +67,8 @@ fun init(ctx: &mut TxContext) {
             index,
             gates: object_table::new(ctx),
         };
-        registry.shards.insert(index, object::id(&shard));
+        event::emit(NonceGateShardCreated { shard_id: object::id(&shard) });
         transfer::share_object(shard);
         index = index + 1;
     };
-    event::emit(NonceShardRegistryCreated { registry_id: object::id(&registry) });
-    transfer::share_object(registry);
 }
