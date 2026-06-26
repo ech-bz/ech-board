@@ -8,10 +8,7 @@ use futures::StreamExt;
 use rand::seq::SliceRandom;
 use std::str::FromStr;
 use std::time::Duration;
-use sui_rpc::field::{FieldMask, FieldMaskUtil};
-use sui_rpc::proto::sui::rpc::v2::GetObjectRequest;
 use sui_rpc::proto::sui::rpc::v2::ListOwnedObjectsRequest;
-use sui_sdk_types::hash::Hasher;
 use sui_sdk_types::Address;
 use sui_sdk_types::GasPayment;
 use sui_sdk_types::Identifier;
@@ -30,7 +27,6 @@ pub(crate) struct AppState {
     pub(crate) sponsor_gas_budget: u64,
     pub(crate) sponsor_gas_price: u64,
     pub(crate) forum_package_id: Address,
-    pub(crate) shards: Vec<Address>,
 }
 
 impl AppState {
@@ -54,15 +50,6 @@ impl AppState {
             .await
             .map_err(std::io::Error::other)?;
 
-        let auth_registry_id =
-            Self::fetch_auth_registry_id(&client, &cfg.upstream.submit_url, forum_package_id)
-                .await
-                .map_err(std::io::Error::other)?;
-
-        let shards = Self::fetch_registry_shards(&sui_client, auth_registry_id)
-            .await
-            .map_err(std::io::Error::other)?;
-
         Ok(Self {
             captcha: CaptchaVerifier::new(client, cfg.captcha),
             upstream: UpstreamSender::new(
@@ -75,7 +62,6 @@ impl AppState {
             sponsor_gas_budget: sponsor_cfg.gas_budget,
             sponsor_gas_price: sponsor_cfg.gas_price,
             forum_package_id,
-            shards,
         })
     }
 
@@ -107,92 +93,6 @@ impl AppState {
         Ok(gas_ids)
     }
 
-    async fn fetch_auth_registry_id(
-        client: &reqwest::Client,
-        submit_url: &str,
-        forum_package_id: Address,
-    ) -> Result<Address, error::RelayError> {
-        let rpc_url = format!("{}/", submit_url.trim_end_matches('/'));
-        let event_type = format!("{}::intent::IntentGateRegistryCreated", forum_package_id);
-        let body = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "suix_queryEvents",
-            "params": [{"MoveEventType": event_type}]
-        });
-        let resp = client
-            .post(&rpc_url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| error::RelayError::SponsorBuild(format!("rpc query events: {e}")))?;
-        let json: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| error::RelayError::SponsorBuild(format!("rpc parse response: {e}")))?;
-        let registry_id = json["result"]["data"][0]["parsedJson"]["registry_id"]
-            .as_str()
-            .ok_or_else(|| {
-                error::RelayError::SponsorBuild(
-                    "IntentGateRegistryCreated event not found".to_string(),
-                )
-            })?;
-        Address::from_str(registry_id).map_err(|e| {
-            error::RelayError::SponsorBuild(format!("invalid registry_id from event: {e}"))
-        })
-    }
-
-    fn shard_index_from_public_key(public_key: &[u8]) -> u64 {
-        let digest = Hasher::digest(public_key);
-        let bytes: &[u8] = digest.as_ref();
-        let first = bytes[0] as u64;
-        let second = (bytes[1] as u64) << 8;
-        (first + second) % 1024
-    }
-
-    fn auth_shard_id(&self, public_key: &[u8]) -> Address {
-        let shard_index = Self::shard_index_from_public_key(public_key) as usize;
-        self.shards[shard_index]
-    }
-
-    async fn fetch_registry_shards(
-        client: &sui_rpc::Client,
-        registry_id: Address,
-    ) -> Result<Vec<Address>, error::RelayError> {
-        let mut rpc = client.clone();
-        let mut request = GetObjectRequest::new(&registry_id);
-        request.read_mask = Some(FieldMask::from_str("contents"));
-        let response =
-            rpc.ledger_client().get_object(request).await.map_err(|e| {
-                error::RelayError::SponsorBuild(format!("get_object registry: {e}"))
-            })?;
-        let object = response.into_inner().object.ok_or_else(|| {
-            error::RelayError::SponsorBuild("registry object not found".to_string())
-        })?;
-        let bcs_bytes = object
-            .contents
-            .as_ref()
-            .and_then(|c| c.value.as_deref())
-            .ok_or_else(|| {
-                error::RelayError::SponsorBuild("registry object missing BCS contents".to_string())
-            })?;
-        let registry: RegistryBcs = bcs::from_bytes(bcs_bytes).map_err(|e| {
-            error::RelayError::SponsorBuild(format!("failed to deserialize registry: {e}"))
-        })?;
-        let max_key = registry
-            .shards
-            .contents
-            .iter()
-            .map(|e| e.key)
-            .max()
-            .unwrap_or(0) as usize;
-        let mut shards = vec![Address::ZERO; max_key + 1];
-        for entry in registry.shards.contents {
-            shards[entry.key as usize] = Address::new(entry.value);
-        }
-        Ok(shards)
-    }
-
     async fn build_transaction_from_intent(
         &self,
         intent_raw: &[u8],
@@ -204,11 +104,6 @@ impl AppState {
         })?;
 
         let mut inputs = vec![
-            Input::Shared(
-                self.upstream
-                    .shared_input(&self.auth_shard_id(&intent.public_key), true)
-                    .await?,
-            ),
             Input::Pure(bcs::to_bytes(&intent_raw.to_vec()).map_err(|e| {
                 error::RelayError::SponsorBuild(format!("failed to encode intent bytes: {e}"))
             })?),
@@ -296,22 +191,4 @@ impl AppState {
             }
         }
     }
-}
-
-#[derive(serde::Deserialize)]
-#[allow(dead_code)]
-struct RegistryBcs {
-    id: [u8; 32],
-    shards: VecMapBcs,
-}
-
-#[derive(serde::Deserialize)]
-struct VecMapBcs {
-    contents: Vec<EntryBcs>,
-}
-
-#[derive(serde::Deserialize)]
-struct EntryBcs {
-    key: u64,
-    value: [u8; 32],
 }
