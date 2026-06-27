@@ -79,8 +79,6 @@ impl Reconciler for WorkloadValidatorReconciler {
 
         let pod_spec = SuiNodePodBuilder {
             image: network.spec.images.sui_node.clone(),
-            worker_image: None,
-            worker_config_name: None,
             component_name: "validator".into(),
             config_secret_name: instance_name.clone(),
             ports: vec![ContainerPort {

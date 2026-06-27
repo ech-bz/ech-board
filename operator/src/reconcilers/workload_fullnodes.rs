@@ -1,7 +1,5 @@
 use crate::config::OperatorSettings;
-use crate::constants::{
-    DB_PATH, NODE_CONFIG_KEY, SUI_CONFIG_DIR, WORKER_CONFIG_FILE_NAME,
-};
+use crate::constants::NODE_CONFIG_KEY;
 use crate::reconcilers::key_node::KeyFullnodeComponent;
 use crate::reconcilers::seed_peers::SeedPeersComponent;
 use crate::support::components::WorkerOutputComponent;
@@ -84,22 +82,6 @@ impl Reconciler for WorkloadFullnodeReconciler {
             )
             .await?;
 
-        let db_config_name = format!("{instance_name}-db-config");
-        client
-            .namespaced::<ConfigMap>(&namespace)
-            .store_put(
-                &db_config_name,
-                BTreeMap::from([(
-                    WORKER_CONFIG_FILE_NAME.to_string(),
-                    serde_json::to_string(&ech_board_common::DbSnapshotConfig {
-                        node_config_path: format!("{SUI_CONFIG_DIR}/{NODE_CONFIG_KEY}"),
-                        db_path: DB_PATH.to_string(),
-                    })?,
-                )]),
-                Some(labels.clone()),
-            )
-            .await?;
-
         client
             .namespaced::<Service>(&namespace)
             .apply_headless_service(
@@ -112,8 +94,6 @@ impl Reconciler for WorkloadFullnodeReconciler {
 
         let pod_spec = SuiNodePodBuilder {
             image: network.spec.images.sui_node.clone(),
-            worker_image: Some(self.operator.worker_image.clone()),
-            worker_config_name: Some(db_config_name),
             component_name: "fullnode".into(),
             config_secret_name: instance_name.clone(),
             ports: vec![

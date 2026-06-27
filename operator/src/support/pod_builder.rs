@@ -1,13 +1,12 @@
 use crate::constants::{
-    GENESIS_MOUNT_DIR, NODE_CONFIG_KEY, PVC_PATH, S3_CREDS_DIR, SUI_CONFIG_DIR,
-    WORKER_CONFIG_DIR, WORKER_CONFIG_FILE_NAME,
+    DB_PATH, GENESIS_MOUNT_DIR, NODE_CONFIG_KEY, PVC_PATH, S3_CREDS_DIR, SUI_CONFIG_DIR,
 };
 use crate::error::Result;
 use crate::support::components::S3CredsComponent;
 use ech_board_common::keys::{S3_ACCESS_KEY, S3_SECRET_KEY};
 use ech_k8s::{Component, CrMeta};
 use k8s_openapi::api::core::v1::{
-    Affinity, ConfigMapVolumeSource, Container, ContainerPort, EmptyDirVolumeSource, EnvVar,
+    Affinity, Container, ContainerPort, EmptyDirVolumeSource, EnvVar,
     EnvVarSource, PodAffinityTerm, PodAntiAffinity, PodSecurityContext, PodSpec,
     ResourceRequirements, SecretKeySelector, SecretVolumeSource, Volume, VolumeMount,
     WeightedPodAffinityTerm,
@@ -20,8 +19,6 @@ use std::collections::BTreeMap;
 
 pub(crate) struct SuiNodePodBuilder<'a> {
     pub image: String,
-    pub worker_image: Option<String>,
-    pub worker_config_name: Option<String>,
     pub component_name: String,
     pub config_secret_name: String,
     pub ports: Vec<ContainerPort>,
@@ -39,8 +36,6 @@ impl<'a> SuiNodePodBuilder<'a> {
         let bucket = self.network.spec.archive.bucket.clone();
         let overrides = &self.network.spec.protocol_overrides;
         let image = self.image.clone();
-        let worker_image = self.worker_image;
-        let worker_config_name = self.worker_config_name;
 
         let mut init_containers = vec![Container {
             name: "download-genesis".into(),
@@ -82,26 +77,25 @@ impl<'a> SuiNodePodBuilder<'a> {
         if self.enable_db_snapshot_download {
             init_containers.push(Container {
                 name: "download-db".into(),
-                image: worker_image,
+                image: Some("minio/mc".into()),
                 image_pull_policy: Some("IfNotPresent".into()),
-                args: Some(vec![
-                    "--config".into(),
-                    format!("{WORKER_CONFIG_DIR}/{WORKER_CONFIG_FILE_NAME}"),
-                    "download-db-snapshot".into(),
+                command: Some(vec!["/bin/sh".into(), "-ceu".into()]),
+                args: Some(vec![format!(
+                    "mc alias set s3 \"$ECH_BOARD_S3_ENDPOINT\" \"$(cat {S3_CREDS_DIR}/{S3_ACCESS_KEY})\" \"$(cat {S3_CREDS_DIR}/{S3_SECRET_KEY})\" >/dev/null; LATEST=$(mc ls \"s3/$ECH_BOARD_S3_BUCKET/\" 2>/dev/null | grep epoch_ | sort -V | tail -1 | awk '{{print $NF}}'); [ -n \"$LATEST\" ] && mc cp --recursive \"s3/$ECH_BOARD_S3_BUCKET/$LATEST/\" \"{DB_PATH}/live/\""
+                )]),
+                env: Some(vec![
+                    EnvVar {
+                        name: "ECH_BOARD_S3_ENDPOINT".into(),
+                        value: Some(endpoint.clone()),
+                        ..Default::default()
+                    },
+                    EnvVar {
+                        name: "ECH_BOARD_S3_BUCKET".into(),
+                        value: Some(bucket.clone()),
+                        ..Default::default()
+                    },
                 ]),
                 volume_mounts: Some(vec![
-                    VolumeMount {
-                        name: "data".into(),
-                        mount_path: PVC_PATH.into(),
-                        read_only: Some(false),
-                        ..Default::default()
-                    },
-                    VolumeMount {
-                        name: "config".into(),
-                        mount_path: SUI_CONFIG_DIR.into(),
-                        read_only: Some(true),
-                        ..Default::default()
-                    },
                     VolumeMount {
                         name: "s3-creds".into(),
                         mount_path: S3_CREDS_DIR.into(),
@@ -109,9 +103,9 @@ impl<'a> SuiNodePodBuilder<'a> {
                         ..Default::default()
                     },
                     VolumeMount {
-                        name: "worker-config".into(),
-                        mount_path: WORKER_CONFIG_DIR.into(),
-                        read_only: Some(true),
+                        name: "data".into(),
+                        mount_path: PVC_PATH.into(),
+                        read_only: Some(false),
                         ..Default::default()
                     },
                 ]),
@@ -119,7 +113,7 @@ impl<'a> SuiNodePodBuilder<'a> {
             });
         }
 
-        let mut volumes = vec![
+        let volumes = vec![
             Volume {
                 name: "config".into(),
                 secret: Some(SecretVolumeSource {
@@ -144,16 +138,6 @@ impl<'a> SuiNodePodBuilder<'a> {
                 ..Default::default()
             },
         ];
-        if let Some(name) = worker_config_name {
-            volumes.push(Volume {
-                name: "worker-config".into(),
-                config_map: Some(ConfigMapVolumeSource {
-                    name,
-                    ..Default::default()
-                }),
-                ..Default::default()
-            });
-        }
 
         Ok(PodSpec {
             termination_grace_period_seconds: Some(30),
@@ -166,6 +150,7 @@ impl<'a> SuiNodePodBuilder<'a> {
                 name: self.component_name,
                 image: Some(image),
                 image_pull_policy: Some("IfNotPresent".into()),
+                command: Some(vec!["sui-node".into()]),
                 resources: Some(ResourceRequirements {
                     requests: Some(BTreeMap::from([
                         ("cpu".into(), Quantity(self.cpu)),
