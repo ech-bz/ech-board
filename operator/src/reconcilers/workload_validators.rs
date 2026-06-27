@@ -1,12 +1,14 @@
 use crate::constants::NODE_CONFIG_KEY;
 use crate::reconcilers::key_node::KeyValidatorComponent;
 use crate::support::extensions::{HeadlessServiceExt, ReadyReplicasExt, SingletonStatefulSetExt};
+use crate::support::pod_builder::SuiNodePodBuilder;
 use crate::support::yamls;
 use crate::{crds::EchBoardNetwork, error::Result};
 use ech_board_common::keys::KEYS;
 use ech_k8s::{Component, CrMeta, K8sClient, NodeState, Reconciler, ResourcesExt, StoreExt};
 use k8s_openapi::api::apps::v1::StatefulSet;
-use k8s_openapi::api::core::v1::{ContainerPort, Secret, Service};
+use k8s_openapi::api::core::v1::{ContainerPort, PodTemplateSpec, Secret, Service};
+use kube::api::ObjectMeta;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -75,23 +77,37 @@ impl Reconciler for WorkloadValidatorReconciler {
             )
             .await?;
 
+        let pod_spec = SuiNodePodBuilder {
+            image: network.spec.images.sui_node.clone(),
+            worker_image: None,
+            worker_config_name: None,
+            component_name: "validator".into(),
+            config_secret_name: instance_name.clone(),
+            ports: vec![ContainerPort {
+                name: Some("p2p".into()),
+                container_port: network.spec.validator.port_p2p as i32,
+                ..Default::default()
+            }],
+            cpu: network.spec.validator.cpu.clone(),
+            memory: network.spec.validator.memory.clone(),
+            enable_db_snapshot_download: false,
+            network,
+        }
+        .build()?;
         client
             .namespaced::<StatefulSet>(&namespace)
             .apply_singleton_stateful_set(
                 &instance_name,
                 &labels,
-                "validator",
-                &instance_name,
-                vec![ContainerPort {
-                    name: Some("p2p".into()),
-                    container_port: network.spec.validator.port_p2p as i32,
-                    ..Default::default()
-                }],
+                PodTemplateSpec {
+                    metadata: Some(ObjectMeta {
+                        labels: Some(labels.clone()),
+                        ..Default::default()
+                    }),
+                    spec: Some(pod_spec),
+                },
                 &network.spec.validator.storage.size,
                 network.spec.validator.storage.class_name.clone(),
-                &network.spec.validator.cpu,
-                &network.spec.validator.memory,
-                network,
             )
             .await?;
 

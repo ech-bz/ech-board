@@ -167,7 +167,7 @@ fn render(
         ),
         json_rpc_address: format!("0.0.0.0:{}", network.spec.fullnode.port_rpc),
         rpc: FullnodeRpcConfig {
-            enable_indexing: false,
+            enable_indexing: true,
         },
         metrics_address: format!("0.0.0.0:{}", network.spec.fullnode.port_metrics),
         admin_interface_port: network.spec.fullnode.port_admin as u16,
@@ -187,16 +187,30 @@ fn render(
         genesis: FullnodeGenesisConfig {
             genesis_file_location: GENESIS_BLOB_PATH.into(),
         },
-        authority_store_pruning_config: Some(AuthorityStorePruningConfig {
-            num_latest_epoch_dbs_to_retain: 3,
-            epoch_db_pruning_period_secs: 3600,
-            num_epochs_to_retain: 1,
-            num_epochs_to_retain_for_checkpoints: 2,
-            max_checkpoints_in_batch: 1000,
-            max_transactions_in_batch: 1000,
-            periodic_compaction_threshold_days: 1,
+        authority_store_pruning_config: if mode.writes_archive {
+            Some(AuthorityStorePruningConfig {
+                num_latest_epoch_dbs_to_retain: 3,
+                epoch_db_pruning_period_secs: 3600,
+                num_epochs_to_retain: 0,
+                num_epochs_to_retain_for_checkpoints: 0,
+                max_checkpoints_in_batch: 1000,
+                max_transactions_in_batch: 1000,
+                periodic_compaction_threshold_days: 1,
+            })
+        } else {
+            Some(AuthorityStorePruningConfig {
+                num_latest_epoch_dbs_to_retain: 3,
+                epoch_db_pruning_period_secs: 3600,
+                num_epochs_to_retain: 1,
+                num_epochs_to_retain_for_checkpoints: 2,
+                max_checkpoints_in_batch: 1000,
+                max_transactions_in_batch: 1000,
+                periodic_compaction_threshold_days: 1,
+            })
+        },
+        db_checkpoint_config: mode.writes_archive.then(|| DbCheckpointConfig {
+            perform_db_checkpoints_at_epoch_end: true,
         }),
-        db_checkpoint_config: None,
         state_archive_read_config: Some(vec![StateArchiveReadConfig {
             ingestion_url: format!("{archive_endpoint}/{}", network.spec.archive.bucket),
             concurrency: 5,

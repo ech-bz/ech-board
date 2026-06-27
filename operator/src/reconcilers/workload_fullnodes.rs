@@ -1,14 +1,19 @@
-use crate::constants::NODE_CONFIG_KEY;
+use crate::config::OperatorSettings;
+use crate::constants::{
+    DB_PATH, NODE_CONFIG_KEY, SUI_CONFIG_DIR, WORKER_CONFIG_FILE_NAME,
+};
 use crate::reconcilers::key_node::KeyFullnodeComponent;
 use crate::reconcilers::seed_peers::SeedPeersComponent;
 use crate::support::components::WorkerOutputComponent;
 use crate::support::extensions::{HeadlessServiceExt, ReadyReplicasExt, SingletonStatefulSetExt};
+use crate::support::pod_builder::SuiNodePodBuilder;
 use crate::support::yamls;
 use crate::{crds::EchBoardNetwork, error::Result};
 use ech_board_common::keys::{KEYS, SEED_PEERS};
 use ech_k8s::{Component, CrMeta, K8sClient, NodeState, Reconciler, ResourcesExt, StoreExt};
 use k8s_openapi::api::apps::v1::StatefulSet;
-use k8s_openapi::api::core::v1::{ConfigMap, ContainerPort, Secret, Service};
+use k8s_openapi::api::core::v1::{ConfigMap, ContainerPort, PodTemplateSpec, Secret, Service};
+use kube::api::ObjectMeta;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -21,6 +26,7 @@ pub(crate) struct WorkloadFullnodeComponent {
 #[derive(Clone, Serialize)]
 pub(crate) struct WorkloadFullnodeReconciler {
     pub(crate) ordinal: usize,
+    pub(crate) operator: OperatorSettings,
 }
 
 #[async_trait::async_trait]
@@ -78,6 +84,22 @@ impl Reconciler for WorkloadFullnodeReconciler {
             )
             .await?;
 
+        let db_config_name = format!("{instance_name}-db-config");
+        client
+            .namespaced::<ConfigMap>(&namespace)
+            .store_put(
+                &db_config_name,
+                BTreeMap::from([(
+                    WORKER_CONFIG_FILE_NAME.to_string(),
+                    serde_json::to_string(&ech_board_common::DbSnapshotConfig {
+                        node_config_path: format!("{SUI_CONFIG_DIR}/{NODE_CONFIG_KEY}"),
+                        db_path: DB_PATH.to_string(),
+                    })?,
+                )]),
+                Some(labels.clone()),
+            )
+            .await?;
+
         client
             .namespaced::<Service>(&namespace)
             .apply_headless_service(
@@ -88,45 +110,59 @@ impl Reconciler for WorkloadFullnodeReconciler {
             )
             .await?;
 
+        let pod_spec = SuiNodePodBuilder {
+            image: network.spec.images.sui_node.clone(),
+            worker_image: Some(self.operator.worker_image.clone()),
+            worker_config_name: Some(db_config_name),
+            component_name: "fullnode".into(),
+            config_secret_name: instance_name.clone(),
+            ports: vec![
+                ContainerPort {
+                    name: Some("rpc".into()),
+                    container_port: network.spec.fullnode.port_rpc as i32,
+                    ..Default::default()
+                },
+                ContainerPort {
+                    name: Some("metrics".into()),
+                    container_port: network.spec.fullnode.port_metrics as i32,
+                    ..Default::default()
+                },
+                ContainerPort {
+                    name: Some("p2p".into()),
+                    container_port: network.spec.fullnode.port_p2p as i32,
+                    ..Default::default()
+                },
+                ContainerPort {
+                    name: Some("net".into()),
+                    container_port: network.spec.fullnode.port_net as i32,
+                    ..Default::default()
+                },
+                ContainerPort {
+                    name: Some("admin".into()),
+                    container_port: network.spec.fullnode.port_admin as i32,
+                    ..Default::default()
+                },
+            ],
+            cpu: network.spec.fullnode.cpu.clone(),
+            memory: network.spec.fullnode.memory.clone(),
+            enable_db_snapshot_download: true,
+            network,
+        }
+        .build()?;
         client
             .namespaced::<StatefulSet>(&namespace)
             .apply_singleton_stateful_set(
                 &instance_name,
                 &labels,
-                "fullnode",
-                &instance_name,
-                vec![
-                    ContainerPort {
-                        name: Some("rpc".into()),
-                        container_port: network.spec.fullnode.port_rpc as i32,
+                PodTemplateSpec {
+                    metadata: Some(ObjectMeta {
+                        labels: Some(labels.clone()),
                         ..Default::default()
-                    },
-                    ContainerPort {
-                        name: Some("metrics".into()),
-                        container_port: network.spec.fullnode.port_metrics as i32,
-                        ..Default::default()
-                    },
-                    ContainerPort {
-                        name: Some("p2p".into()),
-                        container_port: network.spec.fullnode.port_p2p as i32,
-                        ..Default::default()
-                    },
-                    ContainerPort {
-                        name: Some("net".into()),
-                        container_port: network.spec.fullnode.port_net as i32,
-                        ..Default::default()
-                    },
-                    ContainerPort {
-                        name: Some("admin".into()),
-                        container_port: network.spec.fullnode.port_admin as i32,
-                        ..Default::default()
-                    },
-                ],
+                    }),
+                    spec: Some(pod_spec),
+                },
                 &network.spec.fullnode.storage.size,
                 network.spec.fullnode.storage.class_name.clone(),
-                &network.spec.fullnode.cpu,
-                &network.spec.fullnode.memory,
-                network,
             )
             .await?;
 

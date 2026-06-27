@@ -47,7 +47,7 @@ impl Workflow for BoardWorkflow {
         graph.add(
             FullnodeRpcReconciler,
             (0..fullnode_count)
-                .map(|ordinal| WorkloadFullnodeReconciler { ordinal }.into())
+                .map(|ordinal| WorkloadFullnodeReconciler { ordinal, operator: self.operator.clone() }.into())
                 .chain([PruneFullnodesReconciler.into()]),
         )?;
 
@@ -76,7 +76,7 @@ impl Workflow for BoardWorkflow {
                 vec![PruneKeysReconciler.into()],
             )?;
             graph.add(
-                WorkloadFullnodeReconciler { ordinal },
+                WorkloadFullnodeReconciler { ordinal, operator: self.operator.clone() },
                 vec![
                     PruneFullnodesReconciler.into(),
                     KeyNodeReconciler::new(KeyFullnodeComponent { ordinal }, self.operator.clone())
@@ -110,7 +110,7 @@ impl Workflow for BoardWorkflow {
             vec![BootstrapReconciler.into()],
         )?;
         graph.add(
-            WorkloadArchiveReconciler,
+            WorkloadArchiveReconciler { operator: self.operator.clone() },
             vec![
                 KeyNodeReconciler::new(KeyArchiveComponent, self.operator.clone()).into(),
                 SeedPeersReconciler::new(self.operator.clone()).into(),

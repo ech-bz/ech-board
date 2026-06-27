@@ -1,23 +1,14 @@
-use crate::constants::{
-    GENESIS_MOUNT_DIR, NODE_CONFIG_KEY, PVC_PATH, S3_CREDS_DIR, SUI_CONFIG_DIR,
-};
 use crate::crds::{ExternalSecret, PushSecret};
 use crate::error::Result;
-use crate::support::components::S3CredsComponent;
-use ech_board_common::keys::{S3_ACCESS_KEY, S3_SECRET_KEY};
-use ech_k8s::{Component, CrMeta, NamespacedApi, NodeState, ResourcesExt};
+use ech_k8s::{NamespacedApi, NodeState, ResourcesExt};
 use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec, StatefulSet, StatefulSetSpec};
 use k8s_openapi::api::batch::v1::Job;
 use k8s_openapi::api::core::v1::{
-    Affinity, Container, EmptyDirVolumeSource, EnvVar, EnvVarSource, PersistentVolumeClaim,
-    PersistentVolumeClaimSpec, PodAffinityTerm, PodAntiAffinity, PodSecurityContext, PodSpec,
-    PodTemplateSpec, ResourceRequirements, SecretKeySelector, SecretVolumeSource, Service,
-    ServicePort, ServiceSpec, Volume, VolumeMount, VolumeResourceRequirements,
-    WeightedPodAffinityTerm,
+    PersistentVolumeClaim, PersistentVolumeClaimSpec, PodTemplateSpec, Service, ServicePort,
+    ServiceSpec, VolumeResourceRequirements,
 };
 use k8s_openapi::apimachinery::pkg::{
-    api::resource::Quantity, apis::meta::v1::LabelSelector,
-    apis::meta::v1::LabelSelectorRequirement, util::intstr::IntOrString,
+    api::resource::Quantity, apis::meta::v1::LabelSelector, util::intstr::IntOrString,
 };
 use kube::ResourceExt;
 use kube::api::ObjectMeta;
@@ -215,16 +206,10 @@ pub(crate) trait SingletonStatefulSetExt: ResourcesExt<StatefulSet> {
         &self,
         name: &str,
         labels: &BTreeMap<String, String>,
-        component: &str,
-        config_secret_name: &str,
-        ports: Vec<k8s_openapi::api::core::v1::ContainerPort>,
+        template: PodTemplateSpec,
         storage_size: &str,
         storage_class_name: Option<String>,
-        cpu: &str,
-        memory: &str,
-        network: &crate::crds::EchBoardNetwork,
     ) -> crate::error::Result<()> {
-        let network_name = network.cr_name()?;
         let sts = StatefulSet {
             metadata: ObjectMeta {
                 name: Some(name.to_string()),
@@ -238,215 +223,7 @@ pub(crate) trait SingletonStatefulSetExt: ResourcesExt<StatefulSet> {
                     match_labels: Some(labels.clone()),
                     ..Default::default()
                 },
-                template: PodTemplateSpec {
-                    metadata: Some(ObjectMeta {
-                        labels: Some(labels.clone()),
-                        ..Default::default()
-                    }),
-                    spec: Some(PodSpec {
-                        termination_grace_period_seconds: Some(30),
-                        security_context: Some(PodSecurityContext {
-                            fs_group: Some(1000),
-                            ..Default::default()
-                        }),
-                        init_containers: Some(vec![Container {
-                            name: "download-genesis".into(),
-                            image: Some("minio/mc".into()),
-                            image_pull_policy: Some("IfNotPresent".into()),
-                            command: Some(vec!["/bin/sh".into(), "-ceu".into()]),
-                            args: Some(vec![format!(
-                                "mc alias set s3 \"$ECH_BOARD_S3_ENDPOINT\" \"$(cat {S3_CREDS_DIR}/{S3_ACCESS_KEY})\" \"$(cat {S3_CREDS_DIR}/{S3_SECRET_KEY})\" >/dev/null && mc get --quiet \"s3/$ECH_BOARD_S3_BUCKET/genesis.blob\" \"{GENESIS_MOUNT_DIR}/genesis.blob\""
-                            )]),
-                            env: Some(vec![
-                                EnvVar {
-                                    name: "ECH_BOARD_S3_ENDPOINT".into(),
-                                    value: Some(network.spec.archive.endpoint.clone()),
-                                    ..Default::default()
-                                },
-                                EnvVar {
-                                    name: "ECH_BOARD_S3_BUCKET".into(),
-                                    value: Some(network.spec.archive.bucket.clone()),
-                                    ..Default::default()
-                                },
-                            ]),
-                            volume_mounts: Some(vec![
-                                VolumeMount {
-                                    name: "s3-creds".into(),
-                                    mount_path: S3_CREDS_DIR.into(),
-                                    read_only: Some(true),
-                                    ..Default::default()
-                                },
-                                VolumeMount {
-                                    name: "genesis".into(),
-                                    mount_path: GENESIS_MOUNT_DIR.into(),
-                                    read_only: Some(false),
-                                    ..Default::default()
-                                },
-                            ]),
-                            ..Default::default()
-                        }]),
-                        containers: vec![Container {
-                            name: component.into(),
-                            image: Some(network.spec.images.sui_node.clone()),
-                            image_pull_policy: Some("IfNotPresent".into()),
-                            resources: Some(ResourceRequirements {
-                                requests: Some(BTreeMap::from([
-                                    ("cpu".into(), Quantity(cpu.to_string())),
-                                    ("memory".into(), Quantity(memory.to_string())),
-                                ])),
-                                ..Default::default()
-                            }),
-                            args: Some(vec![
-                                "--config-path".into(),
-                                format!("{SUI_CONFIG_DIR}/{NODE_CONFIG_KEY}"),
-                            ]),
-                            volume_mounts: Some(vec![
-                                VolumeMount {
-                                    name: "data".into(),
-                                    mount_path: PVC_PATH.into(),
-                                    read_only: Some(false),
-                                    ..Default::default()
-                                },
-                                VolumeMount {
-                                    name: "config".into(),
-                                    mount_path: SUI_CONFIG_DIR.into(),
-                                    read_only: Some(true),
-                                    ..Default::default()
-                                },
-                                VolumeMount {
-                                    name: "genesis".into(),
-                                    mount_path: GENESIS_MOUNT_DIR.into(),
-                                    read_only: Some(true),
-                                    ..Default::default()
-                                },
-                                VolumeMount {
-                                    name: "s3-creds".into(),
-                                    mount_path: S3_CREDS_DIR.into(),
-                                    read_only: Some(true),
-                                    ..Default::default()
-                                },
-                            ]),
-                            ports: Some(ports),
-                            env: Some(vec![
-                                EnvVar {
-                                    name: "SUI_PROTOCOL_CONFIG_OVERRIDE_ENABLE".into(),
-                                    value: Some("1".into()),
-                                    ..Default::default()
-                                },
-                                EnvVar {
-                                    name: "SUI_PROTOCOL_CONFIG_OVERRIDE_max_gas_computation_bucket"
-                                        .into(),
-                                    value: Some(
-                                        network
-                                            .spec
-                                            .protocol_overrides
-                                            .max_gas_computation_bucket
-                                            .clone(),
-                                    ),
-                                    ..Default::default()
-                                },
-                                EnvVar {
-                                    name: "SUI_PROTOCOL_CONFIG_OVERRIDE_base_tx_cost_fixed".into(),
-                                    value: Some(
-                                        network.spec.protocol_overrides.base_tx_cost_fixed.clone(),
-                                    ),
-                                    ..Default::default()
-                                },
-                                EnvVar {
-                                    name:
-                                        "SUI_PROTOCOL_CONFIG_OVERRIDE_max_num_new_move_object_ids"
-                                            .into(),
-                                    value: Some(
-                                        network
-                                            .spec
-                                            .protocol_overrides
-                                            .max_num_new_move_object_ids
-                                            .clone(),
-                                    ),
-                                    ..Default::default()
-                                },
-                                EnvVar {
-                                    name: "AWS_ACCESS_KEY_ID".into(),
-                                    value_from: Some(EnvVarSource {
-                                        secret_key_ref: Some(SecretKeySelector {
-                                            key: S3_ACCESS_KEY.into(),
-                                            name: S3CredsComponent.instance_name(&network_name)?,
-                                            optional: Some(false),
-                                        }),
-                                        ..Default::default()
-                                    }),
-                                    ..Default::default()
-                                },
-                                EnvVar {
-                                    name: "AWS_SECRET_ACCESS_KEY".into(),
-                                    value_from: Some(EnvVarSource {
-                                        secret_key_ref: Some(SecretKeySelector {
-                                            key: S3_SECRET_KEY.into(),
-                                            name: S3CredsComponent.instance_name(&network_name)?,
-                                            optional: Some(false),
-                                        }),
-                                        ..Default::default()
-                                    }),
-                                    ..Default::default()
-                                },
-                            ]),
-                            ..Default::default()
-                        }],
-                        affinity: Some(Affinity {
-                            pod_anti_affinity: Some(PodAntiAffinity {
-                                preferred_during_scheduling_ignored_during_execution: Some(vec![
-                                    WeightedPodAffinityTerm {
-                                        weight: 100,
-                                        pod_affinity_term: PodAffinityTerm {
-                                            label_selector: Some(LabelSelector {
-                                                match_expressions: Some(vec![
-                                                    LabelSelectorRequirement {
-                                                        key: "ech.bz/owner".into(),
-                                                        operator: "Exists".into(),
-                                                        values: None,
-                                                    },
-                                                ]),
-                                                ..Default::default()
-                                            }),
-                                            topology_key: "kubernetes.io/hostname".into(),
-                                            ..Default::default()
-                                        },
-                                    },
-                                ]),
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        }),
-                        volumes: Some(vec![
-                            Volume {
-                                name: "config".into(),
-                                secret: Some(SecretVolumeSource {
-                                    secret_name: Some(config_secret_name.to_string()),
-                                    optional: Some(false),
-                                    ..Default::default()
-                                }),
-                                ..Default::default()
-                            },
-                            Volume {
-                                name: "s3-creds".into(),
-                                secret: Some(SecretVolumeSource {
-                                    secret_name: Some(
-                                        S3CredsComponent.instance_name(&network_name)?,
-                                    ),
-                                    optional: Some(false),
-                                    ..Default::default()
-                                }),
-                                ..Default::default()
-                            },
-                            Volume {
-                                name: "genesis".into(),
-                                empty_dir: Some(EmptyDirVolumeSource::default()),
-                                ..Default::default()
-                            },
-                        ]),
-                        ..Default::default()
-                    }),
-                },
+                template,
                 volume_claim_templates: Some(vec![
                     PersistentVolumeClaim {
                         metadata: ObjectMeta {
@@ -462,7 +239,7 @@ pub(crate) trait SingletonStatefulSetExt: ResourcesExt<StatefulSet> {
                                 )])),
                                 ..Default::default()
                             }),
-                            storage_class_name: storage_class_name.clone(),
+                            storage_class_name,
                             ..Default::default()
                         }),
                         ..Default::default()
