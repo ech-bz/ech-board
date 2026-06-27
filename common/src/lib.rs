@@ -79,9 +79,3 @@ pub struct MovePublishConfig {
     pub config_map_name: String,
     pub rpc_url: String,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DbSnapshotConfig {
-    pub node_config_path: String,
-    pub db_path: String,
-}
