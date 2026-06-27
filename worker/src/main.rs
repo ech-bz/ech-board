@@ -24,8 +24,6 @@ struct Cli {
 
 #[derive(clap::Subcommand)]
 enum Command {
-    #[command(name = "download-db-snapshot")]
-    DownloadDbSnapshot,
     #[command(name = "genesis")]
     Genesis,
     #[command(name = "keys")]
@@ -56,7 +54,6 @@ async fn main() -> anyhow::Result<()> {
         sui: SuiCli::new("http://127.0.0.1:9000")?,
     };
     match cli.command {
-        Command::DownloadDbSnapshot => commands::download_db_snapshot::run(&ctx, &cli.config).await,
         Command::Genesis => commands::genesis::run(&ctx, &cli.config).await,
         Command::Keys => commands::keys::run(&ctx, &cli.config).await,
         Command::SeedPeers => commands::seed_peers::run(&ctx, &cli.config).await,
