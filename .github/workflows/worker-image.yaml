@@ -14,6 +14,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/ech-bz/ech-board-worker
+  SUI_TOOLS_IMAGE: ghcr.io/ech-bz/sui-tools:4bab257902a15b56d0ea316c397642100a9ed5ec
 
 permissions:
   contents: read
@@ -29,12 +30,10 @@ jobs:
           - platform: linux/amd64
             runner: ubuntu-latest
             arch: amd64
-            sui_tools_image: mysten/sui-tools:be793513fd9a89cdaf84ac08c110fb187dff3472
             rust_target: x86_64-unknown-linux-musl
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
             arch: arm64
-            sui_tools_image: mysten/sui-tools:be793513fd9a89cdaf84ac08c110fb187dff3472-arm64
             rust_target: aarch64-unknown-linux-musl
     runs-on: ${{ matrix.runner }}
     steps:
@@ -55,7 +54,7 @@ jobs:
           file: worker/Dockerfile
           platforms: ${{ matrix.platform }}
           build-args: |
-            SUI_TOOLS_IMAGE=${{ matrix.sui_tools_image }}
+            SUI_TOOLS_IMAGE=${{ env.SUI_TOOLS_IMAGE }}
             RUST_TARGET=${{ matrix.rust_target }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=worker-${{ matrix.arch }}
