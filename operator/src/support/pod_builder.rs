@@ -81,7 +81,7 @@ impl<'a> SuiNodePodBuilder<'a> {
                 image_pull_policy: Some("IfNotPresent".into()),
                 command: Some(vec!["/bin/sh".into(), "-ceu".into()]),
                 args: Some(vec![format!(
-                    "mc alias set s3 \"$ECH_BOARD_S3_ENDPOINT\" \"$(cat {S3_CREDS_DIR}/{S3_ACCESS_KEY})\" \"$(cat {S3_CREDS_DIR}/{S3_SECRET_KEY})\" >/dev/null; LATEST=$(mc ls \"s3/$ECH_BOARD_S3_BUCKET/\" 2>/dev/null | grep epoch_ | sort -V | tail -1 | awk '{{print $NF}}'); [ -n \"$LATEST\" ] && mc cp --recursive \"s3/$ECH_BOARD_S3_BUCKET/$LATEST/\" \"{DB_PATH}/live/\""
+                    "mc alias set s3 \"$ECH_BOARD_S3_ENDPOINT\" \"$(cat {S3_CREDS_DIR}/{S3_ACCESS_KEY})\" \"$(cat {S3_CREDS_DIR}/{S3_SECRET_KEY})\" >/dev/null; LATEST=\"\"; while IFS= read -r line; do name=\"${{line##* }}\"; name=\"${{name%/}}\"; case \"$name\" in epoch_*) LATEST=\"$name\";; esac; done <<ENDOFLIST\n$(mc ls \"s3/$ECH_BOARD_S3_BUCKET/\" 2>/dev/null)\nENDOFLIST\n[ -n \"$LATEST\" ] && mc cp --recursive \"s3/$ECH_BOARD_S3_BUCKET/$LATEST/\" \"{DB_PATH}/live/\""
                 )]),
                 env: Some(vec![
                     EnvVar {
