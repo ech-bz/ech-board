@@ -6,9 +6,11 @@ pub(crate) mod forum;
 pub(crate) mod nonce;
 pub(crate) mod send;
 pub(crate) mod thread;
+pub(crate) mod uid;
 
 use crate::seaweed::SeaweedClient;
 use crate::types::ContentKind;
+use actix_web::HttpRequest;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -128,4 +130,8 @@ pub(super) async fn fetch_text(
     .into_iter()
     .flatten()
     .collect()
+}
+
+pub(super) fn client_ip(req: &HttpRequest) -> Option<String> {
+    req.connection_info().realip_remote_addr().map(|s| s.to_string())
 }

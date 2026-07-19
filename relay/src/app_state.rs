@@ -4,6 +4,7 @@ use crate::handlers::ForumObject;
 use crate::seaweed::SeaweedClient;
 use crate::sponsor::SponsorService;
 use crate::upstream::UpstreamSender;
+use aws_sdk_kms::Client as KmsClient;
 use std::str::FromStr;
 use std::time::Duration;
 use sui_sdk_types::Address;
@@ -19,6 +20,9 @@ pub(crate) struct AppState {
     pub(crate) forum: ForumObject,
     pub(crate) package_id: Address,
     pub(crate) seaweed: SeaweedClient,
+    pub(crate) kms: KmsClient,
+    pub(crate) kms_hmac: String,
+    pub(crate) kms_moderator: String,
 }
 
 impl AppState {
@@ -73,6 +77,22 @@ impl AppState {
             forum,
             package_id,
             seaweed: SeaweedClient::new(cfg.seaweed_filer_url, cfg.seaweed_jwt_signing_key),
+            kms: KmsClient::from_conf(
+                aws_sdk_kms::Config::builder()
+                    .region(aws_sdk_kms::config::Region::new(cfg.kms_region.clone()))
+                    .credentials_provider(
+                        aws_sdk_kms::config::Credentials::new(
+                            cfg.aws_access_key_id.clone(),
+                            cfg.aws_secret_access_key.clone(),
+                            None,
+                            None,
+                            "ech-board-relay",
+                        ),
+                    )
+                    .build(),
+            ),
+            kms_hmac: cfg.kms_hmac,
+            kms_moderator: cfg.kms_moderator,
         })
     }
 }

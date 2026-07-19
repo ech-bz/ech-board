@@ -11,13 +11,13 @@ pub(super) type VerifyFuture<'a> =
     Pin<Box<dyn Future<Output = Result<(), RelayError>> + Send + 'a>>;
 
 pub(super) trait CaptchaProvider: Send + Sync {
-    fn verify<'a>(&'a self, token: &'a str, remote_ip: Option<&'a str>) -> VerifyFuture<'a>;
+    fn verify<'a>(&'a self, token: &'a str, remote_ip: &'a str) -> VerifyFuture<'a>;
 }
 
 struct DisabledProvider;
 
 impl CaptchaProvider for DisabledProvider {
-    fn verify<'a>(&'a self, _token: &'a str, _remote_ip: Option<&'a str>) -> VerifyFuture<'a> {
+    fn verify<'a>(&'a self, _token: &'a str, _remote_ip: &'a str) -> VerifyFuture<'a> {
         Box::pin(async { Ok(()) })
     }
 }
@@ -38,7 +38,7 @@ impl CaptchaVerifier {
         Self { provider }
     }
 
-    pub async fn verify(&self, token: &str, remote_ip: Option<&str>) -> Result<(), RelayError> {
+    pub async fn verify(&self, token: &str, remote_ip: &str) -> Result<(), RelayError> {
         self.provider.verify(token, remote_ip).await
     }
 }

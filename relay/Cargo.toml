@@ -27,3 +27,4 @@ graphql_client = { version = "0.14", default-features = false, features = ["grap
 jsonwebtoken = "9"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 ech-board-common = { path = "../common" }
+aws-sdk-kms = "1"

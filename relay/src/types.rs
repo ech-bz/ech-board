@@ -78,6 +78,7 @@ pub(crate) struct Intent {
     pub(crate) payload: Vec<u8>,
     pub(crate) public_key: Address,
     pub(crate) tweak: Address,
+    pub(crate) uid: Vec<u8>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

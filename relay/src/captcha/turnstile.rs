@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 struct TurnstileRequest<'a> {
     secret: &'a str,
     response: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    remoteip: Option<&'a str>,
+    remoteip: &'a str,
 }
 
 #[derive(Deserialize)]
@@ -29,7 +28,7 @@ impl TurnstileProvider {
 }
 
 impl CaptchaProvider for TurnstileProvider {
-    fn verify<'a>(&'a self, token: &'a str, remote_ip: Option<&'a str>) -> VerifyFuture<'a> {
+    fn verify<'a>(&'a self, token: &'a str, remote_ip: &'a str) -> VerifyFuture<'a> {
         Box::pin(async move {
             let req = TurnstileRequest {
                 secret: &self.config.secret,

@@ -49,6 +49,8 @@ async fn main() -> std::io::Result<()> {
             .service(content_handler)
             .service(feed_handler)
             .service(healthz)
+            .service(pk_handler)
+            .service(ip_handler)
     })
     .bind(&bind_addr)?
     .run();
@@ -136,23 +138,46 @@ async fn send(
     state: web::Data<AppState>,
     MultipartForm(form): MultipartForm<SendForm>,
 ) -> Result<HttpResponse, error::RelayError> {
-    let remote_ip = req.connection_info().realip_remote_addr().map(|s| s.to_string());
+    let remote_ip = handlers::client_ip(&req)
+        .ok_or_else(|| error::RelayError::SponsorBuild("no client IP".into()))?;
     state
         .captcha
-        .verify(form.captcha.as_str(), remote_ip.as_deref())
+        .verify(form.captcha.as_str(), remote_ip.as_str())
         .await?;
+
+    let intent: types::Intent = bcs::from_bytes(&form.intent.data)
+        .map_err(|e| error::RelayError::SponsorBuild(format!("failed to decode intent: {e}")))?;
+    handlers::send::verify_uid(&state, &intent.uid, &remote_ip).await?;
+
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
         .body(
             handlers::send::handle_send(
                 &state,
-                form.intent.data.to_vec(),
+                intent,
                 form.signature.data.to_vec(),
                 form.text,
                 form.media,
             )
             .await?,
         ))
+}
+
+#[get("/pk")]
+async fn pk_handler(state: web::Data<AppState>) -> Result<HttpResponse, error::RelayError> {
+    Ok(HttpResponse::Ok()
+        .content_type("application/x-pem-file")
+        .body(handlers::uid::pk(state).await?))
+}
+
+#[get("/ip")]
+async fn ip_handler(
+    req: HttpRequest,
+    state: web::Data<AppState>,
+) -> Result<HttpResponse, error::RelayError> {
+    Ok(HttpResponse::Ok()
+        .content_type("application/octet-stream")
+        .body(handlers::uid::ip(state, req).await?))
 }
 
 #[post("/add_moderator")]

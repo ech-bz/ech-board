@@ -3,6 +3,8 @@ use crate::error;
 use crate::handlers::BoardObject;
 use crate::types::{ContentKind, Intent, MAX_TEXT_SIZE, PostPart};
 use async_trait::async_trait;
+use aws_sdk_kms::primitives::Blob;
+use aws_sdk_kms::types::EncryptionAlgorithmSpec;
 use blake2::Digest;
 use blake2::digest::consts::U32;
 use rand::seq::SliceRandom;
@@ -210,16 +212,59 @@ async fn fetch_board(
         .map_err(|e| error::RelayError::SponsorBuild(format!("bcs decode BoardObject: {e}")))
 }
 
+pub(crate) async fn verify_uid(
+    state: &AppState,
+    uid: &[u8],
+    remote_ip: &str,
+) -> Result<(), error::RelayError> {
+    if uid.is_empty() {
+        return Err(error::RelayError::SponsorBuild("uid is empty".into()));
+    }
+
+    let decrypted = state
+        .kms
+        .decrypt()
+        .key_id(&state.kms_moderator)
+        .ciphertext_blob(Blob::new(uid.to_vec()))
+        .encryption_algorithm(EncryptionAlgorithmSpec::RsaesOaepSha256)
+        .send()
+        .await
+        .map_err(|e| error::RelayError::SponsorBuild(format!("kms decrypt uid: {e}")))?;
+
+    let hmac_decrypted = decrypted
+        .plaintext()
+        .ok_or_else(|| error::RelayError::SponsorBuild("kms decrypt: no plaintext".into()))?;
+
+    let mac_output = state
+        .kms
+        .generate_mac()
+        .key_id(&state.kms_hmac)
+        .message(Blob::new(remote_ip.as_bytes()))
+        .mac_algorithm(aws_sdk_kms::types::MacAlgorithmSpec::HmacSha256)
+        .send()
+        .await
+        .map_err(|e| error::RelayError::Internal(format!("kms generate_mac: {e}")))?;
+
+    let expected_mac = mac_output
+        .mac()
+        .ok_or_else(|| error::RelayError::Internal("kms generate_mac: no mac".into()))?;
+
+    if hmac_decrypted.as_ref() != expected_mac.as_ref() {
+        return Err(error::RelayError::SponsorBuild(
+            "uid verification failed".into(),
+        ));
+    }
+
+    Ok(())
+}
+
 pub(crate) async fn handle_send(
     state: &AppState,
-    intent_bytes: Vec<u8>,
+    intent: Intent,
     signature_bytes: Vec<u8>,
     text: Option<MultipartBytes>,
     media_files: Vec<TempFile>,
 ) -> Result<Vec<u8>, error::RelayError> {
-    let intent: Intent = bcs::from_bytes(&intent_bytes)
-        .map_err(|e| error::RelayError::SponsorBuild(format!("failed to decode intent: {e}")))?;
-
     let payload_err = |e| error::RelayError::SponsorBuild(format!("failed to decode payload: {e}"));
     let payload: Option<Box<dyn IntentPayload>> =
         match (intent.module.as_str(), intent.function.as_str()) {
@@ -249,7 +294,7 @@ pub(crate) async fn handle_send(
         match state
             .upstream
             .broadcast_signed(&state.sponsor.sign_as_sender(
-                build_transaction(state, &intent, &intent_bytes, &signature_bytes).await?,
+                build_transaction(state, &intent, &signature_bytes).await?,
             ))
             .await
         {
@@ -280,11 +325,13 @@ pub(crate) async fn handle_send(
 async fn build_transaction(
     state: &AppState,
     intent: &Intent,
-    intent_raw: &[u8],
     signature_bytes: &[u8],
 ) -> Result<Transaction, error::RelayError> {
+    let intent_bytes = bcs::to_bytes(intent).map_err(|e| {
+        error::RelayError::SponsorBuild(format!("failed to encode intent: {e}"))
+    })?;
     let mut inputs = vec![
-        Input::Pure(bcs::to_bytes(&intent_raw.to_vec()).map_err(|e| {
+        Input::Pure(bcs::to_bytes(&intent_bytes).map_err(|e| {
             error::RelayError::SponsorBuild(format!("failed to encode intent bytes: {e}"))
         })?),
         Input::Pure(bcs::to_bytes(&signature_bytes.to_vec()).map_err(|e| {
