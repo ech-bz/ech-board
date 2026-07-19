@@ -143,4 +143,9 @@ pub struct RelayConfig {
     pub seaweed_jwt_signing_key: String,
     pub forum_package_id: String,
     pub forum_registry: String,
+    pub kms_hmac: String,
+    pub kms_moderator: String,
+    pub kms_region: String,
+    pub aws_access_key_id: String,
+    pub aws_secret_access_key: String,
 }
