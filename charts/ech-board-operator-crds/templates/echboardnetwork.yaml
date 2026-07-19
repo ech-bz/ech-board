@@ -52,6 +52,10 @@ spec:
                     - memory
                     - sponsor
                     - seaweedFilerUrl
+                    - kmsRegion
+                    - awsCredentialsSecret
+                    - kmsHmac
+                    - kmsModerator
                   properties:
                     replicas:
                       type: integer
@@ -67,6 +71,14 @@ spec:
                     memory:
                       type: string
                     seaweedFilerUrl:
+                      type: string
+                    kmsRegion:
+                      type: string
+                    awsCredentialsSecret:
+                      type: string
+                    kmsHmac:
+                      type: string
+                    kmsModerator:
                       type: string
                     sponsor:
                       type: object
