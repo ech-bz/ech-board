@@ -127,6 +127,27 @@ impl Reconciler for WorkloadRelayReconciler {
             })?
             .to_string();
 
+        let aws_secret = client
+            .namespaced::<Secret>(&ns)
+            .store_load(network.spec.relay.aws_credentials_secret.clone())
+            .await?;
+        let aws_access_key_id = aws_secret
+            .get("access-key")
+            .map_err(|e| {
+                crate::error::OperatorError::ControllerFatal(format!(
+                    "aws-credentials access-key not found: {e}"
+                ))
+            })?
+            .to_string();
+        let aws_secret_access_key = aws_secret
+            .get("secret-key")
+            .map_err(|e| {
+                crate::error::OperatorError::ControllerFatal(format!(
+                    "aws-credentials secret-key not found: {e}"
+                ))
+            })?
+            .to_string();
+
         client
             .namespaced::<Secret>(&ns)
             .store_put(
@@ -165,6 +186,11 @@ impl Reconciler for WorkloadRelayReconciler {
                         seaweed_jwt_signing_key,
                         forum_package_id,
                         forum_registry,
+                        kms_hmac: network.spec.relay.kms_hmac.clone(),
+                        kms_moderator: network.spec.relay.kms_moderator.clone(),
+                        kms_region: network.spec.relay.kms_region.clone(),
+                        aws_access_key_id: aws_access_key_id.clone(),
+                        aws_secret_access_key: aws_secret_access_key.clone(),
                     })
                     .map_err(|e| {
                         crate::error::OperatorError::ControllerFatal(format!(
