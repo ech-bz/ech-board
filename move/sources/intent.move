@@ -5,8 +5,6 @@ use sui::bcs;
 use sui::ed25519;
 use sui::hash;
 
-// ----- errors
-
 public enum IntentError has copy, drop, store {
     SignatureInvalid,
     TargetMismatch,
@@ -23,8 +21,6 @@ public fun code(self: IntentError): u64 {
     }
 }
 
-// ----- intent
-
 #[allow(unused_field)]
 public struct IntentObject has copy, drop, store {
     id: ID,
@@ -39,6 +35,7 @@ public struct Intent {
     bcs: bcs::BCS,
     public_key: address,
     tweak: address,
+    uid: vector<u8>,
 }
 
 public(package) fun bcs(self: &mut Intent): &mut bcs::BCS {
@@ -66,6 +63,7 @@ public(package) fun decode(
         bcs: bcs::new(bcs.peel_vec_u8()),
         public_key: bcs.peel_address(),
         tweak: bcs.peel_address(),
+        uid: bcs.peel_vec_u8(),
     };
     assert!(bcs.into_remainder_bytes().is_empty(), IntentError::ArgsMismatch.code());
 

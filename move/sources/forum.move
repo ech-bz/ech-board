@@ -4,7 +4,7 @@ use forum::feed::{Self, Feed};
 use forum::intent;
 use forum::sharded_counter::{Self, ShardedCounter, Shard};
 use std::ascii::{Self, String};
-use sui::derived_object;
+use sui::clock::{Self, Clock};
 use sui::table::{Self, Table};
 
 public enum ForumError has copy, drop, store {
@@ -14,6 +14,8 @@ public enum ForumError has copy, drop, store {
     PostEmpty,
     BoardClosed,
     ThreadClosed,
+    NotAuthorized,
+    CrossReferenceMismatch,
 }
 
 public fun code(self: ForumError): u64 {
@@ -24,13 +26,17 @@ public fun code(self: ForumError): u64 {
         ForumError::PostEmpty => 4,
         ForumError::BoardClosed => 5,
         ForumError::ThreadClosed => 6,
+        ForumError::NotAuthorized => 7,
+        ForumError::CrossReferenceMismatch => 8,
     }
 }
 
 fun init(ctx: &mut TxContext) {
     let forum = ForumProjection {
         nonce_shards: sharded_counter::new(ctx, 512),
+        admin: ctx.sender(),
         mods: table::new(ctx),
+        bans: table::new(ctx),
         boards: table::new(ctx),
     };
     transfer::share_object(new_forum_object<ForumEvent, ForumProjection>(ctx, forum));
@@ -60,29 +66,44 @@ public enum ForumEvent has copy, drop, store {
         max_media: u64,
         bump_limit: u64,
     },
+    BanUser {
+        addr: address,
+        duration_ms: u64,
+    },
+    UnbanUser(address),
 }
 
 public struct ForumProjection has store {
     nonce_shards: ShardedCounter<address>,
+    admin: address,
     mods: Table<address, Empty>,
+    bans: Table<address, u64>,
     boards: Table<String, address>,
 }
 
 fun apply_forum(
     self: &mut ForumObject<ForumEvent, ForumProjection>,
     ctx: &mut TxContext,
+    clock: &Clock,
     event: ForumEvent,
+    sender: address,
 ) {
-    let forum = &mut self.projection;
     self.feed.push(event).share();
     match (event) {
         ForumEvent::AddModerator(addr) => {
-            forum.mods.add(addr, Empty());
+            assert!(sender == self.projection.admin, ForumError::NotAuthorized.code());
+            self.projection.mods.add(addr, Empty());
         },
         ForumEvent::DelModerator(addr) => {
-            forum.mods.remove(addr);
+            assert!(sender == self.projection.admin, ForumError::NotAuthorized.code());
+            self.projection.mods.remove(addr);
         },
         ForumEvent::NewBoard { slug, max_media, bump_limit } => {
+            assert!(
+                sender == self.projection.admin
+                    || self.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
             assert!(
                 slug.as_bytes().all!(|c| (*c >= 0x30 && *c <= 0x39) || (*c >= 0x61 && *c <= 0x7a)),
                 ForumError::BoardSlugInvalid.code(),
@@ -95,13 +116,30 @@ fun apply_forum(
                 closed: false,
                 deleted: false,
                 mods: table::new(ctx),
+                bans: table::new(ctx),
                 threads: table::new(ctx),
                 posts: table::new(ctx),
                 bumps: feed::new(ctx),
             };
             let board = new_forum_object<BoardEvent, _>(ctx, board);
-            forum.boards.add(slug, object::uid_to_address(&board.id));
+            self.projection.boards.add(slug, object::uid_to_address(&board.id));
             transfer::share_object(board);
+        },
+        ForumEvent::BanUser { addr, duration_ms } => {
+            assert!(
+                sender == self.projection.admin
+                    || self.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.bans.add(addr, clock.timestamp_ms() + duration_ms);
+        },
+        ForumEvent::UnbanUser(addr) => {
+            assert!(
+                sender == self.projection.admin
+                    || self.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.bans.remove(addr);
         },
     }
 }
@@ -119,9 +157,12 @@ public enum BoardEvent has copy, drop, store {
     },
     NewPost {
         thread: u64,
-        text_hash: Option<address>,
-        media_hashes: vector<address>,
     },
+    BanUser {
+        addr: address,
+        duration_ms: u64,
+    },
+    UnbanUser(address),
 }
 
 public struct BoardProjection has store {
@@ -131,6 +172,7 @@ public struct BoardProjection has store {
     closed: bool,
     deleted: bool,
     mods: Table<address, Empty>,
+    bans: Table<address, u64>,
     threads: Table<u64, address>,
     posts: Table<u64, address>,
     bumps: Feed<address>,
@@ -139,110 +181,144 @@ public struct BoardProjection has store {
 fun apply_board(
     self: &mut ForumObject<BoardEvent, BoardProjection>,
     ctx: &mut TxContext,
+    clock: &Clock,
+    forum: &ForumObject<ForumEvent, ForumProjection>,
     event: BoardEvent,
     sender: address,
     tweak: address,
 ) {
-    let board = &mut self.projection;
     self.feed.push(event).share();
     match (event) {
         BoardEvent::AddModerator(addr) => {
-            board.mods.add(addr, Empty());
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.mods.add(addr, Empty());
         },
         BoardEvent::DelModerator(addr) => {
-            board.mods.remove(addr);
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.mods.remove(addr);
         },
-        BoardEvent::SetMaxMedia(max_media) => board.max_media = max_media,
-        BoardEvent::SetBumpLimit(bump_limit) => board.bump_limit = bump_limit,
+        BoardEvent::SetMaxMedia(max_media) => {
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.max_media = max_media;
+        },
+        BoardEvent::SetBumpLimit(bump_limit) => {
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.bump_limit = bump_limit;
+        },
         BoardEvent::SetClosed(closed) => {
-            assert!(board.closed != closed);
-            assert!(!board.deleted);
-            board.closed = closed;
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            assert!(self.projection.closed != closed);
+            assert!(!self.projection.deleted);
+            self.projection.closed = closed;
         },
         BoardEvent::SetDeleted(deleted) => {
-            assert!(board.deleted != deleted);
-            assert!(board.closed);
-            board.deleted = deleted;
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            assert!(self.projection.deleted != deleted);
+            assert!(self.projection.closed);
+            self.projection.deleted = deleted;
         },
         BoardEvent::NewThread { text_hash, media_hashes } => {
             assert!(
-                board.max_media == 0 || media_hashes.length() > 0,
+                self.projection.max_media == 0 || media_hashes.length() > 0,
                 ForumError::PostRequiresMedia.code(),
             );
-            let number = board.posts.length() + 1;
-            let post = PostProjection {
-                board_slug: board.slug,
-                thread: number,
-                number,
-                author: sender,
-                tweak,
-                deleted: false,
-                text_hash,
-                media_hashes,
-            };
-            let post = new_forum_object<PostEvent, _>(
-                ctx,
-                post,
-            );
+            let number = self.projection.posts.length() + 1;
             let thread = ThreadProjection {
-                board_slug: board.slug,
+                board_slug: self.projection.slug,
                 number,
-                op: object::uid_to_address(&post.id),
+                op: @0x0,
                 closed: false,
                 deleted: false,
                 pinned: false,
+                admin: option::none(),
                 mods: table::new(ctx),
+                bans: table::new(ctx),
                 posts: table::new(ctx),
                 last_3: vector[],
             };
             let mut thread = new_forum_object(ctx, thread);
-            thread.apply_thread(ThreadEvent::NewPost {
-                number,
-                post_id: object::uid_to_address(&post.id),
-            });
-            board.threads.add(number, object::uid_to_address(&thread.id));
-            board.posts.add(number, object::uid_to_address(&post.id));
-            self
-                .feed
-                .push(BoardEvent::NewPost {
-                    thread: number,
-                    text_hash,
-                    media_hashes,
-                })
-                .share();
-            if (thread.projection.posts.length() <= board.bump_limit) {
-                board.bumps.push(object::uid_to_address(&thread.id)).share();
-            };
+            self.projection.threads.add(number, object::uid_to_address(&thread.id));
+            thread.apply_thread_board(
+                self,
+                ctx,
+                ThreadEvent::NewPost { text_hash, media_hashes },
+                sender,
+                tweak,
+            );
             transfer::share_object(thread);
-            transfer::share_object(post);
+        },
+        BoardEvent::BanUser { addr, duration_ms } => {
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || self.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.bans.add(addr, clock.timestamp_ms() + duration_ms);
+        },
+        BoardEvent::UnbanUser(addr) => {
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || self.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.bans.remove(addr);
         },
         _ => abort,
     }
 }
 
-fun apply_board_thread(
-    self: &mut ForumObject<BoardEvent, BoardProjection>,
-    thread: &mut ForumObject<ThreadEvent, ThreadProjection>,
+fun apply_thread_board(
+    self: &mut ForumObject<ThreadEvent, ThreadProjection>,
+    board: &mut ForumObject<BoardEvent, BoardProjection>,
     ctx: &mut TxContext,
-    event: BoardEvent,
+    event: ThreadEvent,
     sender: address,
     tweak: address,
 ) {
-    let board = &mut self.projection;
     self.feed.push(event).share();
     match (event) {
-        BoardEvent::NewPost { thread: thread_num, text_hash, media_hashes } => {
+        ThreadEvent::NewPost { text_hash, media_hashes } => {
             assert!(
-                media_hashes.length() <= board.max_media,
+                self.projection.board_slug == board.projection.slug,
+                ForumError::CrossReferenceMismatch.code(),
+            );
+            assert!(
+                media_hashes.length() <= board.projection.max_media,
                 ForumError::MediaLimitExceeded.code(),
             );
             assert!(media_hashes.length() > 0 || text_hash.is_some(), ForumError::PostEmpty.code());
-            assert!(!board.closed, ForumError::BoardClosed.code());
-            assert!(!thread.projection.closed, ForumError::ThreadClosed.code());
-            let number = board.posts.length() + 1;
+            assert!(!board.projection.closed, ForumError::BoardClosed.code());
+            assert!(!self.projection.closed, ForumError::ThreadClosed.code());
+            let number = board.projection.posts.length() + 1;
             let post = PostProjection {
-                board_slug: board.slug,
-                thread: thread_num,
+                board_slug: board.projection.slug,
+                thread: self.projection.number,
                 number,
                 author: sender,
                 tweak,
@@ -251,13 +327,20 @@ fun apply_board_thread(
                 media_hashes,
             };
             let post = new_forum_object<PostEvent, _>(ctx, post);
-            board.posts.add(number, object::uid_to_address(&post.id));
-            thread.apply_thread(ThreadEvent::NewPost {
-                number,
-                post_id: object::uid_to_address(&post.id),
-            });
-            if (thread.projection.posts.length() <= board.bump_limit) {
-                board.bumps.push(object::uid_to_address(&thread.id)).share();
+            let post_id = object::uid_to_address(&post.id);
+            board.projection.posts.add(number, post_id);
+            self.projection.posts.add(number, post_id);
+            if (number == self.projection.number) {
+                self.projection.op = post_id;
+            } else {
+                self.projection.last_3.push_back(post_id);
+                if (self.projection.last_3.length() > 3) {
+                    self.projection.last_3.remove(0);
+                };
+            };
+            board.feed.push(BoardEvent::NewPost { thread: self.projection.number }).share();
+            if (self.projection.posts.length() <= board.projection.bump_limit) {
+                board.projection.bumps.push(object::uid_to_address(&self.id)).share();
             };
             transfer::share_object(post);
         },
@@ -271,7 +354,16 @@ public enum ThreadEvent has copy, drop, store {
     SetClosed(bool),
     SetDeleted(bool),
     SetPinned(bool),
-    NewPost { number: u64, post_id: address }, // private
+    NewPost {
+        text_hash: Option<address>,
+        media_hashes: vector<address>,
+    },
+    SetAdmin(Option<address>),
+    BanUser {
+        addr: address,
+        duration_ms: u64,
+    },
+    UnbanUser(address),
 }
 
 public struct ThreadProjection has store {
@@ -281,43 +373,113 @@ public struct ThreadProjection has store {
     closed: bool,
     deleted: bool,
     pinned: bool,
+    admin: Option<address>,
     mods: Table<address, Empty>,
+    bans: Table<address, u64>,
     posts: Table<u64, address>,
     last_3: vector<address>,
 }
 
-fun apply_thread(self: &mut ForumObject<ThreadEvent, ThreadProjection>, event: ThreadEvent) {
-    let thread = &mut self.projection;
+fun apply_thread(
+    self: &mut ForumObject<ThreadEvent, ThreadProjection>,
+    clock: &Clock,
+    forum: &ForumObject<ForumEvent, ForumProjection>,
+    board: &ForumObject<BoardEvent, BoardProjection>,
+    event: ThreadEvent,
+    sender: address,
+) {
+    assert!(
+        self.projection.board_slug == board.projection.slug,
+        ForumError::CrossReferenceMismatch.code(),
+    );
     self.feed.push(event).share();
     match (event) {
         ThreadEvent::AddModerator(addr) => {
-            thread.mods.add(addr, Empty());
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || board.projection.mods.contains(sender)
+                    || self.projection.admin.is_some_and!(|a| sender == a),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.mods.add(addr, Empty());
         },
         ThreadEvent::DelModerator(addr) => {
-            thread.mods.remove(addr);
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || board.projection.mods.contains(sender)
+                    || self.projection.admin.is_some_and!(|a| sender == a),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.mods.remove(addr);
         },
         ThreadEvent::SetClosed(closed) => {
-            assert!(thread.closed != closed);
-            assert!(!thread.deleted);
-            thread.closed = closed;
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || board.projection.mods.contains(sender)
+                    || self.projection.admin.is_some_and!(|a| sender == a)
+                    || self.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            assert!(self.projection.closed != closed);
+            assert!(!self.projection.deleted);
+            self.projection.closed = closed;
         },
         ThreadEvent::SetDeleted(deleted) => {
-            assert!(thread.deleted != deleted);
-            assert!(thread.closed);
-            thread.deleted = deleted;
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || board.projection.mods.contains(sender)
+                    || self.projection.admin.is_some_and!(|a| sender == a)
+                    || self.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            assert!(self.projection.deleted != deleted);
+            assert!(self.projection.closed);
+            self.projection.deleted = deleted;
         },
-        ThreadEvent::SetPinned(pinned) => thread.pinned = pinned,
-        ThreadEvent::NewPost { number, post_id } => {
-            thread.posts.add(number, post_id);
-            if (number == thread.number) {
-                thread.op = post_id;
-            } else {
-                thread.last_3.push_back(post_id);
-                if (thread.last_3.length() > 3) {
-                    thread.last_3.remove(0);
-                };
-            };
+        ThreadEvent::SetPinned(pinned) => {
+            assert!(
+                sender == forum.projection.admin
+                    || board.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.pinned = pinned;
         },
+        ThreadEvent::SetAdmin(thread_admin) => {
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || board.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.admin = thread_admin;
+        },
+        ThreadEvent::BanUser { addr, duration_ms } => {
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || board.projection.mods.contains(sender)
+                    || self.projection.admin.is_some_and!(|a| sender == a)
+                    || self.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.bans.add(addr, clock.timestamp_ms() + duration_ms);
+        },
+        ThreadEvent::UnbanUser(addr) => {
+            assert!(
+                sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || board.projection.mods.contains(sender)
+                    || self.projection.admin.is_some_and!(|a| sender == a)
+                    || self.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.bans.remove(addr);
+        },
+        _ => abort,
     }
 }
 
@@ -338,22 +500,71 @@ public struct PostProjection has store {
     media_hashes: vector<address>,
 }
 
-fun apply_post(self: &mut ForumObject<PostEvent, PostProjection>, event: PostEvent) {
-    let post = &mut self.projection;
+fun apply_post(
+    self: &mut ForumObject<PostEvent, PostProjection>,
+    forum: &ForumObject<ForumEvent, ForumProjection>,
+    board: &ForumObject<BoardEvent, BoardProjection>,
+    thread: &ForumObject<ThreadEvent, ThreadProjection>,
+    event: PostEvent,
+    sender: address,
+) {
+    assert!(
+        self.projection.board_slug == board.projection.slug,
+        ForumError::CrossReferenceMismatch.code(),
+    );
+    assert!(
+        self.projection.thread == thread.projection.number,
+        ForumError::CrossReferenceMismatch.code(),
+    );
     self.feed.push(event).share();
     match (event) {
-        PostEvent::SetDeleted(deleted) => post.deleted = deleted,
-        PostEvent::ChangeText(hash) => post.text_hash = hash,
+        PostEvent::SetDeleted(deleted) => {
+            assert!(self.projection.deleted != deleted);
+            assert!(
+                sender == self.projection.author
+                    || sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || board.projection.mods.contains(sender)
+                    || thread.projection.admin.is_some_and!(|a| sender == a)
+                    || thread.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.deleted = deleted;
+        },
+        PostEvent::ChangeText(hash) => {
+            assert!(
+                sender == self.projection.author
+                    || sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || board.projection.mods.contains(sender)
+                    || thread.projection.admin.is_some_and!(|a| sender == a)
+                    || thread.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.text_hash = hash;
+        },
         PostEvent::RemoveMedia(hashes) => {
-            let media_hashes = post.media_hashes.filter!(|hash| !hashes.contains(hash));
-            assert!(media_hashes.length() + hashes.length() == post.media_hashes.length());
-            post.media_hashes = media_hashes;
+            assert!(
+                sender == self.projection.author
+                    || sender == forum.projection.admin
+                    || forum.projection.mods.contains(sender)
+                    || board.projection.mods.contains(sender)
+                    || thread.projection.admin.is_some_and!(|a| sender == a)
+                    || thread.projection.mods.contains(sender),
+                ForumError::NotAuthorized.code(),
+            );
+            self.projection.media_hashes =
+                self.projection.media_hashes.filter!(|hash| !hashes.contains(hash));
+            if (self.projection.media_hashes.is_empty() && self.projection.text_hash.is_none()) {
+                self.apply_post(forum, board, thread, PostEvent::SetDeleted(true), sender);
+            };
         },
     }
 }
 
 public fun apply_forum_intent(
     ctx: &mut TxContext,
+    clock: &Clock,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
     nonce_shard: &mut Shard<address>,
@@ -370,6 +581,7 @@ public fun apply_forum_intent(
 
     forum.apply_forum(
         ctx,
+        clock,
         match (intent.bcs().peel_enum_tag()) {
             0 => ForumEvent::AddModerator(intent.bcs().peel_address()),
             1 => ForumEvent::DelModerator(intent.bcs().peel_address()),
@@ -378,17 +590,25 @@ public fun apply_forum_intent(
                 max_media: intent.bcs().peel_u64(),
                 bump_limit: intent.bcs().peel_u64(),
             },
+            3 => ForumEvent::BanUser {
+                addr: intent.bcs().peel_address(),
+                duration_ms: intent.bcs().peel_u64(),
+            },
+            4 => ForumEvent::UnbanUser(intent.bcs().peel_address()),
             _ => abort,
         },
+        intent.sender(),
     );
     intent.end();
 }
 
 public fun apply_board_intent(
     ctx: &mut TxContext,
+    clock: &Clock,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
     nonce_shard: &mut Shard<address>,
+    forum: &ForumObject<ForumEvent, ForumProjection>,
     board: &mut ForumObject<BoardEvent, BoardProjection>,
 ) {
     let mut intent = intent::decode(
@@ -396,12 +616,14 @@ public fun apply_board_intent(
         b"forum",
         b"apply_board_intent",
         signature,
-        vector[object::id(nonce_shard), object::id(board)],
+        vector[object::id(nonce_shard), object::id(forum), object::id(board)],
     );
     nonce_shard.inc_checked(&intent.sender(), intent.nonce());
 
     board.apply_board(
         ctx,
+        clock,
+        forum,
         match (intent.bcs().peel_enum_tag()) {
             0 => BoardEvent::AddModerator(intent.bcs().peel_address()),
             1 => BoardEvent::DelModerator(intent.bcs().peel_address()),
@@ -413,6 +635,11 @@ public fun apply_board_intent(
                 text_hash: intent.bcs().peel_option!(|bcs| bcs.peel_address()),
                 media_hashes: intent.bcs().peel_vec!(|bcs| bcs.peel_address()),
             },
+            8 => BoardEvent::BanUser {
+                addr: intent.bcs().peel_address(),
+                duration_ms: intent.bcs().peel_u64(),
+            },
+            9 => BoardEvent::UnbanUser(intent.bcs().peel_address()),
             _ => abort,
         },
         intent.sender(),
@@ -421,29 +648,29 @@ public fun apply_board_intent(
     intent.end();
 }
 
-public fun apply_board_thread_intent(
+public fun apply_thread_board_intent(
     ctx: &mut TxContext,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
     nonce_shard: &mut Shard<address>,
+    forum: &ForumObject<ForumEvent, ForumProjection>,
     board: &mut ForumObject<BoardEvent, BoardProjection>,
     thread: &mut ForumObject<ThreadEvent, ThreadProjection>,
 ) {
     let mut intent = intent::decode(
         intent_bytes,
         b"forum",
-        b"apply_board_thread_intent",
+        b"apply_thread_board_intent",
         signature,
-        vector[object::id(nonce_shard), object::id(board), object::id(thread)],
+        vector[object::id(nonce_shard), object::id(forum), object::id(board), object::id(thread)],
     );
     nonce_shard.inc_checked(&intent.sender(), intent.nonce());
 
-    board.apply_board_thread(
-        thread,
+    thread.apply_thread_board(
+        board,
         ctx,
         match (intent.bcs().peel_enum_tag()) {
-            7 => BoardEvent::NewPost {
-                thread: intent.bcs().peel_u64(),
+            5 => ThreadEvent::NewPost {
                 text_hash: intent.bcs().peel_option!(|bcs| bcs.peel_address()),
                 media_hashes: intent.bcs().peel_vec!(|bcs| bcs.peel_address()),
             },
@@ -456,9 +683,12 @@ public fun apply_board_thread_intent(
 }
 
 public fun apply_thread_intent(
+    clock: &Clock,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
     nonce_shard: &mut Shard<address>,
+    forum: &ForumObject<ForumEvent, ForumProjection>,
+    board: &ForumObject<BoardEvent, BoardProjection>,
     thread: &mut ForumObject<ThreadEvent, ThreadProjection>,
 ) {
     let mut intent = intent::decode(
@@ -466,18 +696,30 @@ public fun apply_thread_intent(
         b"forum",
         b"apply_thread_intent",
         signature,
-        vector[object::id(nonce_shard), object::id(thread)],
+        vector[object::id(nonce_shard), object::id(forum), object::id(board), object::id(thread)],
     );
     nonce_shard.inc_checked(&intent.sender(), intent.nonce());
 
-    thread.apply_thread(match (intent.bcs().peel_enum_tag()) {
-        0 => ThreadEvent::AddModerator(intent.bcs().peel_address()),
-        1 => ThreadEvent::DelModerator(intent.bcs().peel_address()),
-        2 => ThreadEvent::SetClosed(intent.bcs().peel_bool()),
-        3 => ThreadEvent::SetDeleted(intent.bcs().peel_bool()),
-        4 => ThreadEvent::SetPinned(intent.bcs().peel_bool()),
-        _ => abort,
-    });
+    thread.apply_thread(
+        clock,
+        forum,
+        board,
+        match (intent.bcs().peel_enum_tag()) {
+            0 => ThreadEvent::AddModerator(intent.bcs().peel_address()),
+            1 => ThreadEvent::DelModerator(intent.bcs().peel_address()),
+            2 => ThreadEvent::SetClosed(intent.bcs().peel_bool()),
+            3 => ThreadEvent::SetDeleted(intent.bcs().peel_bool()),
+            4 => ThreadEvent::SetPinned(intent.bcs().peel_bool()),
+            6 => ThreadEvent::SetAdmin(intent.bcs().peel_option!(|bcs| bcs.peel_address())),
+            7 => ThreadEvent::BanUser {
+                addr: intent.bcs().peel_address(),
+                duration_ms: intent.bcs().peel_u64(),
+            },
+            8 => ThreadEvent::UnbanUser(intent.bcs().peel_address()),
+            _ => abort,
+        },
+        intent.sender(),
+    );
     intent.end();
 }
 
@@ -485,6 +727,9 @@ public fun apply_post_intent(
     intent_bytes: vector<u8>,
     signature: vector<u8>,
     nonce_shard: &mut Shard<address>,
+    forum: &ForumObject<ForumEvent, ForumProjection>,
+    board: &ForumObject<BoardEvent, BoardProjection>,
+    thread: &ForumObject<ThreadEvent, ThreadProjection>,
     post: &mut ForumObject<PostEvent, PostProjection>,
 ) {
     let mut intent = intent::decode(
@@ -492,15 +737,27 @@ public fun apply_post_intent(
         b"forum",
         b"apply_post_intent",
         signature,
-        vector[object::id(nonce_shard), object::id(post)],
+        vector[
+            object::id(nonce_shard),
+            object::id(forum),
+            object::id(board),
+            object::id(thread),
+            object::id(post),
+        ],
     );
     nonce_shard.inc_checked(&intent.sender(), intent.nonce());
 
-    post.apply_post(match (intent.bcs().peel_enum_tag()) {
-        0 => PostEvent::SetDeleted(intent.bcs().peel_bool()),
-        1 => PostEvent::ChangeText(intent.bcs().peel_option!(|bcs| bcs.peel_address())),
-        2 => PostEvent::RemoveMedia(intent.bcs().peel_vec!(|bcs| bcs.peel_address())),
-        _ => abort,
-    });
+    post.apply_post(
+        forum,
+        board,
+        thread,
+        match (intent.bcs().peel_enum_tag()) {
+            0 => PostEvent::SetDeleted(intent.bcs().peel_bool()),
+            1 => PostEvent::ChangeText(intent.bcs().peel_option!(|bcs| bcs.peel_address())),
+            2 => PostEvent::RemoveMedia(intent.bcs().peel_vec!(|bcs| bcs.peel_address())),
+            _ => abort,
+        },
+        intent.sender(),
+    );
     intent.end();
 }

@@ -74,20 +74,20 @@ fun advance<Key>(self: &mut Shard<Key>, key: &Key, forward: bool): u64 {
     *value
 }
 
-public fun inc<Key>(self: &mut Shard<Key>, key: &Key) {
+public(package) fun inc<Key>(self: &mut Shard<Key>, key: &Key) {
     self.advance(key, true);
 }
 
-public fun inc_checked<Key>(self: &mut Shard<Key>, key: &Key, current: u64) {
+public(package) fun inc_checked<Key>(self: &mut Shard<Key>, key: &Key, current: u64) {
     let value = self.advance(key, true);
     assert!(value == current + 1, ShardedCounterError::ValueMismatch.code());
 }
 
-public fun dec<Key>(self: &mut Shard<Key>, key: &Key) {
+public(package) fun dec<Key>(self: &mut Shard<Key>, key: &Key) {
     self.advance(key, false);
 }
 
-public fun dec_checked<Key>(self: &mut Shard<Key>, key: &Key, current: u64) {
+public(package) fun dec_checked<Key>(self: &mut Shard<Key>, key: &Key, current: u64) {
     let value = self.advance(key, false);
     assert!(value == current - 1, ShardedCounterError::ValueMismatch.code());
 }
