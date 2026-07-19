@@ -11,14 +11,6 @@ public fun share<T: store>(self: FeedEntry<T>) {
     transfer::share_object(self);
 }
 
-public fun value<T: store>(self: &FeedEntry<T>): &T {
-    &self.value
-}
-
-public fun value_mut<T: store>(self: &mut FeedEntry<T>): &mut T {
-    &mut self.value
-}
-
 public struct Feed<phantom T: store> has key, store {
     id: UID,
     counter: u64,

@@ -1,29 +1,24 @@
 module forum::intent;
 
-use sui::address;
+use forum::error;
+use forum::sender::{Self, Sender};
+use std::ascii::{Self, String};
 use sui::bcs;
 use sui::ed25519;
 use sui::hash;
 
-// ----- errors
-
-public enum IntentError has copy, drop, store {
-    SignatureInvalid,
-    TargetMismatch,
-    ObjectMismatch,
-    ArgsMismatch,
+public enum Request has copy, drop, store {
+    Uid,
+    Ip32(address),
 }
 
-public fun code(self: IntentError): u64 {
-    match (self) {
-        IntentError::SignatureInvalid => 1,
-        IntentError::TargetMismatch => 2,
-        IntentError::ObjectMismatch => 3,
-        IntentError::ArgsMismatch => 4,
-    }
+public(package) fun request_uid(): Request {
+    Request::Uid
 }
 
-// ----- intent
+public(package) fun request_ip32(domain: address): Request {
+    Request::Ip32(domain)
+}
 
 #[allow(unused_field)]
 public struct IntentObject has copy, drop, store {
@@ -31,75 +26,137 @@ public struct IntentObject has copy, drop, store {
     mutable: bool,
 }
 
-public struct Intent {
-    module_name: vector<u8>,
-    function: vector<u8>,
-    nonce: u64,
-    objects: vector<IntentObject>,
-    bcs: bcs::BCS,
-    public_key: address,
-    tweak: address,
+public struct IntentResponses has drop, store {
+    uid: Option<vector<u8>>,
+    ip32: Option<u256>,
 }
 
-public(package) fun bcs(self: &mut Intent): &mut bcs::BCS {
-    &mut self.bcs
+public struct Intent {
+    module_name: String,
+    function: String,
+    nonce: u64,
+    objects: vector<IntentObject>,
+    requests: vector<Request>,
+    event: vector<u8>,
+    sender: Sender,
+}
+
+public(package) fun into_event(self: Intent): vector<u8> {
+    let Intent { event, .. } = self;
+    event
+}
+
+public(package) fun uid(self: &IntentResponses): vector<u8> {
+    *self.uid.borrow()
+}
+
+public(package) fun ip32(self: &IntentResponses): u256 {
+    *self.ip32.borrow()
 }
 
 public(package) fun decode(
     data: vector<u8>,
-    expected_module: vector<u8>,
-    expected_function: vector<u8>,
+    expected_module: String,
+    expected_function: String,
     signature: vector<u8>,
+    expected_requests: vector<Request>,
+    responses: vector<u8>,
     expected_ids: vector<ID>,
+    allowed_events: vector<String>,
 ): Intent {
-    let mut bcs = bcs::new(data);
-    let intent = Intent {
-        module_name: bcs.peel_vec_u8(),
-        function: bcs.peel_vec_u8(),
-        nonce: bcs.peel_u64(),
-        objects: bcs.peel_vec!(|bcs| {
+    let mut intent_bcs = bcs::new(data);
+    let mut intent = Intent {
+        module_name: ascii::string(intent_bcs.peel_vec_u8()),
+        function: ascii::string(intent_bcs.peel_vec_u8()),
+        nonce: intent_bcs.peel_u64(),
+        objects: intent_bcs.peel_vec!(|bcs| {
             IntentObject {
                 id: bcs.peel_address().to_id(),
                 mutable: bcs.peel_bool(),
             }
         }),
-        bcs: bcs::new(bcs.peel_vec_u8()),
-        public_key: bcs.peel_address(),
-        tweak: bcs.peel_address(),
+        requests: intent_bcs.peel_vec!(
+            |bcs| match (bcs.peel_enum_tag()) {
+                0 => Request::Uid,
+                1 => Request::Ip32(bcs.peel_address()),
+                _ => abort error::intent_args_mismatch(),
+            },
+        ),
+        event: intent_bcs.peel_vec_u8(),
+        sender: sender::new(intent_bcs.peel_u256(), intent_bcs.peel_u256()),
     };
-    assert!(bcs.into_remainder_bytes().is_empty(), IntentError::ArgsMismatch.code());
+    assert!(intent_bcs.into_remainder_bytes().is_empty(), error::intent_args_mismatch());
 
-    assert!(intent.module_name == expected_module, IntentError::TargetMismatch.code());
-    assert!(intent.function == expected_function, IntentError::TargetMismatch.code());
+    assert!(intent.module_name == expected_module, error::intent_target_mismatch());
+    assert!(intent.function == expected_function, error::intent_target_mismatch());
+    assert!(intent.requests == expected_requests, error::intent_args_mismatch());
 
     assert!(
-        ed25519::ed25519_verify(&signature, &intent.public_key.to_bytes(), &hash::blake2b256(&data)),
-        IntentError::SignatureInvalid.code(),
+        ed25519::ed25519_verify(
+            &signature,
+            &bcs::to_bytes(&intent.sender.pk()),
+            &hash::blake2b256(&data),
+        ),
+        error::intent_signature_invalid(),
     );
 
-    assert!(intent.objects.length() == expected_ids.length(), IntentError::ObjectMismatch.code());
-    let mut i = 0;
-    while (i < expected_ids.length()) {
-        assert!(intent.objects[i].id == expected_ids[i], IntentError::ObjectMismatch.code());
-        i = i + 1;
-    };
+    intent
+        .objects
+        .zip_do_ref!(
+            &expected_ids,
+            |obj, id| assert!(obj.id == id, error::intent_object_mismatch()),
+        );
+
+    let mut responses = bcs::new(responses);
+    let relay_sig = responses.peel_vec_u8();
+    let relay_pk = responses.peel_u256();
+    let mut message = signature;
+    message.append(responses.into_remainder_bytes());
+    assert!(
+        ed25519::ed25519_verify(
+            &relay_sig,
+            &bcs::to_bytes(&relay_pk),
+            &hash::blake2b256(&message),
+        ),
+        error::intent_relay_signature_invalid(),
+    );
+    let mut responses = bcs::new(message);
+    responses.peel_vec_u8();
+
+    let mut event = bcs::new(intent.event);
+    let event_tag = event.peel_vec_u8();
+    assert!(allowed_events.any!(|tag| tag.as_bytes() == event_tag), error::intent_args_mismatch());
+    intent.event = bcs::to_bytes(&event_tag);
+    let sender = intent.sender();
+    intent.event.append(bcs::to_bytes(&sender));
+
+    let mut uid = option::none();
+    let mut ip32 = option::none();
+    intent
+        .requests
+        .do_ref!(
+            |req| match (req) {
+                Request::Uid => uid.fill(responses.peel_vec_u8()),
+                Request::Ip32(_) => ip32.fill(responses.peel_u256()),
+            },
+        );
+    assert!(responses.into_remainder_bytes().is_empty(), error::intent_args_mismatch());
+    uid.do!(|v| intent.event.append(bcs::to_bytes(&v)));
+    ip32.do!(|v| intent.event.append(bcs::to_bytes(&v)));
+
+    intent.event.append(event.into_remainder_bytes());
 
     intent
-}
-
-public(package) fun end(self: Intent) {
-    assert!(self.bcs.into_remainder_bytes().is_empty(), IntentError::ArgsMismatch.code());
-    let Intent { .. } = self;
 }
 
 public(package) fun nonce(self: &Intent): u64 {
     self.nonce
 }
 
-public(package) fun sender(self: &Intent): address {
-    self.public_key
+public(package) fun sender(self: &Intent): Sender {
+    self.sender
 }
 
-public(package) fun tweak(self: &Intent): address {
-    self.tweak
+public(package) fun requests(self: &Intent): vector<Request> {
+    self.requests
 }

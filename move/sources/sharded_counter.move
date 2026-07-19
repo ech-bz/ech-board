@@ -1,28 +1,17 @@
 module forum::sharded_counter;
 
+use forum::error;
 use sui::address;
 use sui::bcs;
 use sui::derived_object;
 use sui::hash;
 use sui::table::{Self, Table};
 
-public enum ShardedCounterError has copy, drop, store {
-    ValueMismatch,
-    InvalidShardIndex,
-}
-
-public fun code(self: ShardedCounterError): u64 {
-    match (self) {
-        ShardedCounterError::ValueMismatch => 1,
-        ShardedCounterError::InvalidShardIndex => 2,
-    }
-}
-
 public struct ShardedCounter<phantom Key> has key, store {
     id: UID,
 }
 
-public fun new<Key>(ctx: &mut TxContext, shards: u64): ShardedCounter<Key> {
+public(package) fun new<Key>(ctx: &mut TxContext, shards: u64): ShardedCounter<Key> {
     let mut self = ShardedCounter {
         id: object::new(ctx),
     };
@@ -46,19 +35,10 @@ public struct Shard<phantom Key> has key, store {
     counters: Table<address, u64>,
 }
 
-public fun single_shard<Key>(ctx: &mut TxContext): Shard<Key> {
-    Shard {
-        id: object::new(ctx),
-        shards: 1,
-        index: 0,
-        counters: table::new(ctx),
-    }
-}
-
 fun advance<Key>(self: &mut Shard<Key>, key: &Key, forward: bool): u64 {
     let key_addr = address::from_bytes(hash::blake2b256(&bcs::to_bytes(key)));
     let shard_index = (key_addr.to_u256() % (self.shards as u256)) as u64;
-    assert!(self.index == shard_index, ShardedCounterError::InvalidShardIndex.code());
+    assert!(self.index == shard_index, error::sharded_counter_index_mismatch());
 
     if (!self.counters.contains(key_addr)) {
         self.counters.add(key_addr, 0);
@@ -74,20 +54,20 @@ fun advance<Key>(self: &mut Shard<Key>, key: &Key, forward: bool): u64 {
     *value
 }
 
-public fun inc<Key>(self: &mut Shard<Key>, key: &Key) {
+public(package) fun inc<Key>(self: &mut Shard<Key>, key: &Key) {
     self.advance(key, true);
 }
 
-public fun inc_checked<Key>(self: &mut Shard<Key>, key: &Key, current: u64) {
+public(package) fun inc_checked<Key>(self: &mut Shard<Key>, key: &Key, current: u64) {
     let value = self.advance(key, true);
-    assert!(value == current + 1, ShardedCounterError::ValueMismatch.code());
+    assert!(value == current + 1, error::sharded_counter_value_mismatch());
 }
 
-public fun dec<Key>(self: &mut Shard<Key>, key: &Key) {
+public(package) fun dec<Key>(self: &mut Shard<Key>, key: &Key) {
     self.advance(key, false);
 }
 
-public fun dec_checked<Key>(self: &mut Shard<Key>, key: &Key, current: u64) {
+public(package) fun dec_checked<Key>(self: &mut Shard<Key>, key: &Key, current: u64) {
     let value = self.advance(key, false);
-    assert!(value == current - 1, ShardedCounterError::ValueMismatch.code());
+    assert!(value == current - 1, error::sharded_counter_value_mismatch());
 }
