@@ -1,17 +1,10 @@
 use crate::app_state::AppState;
 use crate::error::RelayError;
 use actix_web::{HttpResponse, web};
-use serde::Deserialize;
-use std::str::FromStr;
 use sui_sdk_types::Address;
 
 use super::nonce::NonceInfo;
 use super::{nonce, send};
-
-#[derive(Deserialize)]
-pub(crate) struct ModeratorBody {
-    moderator: String,
-}
 
 async fn build_intent(
     state: &AppState,
@@ -54,11 +47,9 @@ async fn build_intent(
 
 async fn moderator_action(
     state: web::Data<AppState>,
-    body: web::Json<ModeratorBody>,
+    moderator: Address,
     opcode: u8,
 ) -> Result<HttpResponse, RelayError> {
-    let moderator = Address::from_str(&body.moderator)
-        .map_err(|e| RelayError::SponsorBuild(format!("invalid moderator address: {e}")))?;
     let (intent_bytes, sig_bytes) = build_intent(&state, opcode, moderator).await?;
     let result = send::handle_send(&state, intent_bytes, sig_bytes, None, vec![]).await?;
     Ok(HttpResponse::Ok()
@@ -68,14 +59,14 @@ async fn moderator_action(
 
 pub(crate) async fn add_moderator(
     state: web::Data<AppState>,
-    body: web::Json<ModeratorBody>,
+    moderator: Address,
 ) -> Result<HttpResponse, RelayError> {
-    moderator_action(state, body, 0).await
+    moderator_action(state, moderator, 0).await
 }
 
 pub(crate) async fn del_moderator(
     state: web::Data<AppState>,
-    body: web::Json<ModeratorBody>,
+    moderator: Address,
 ) -> Result<HttpResponse, RelayError> {
-    moderator_action(state, body, 1).await
+    moderator_action(state, moderator, 1).await
 }

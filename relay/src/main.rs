@@ -136,7 +136,7 @@ async fn send(
     state: web::Data<AppState>,
     MultipartForm(form): MultipartForm<SendForm>,
 ) -> Result<HttpResponse, error::RelayError> {
-    let remote_ip = req.peer_addr().map(|a| a.ip().to_string());
+    let remote_ip = req.connection_info().realip_remote_addr().map(|s| s.to_string());
     state
         .captcha
         .verify(form.captcha.as_str(), remote_ip.as_deref())
@@ -158,15 +158,15 @@ async fn send(
 #[post("/add_moderator")]
 async fn add_moderator(
     state: web::Data<AppState>,
-    body: web::Json<handlers::admin::ModeratorBody>,
+    body: web::Json<Address>,
 ) -> Result<HttpResponse, error::RelayError> {
-    handlers::admin::add_moderator(state, body).await
+    handlers::admin::add_moderator(state, body.into_inner()).await
 }
 
 #[post("/del_moderator")]
 async fn del_moderator(
     state: web::Data<AppState>,
-    body: web::Json<handlers::admin::ModeratorBody>,
+    body: web::Json<Address>,
 ) -> Result<HttpResponse, error::RelayError> {
-    handlers::admin::del_moderator(state, body).await
+    handlers::admin::del_moderator(state, body.into_inner()).await
 }
