@@ -95,7 +95,9 @@ public(package) fun nonce(self: &Intent): u64 {
 }
 
 public(package) fun sender(self: &Intent): address {
-    self.public_key
+    let mut data = vector[0u8];
+    data.append(self.public_key.to_bytes());
+    address::from_bytes(hash::blake2b256(&data))
 }
 
 public(package) fun tweak(self: &Intent): address {
