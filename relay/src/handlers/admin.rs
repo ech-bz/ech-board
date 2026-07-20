@@ -24,13 +24,12 @@ async fn build_intent(
     opcode: u8,
     moderator: Address,
 ) -> Result<Intent, RelayError> {
-    let sponsor_addr = state.sponsor.sponsor_address();
     let sponsor_pk = state.sponsor.sponsor_public_key();
-    let nonce_bytes = nonce::fetch(state, &sponsor_addr).await?;
+    let nonce_bytes = nonce::fetch(state, &sponsor_pk).await?;
     let nonce: NonceInfo = bcs::from_bytes(&nonce_bytes)
         .map_err(|e| RelayError::SponsorBuild(format!("nonce decode: {e}")))?;
 
-    let nonce_shard_id = shard_id(&state.forum.projection.nonce_shards, &sponsor_addr);
+    let nonce_shard_id = shard_id(&state.forum.projection.nonce_shards, &sponsor_pk);
     let forum_id = state.forum.id;
 
     let mut payload = Vec::new();
