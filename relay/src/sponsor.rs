@@ -48,6 +48,10 @@ impl SponsorService {
         self.sponsor_address
     }
 
+    pub fn sponsor_public_key(&self) -> Address {
+        Address::new(self.signing_key.verifying_key().to_bytes())
+    }
+
     pub fn sign_as_sender(&self, tx: Transaction) -> SignedTransaction {
         let digest = tx.signing_digest();
         let sig = self.signing_key.sign(&digest).to_bytes();

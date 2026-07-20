@@ -25,6 +25,7 @@ async fn build_intent(
     moderator: Address,
 ) -> Result<Intent, RelayError> {
     let sponsor_addr = state.sponsor.sponsor_address();
+    let sponsor_pk = state.sponsor.sponsor_public_key();
     let nonce_bytes = nonce::fetch(state, &sponsor_addr).await?;
     let nonce: NonceInfo = bcs::from_bytes(&nonce_bytes)
         .map_err(|e| RelayError::SponsorBuild(format!("nonce decode: {e}")))?;
@@ -55,7 +56,7 @@ async fn build_intent(
             },
         ],
         payload,
-        public_key: sponsor_addr,
+        public_key: sponsor_pk,
         tweak: Address::ZERO,
         uid: vec![],
     })
