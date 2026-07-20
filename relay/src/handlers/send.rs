@@ -49,7 +49,7 @@ impl IntentPayload for NewThreadPayload {
             state,
             text,
             media_files,
-            intent,
+            intent.objects[3].id,
             &self.text_hash,
             &self.media_hashes,
         )
@@ -62,8 +62,6 @@ impl IntentPayload for NewThreadPayload {
 
 #[derive(Deserialize)]
 struct NewPostPayload {
-    #[allow(dead_code)]
-    thread: u64,
     text_hash: Option<Address>,
     media_hashes: Vec<Address>,
 }
@@ -81,7 +79,7 @@ impl IntentPayload for NewPostPayload {
             state,
             text,
             media_files,
-            intent,
+            intent.objects[2].id,
             &self.text_hash,
             &self.media_hashes,
         )
@@ -96,11 +94,11 @@ async fn verify_content(
     state: &AppState,
     text: &Option<MultipartBytes>,
     media_files: &[TempFile],
-    intent: &Intent,
+    board_id: Address,
     text_hash: &Option<Address>,
     media_hashes: &[Address],
 ) -> Result<(), error::RelayError> {
-    let board = fetch_board(state, intent.objects[1].id).await?;
+    let board = fetch_board(state, board_id).await?;
 
     if media_hashes.len() > board.projection.max_media as usize {
         return Err(error::RelayError::SponsorBuild(format!(
@@ -275,8 +273,8 @@ pub(crate) async fn handle_send(
                 )),
                 _ => None,
             },
-            ("forum", "apply_board_thread_intent") => match intent.payload.first() {
-                Some(&7) => Some(Box::new(
+            ("forum", "apply_thread_board_intent") => match intent.payload.first() {
+                Some(&5) => Some(Box::new(
                     bcs::from_bytes::<NewPostPayload>(&intent.payload[1..]).map_err(payload_err)?,
                 )),
                 _ => None,

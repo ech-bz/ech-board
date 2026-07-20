@@ -166,7 +166,7 @@ async fn send(
 #[get("/pk")]
 async fn pk_handler(state: web::Data<AppState>) -> Result<HttpResponse, error::RelayError> {
     Ok(HttpResponse::Ok()
-        .content_type("application/x-pem-file")
+        .content_type("application/octet-stream")
         .body(handlers::uid::pk(state).await?))
 }
 
