@@ -32,8 +32,7 @@ trait IntentPayload: Send + Sync {
 
 #[derive(Deserialize)]
 struct NewThreadPayload {
-    #[allow(dead_code)]
-    subject: String,
+    topic_hash: Option<Address>,
     text_hash: Option<Address>,
     media_hashes: Vec<Address>,
 }
