@@ -47,6 +47,7 @@ pub(super) struct ForumProjection {
     pub(super) mods: Table,
     pub(super) bans: Table,
     pub(super) boards: Table,
+    pub(super) timestamp_precision_ms: u64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -59,6 +60,7 @@ pub(super) struct BoardObject {
 #[derive(Serialize, Deserialize)]
 pub(super) struct BoardProjection {
     pub(super) slug: String,
+    pub(super) description: String,
     pub(super) max_media: u64,
     pub(super) bump_limit: u64,
     pub(super) closed: bool,
@@ -82,6 +84,7 @@ pub(super) struct ThreadProjection {
     pub(super) board_slug: String,
     pub(super) number: u64,
     pub(super) op: Address,
+    pub(super) subject: String,
     pub(super) closed: bool,
     pub(super) deleted: bool,
     pub(super) pinned: bool,
@@ -109,6 +112,7 @@ pub(super) struct PostProjection {
     pub(super) deleted: bool,
     pub(super) text_hash: Option<Address>,
     pub(super) media_hashes: Vec<Address>,
+    pub(super) created_at_ms: u64,
 }
 
 #[derive(Serialize, Deserialize)]
