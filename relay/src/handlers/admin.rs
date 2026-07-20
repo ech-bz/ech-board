@@ -2,10 +2,22 @@ use crate::app_state::AppState;
 use crate::error::RelayError;
 use crate::types::{Intent, IntentObject};
 use actix_web::{HttpResponse, web};
+use blake2::Digest;
+use blake2::digest::consts::U32;
 use sui_sdk_types::Address;
+use sui_sdk_types::TypeTag;
+
+type Blake2b = blake2::Blake2b<U32>;
 
 use super::nonce::NonceInfo;
 use super::{nonce, send};
+
+fn shard_id(sharded_counter: &Address, addr: &Address) -> Address {
+    let hash = Blake2b::digest(&bcs::to_bytes(addr).unwrap());
+    let val = u64::from_be_bytes(hash[24..].try_into().unwrap());
+    let index = val % 512;
+    sharded_counter.derive_object_id(&TypeTag::U64, &index.to_le_bytes())
+}
 
 async fn build_intent(
     state: &AppState,
@@ -17,7 +29,7 @@ async fn build_intent(
     let nonce: NonceInfo = bcs::from_bytes(&nonce_bytes)
         .map_err(|e| RelayError::SponsorBuild(format!("nonce decode: {e}")))?;
 
-    let nonce_shard_id = state.forum.projection.nonce_shards;
+    let nonce_shard_id = shard_id(&state.forum.projection.nonce_shards, &sponsor_addr);
     let forum_id = state.forum.id;
 
     let mut payload = Vec::new();
@@ -29,6 +41,10 @@ async fn build_intent(
         function: "apply_forum_intent".into(),
         nonce: nonce.nonce,
         objects: vec![
+            IntentObject {
+                id: Address::from_hex("0x6").unwrap(),
+                mutable: false,
+            },
             IntentObject {
                 id: nonce_shard_id,
                 mutable: true,
