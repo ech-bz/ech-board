@@ -12,8 +12,11 @@ type Blake2b = blake2::Blake2b<U32>;
 use super::nonce::NonceInfo;
 use super::{nonce, send};
 
-fn shard_id(sharded_counter: &Address, addr: &Address) -> Address {
-    let hash = Blake2b::digest(&bcs::to_bytes(addr).unwrap());
+fn shard_id(sharded_counter: &Address, sender: &Address) -> Address {
+    let mut buf = vec![0u8];
+    buf.extend_from_slice(sender.as_ref() as &[u8]);
+    let addr = Address::new(Blake2b::digest(&buf).into());
+    let hash = Blake2b::digest(&bcs::to_bytes(&addr).unwrap());
     let val = u64::from_be_bytes(hash[24..].try_into().unwrap());
     let index = val % 512;
     sharded_counter.derive_object_id(&TypeTag::U64, &index.to_le_bytes())

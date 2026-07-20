@@ -26,8 +26,11 @@ pub(crate) struct NonceInfo {
 }
 
 pub(crate) async fn fetch(state: &AppState, sender: &Address) -> Result<Vec<u8>, RelayError> {
+    let mut buf = vec![0u8];
+    buf.extend_from_slice(sender.as_ref() as &[u8]);
+    let addr = Address::new(Blake2b::digest(&buf).into());
     let hash = Blake2b::digest(
-        &bcs::to_bytes(sender)
+        &bcs::to_bytes(&addr)
             .map_err(|e| RelayError::Internal(format!("bcs encode sender: {e}")))?,
     );
     let mut buf = [0u8; 8];
