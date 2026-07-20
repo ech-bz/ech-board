@@ -43,7 +43,9 @@ pub(super) struct ForumObject {
 #[derive(Serialize, Deserialize, Clone)]
 pub(super) struct ForumProjection {
     pub(super) nonce_shards: Address,
+    pub(super) admin: Address,
     pub(super) mods: Table,
+    pub(super) bans: Table,
     pub(super) boards: Table,
 }
 
