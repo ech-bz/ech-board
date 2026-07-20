@@ -26,23 +26,17 @@ pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
         .map_err(|e| RelayError::Internal(format!("bcs decode ForumObject: {e}")))?;
 
     let boards_table_id = forum_obj.projection.boards.id;
-    eprintln!("forum: listing dynamic fields of boards table {}", boards_table_id);
-
     let fields = state
         .upstream
         .list_dynamic_fields(boards_table_id)
         .await?;
 
-    eprintln!("forum: list_dynamic_fields returned {} entries", fields.len());
-
     let mut child_ids = Vec::with_capacity(fields.len());
     for (_name_bytes, _child_id, value_bytes) in &fields {
         let Some(value) = value_bytes else {
-            eprintln!("forum: skipping entry with no value");
             continue;
         };
         let Ok(addr) = bcs::from_bytes::<Address>(value) else {
-            eprintln!("forum: skipping entry with invalid address");
             continue;
         };
         child_ids.push(addr);
@@ -52,17 +46,14 @@ pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
 
     let mut slugs = Vec::with_capacity(board_objects.len());
     for obj in board_objects.into_iter().flatten() {
-        match obj.contents().deserialize::<BoardObject>() {
-            Ok(board) => {
-                let slug = board.projection.slug.clone();
-                let id = board.id;
-                eprintln!("forum: board slug={} id={}", slug, id);
-                slugs.push(BoardSlug { slug, id });
-            }
-            Err(e) => {
-                eprintln!("forum: failed to decode BoardObject: {e}");
-            }
-        }
+        let board = obj
+            .contents()
+            .deserialize::<BoardObject>()
+            .map_err(|e| RelayError::Internal(format!("bcs decode BoardObject: {e}")))?;
+        slugs.push(BoardSlug {
+            slug: board.projection.slug,
+            id: board.id,
+        });
     }
 
     let response = ForumView {

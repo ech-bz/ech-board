@@ -105,7 +105,6 @@ impl UpstreamSender {
                                 .collect::<Vec<_>>()
                         })
                         .unwrap_or_default();
-                    eprintln!("relay upstream ok url={}", url);
                     Ok(SendResponse {
                         accepted_by: vec![url],
                         digest,
@@ -128,10 +127,6 @@ impl UpstreamSender {
                             )
                         });
                     let failure_kind = classify_execution_error_kind(kind.as_str());
-                    eprintln!(
-                        "relay upstream fail url={} kind={} details={}",
-                        url, kind, details
-                    );
                     Err(RelayError::UpstreamAllFailed(UpstreamFailure::new(
                         failure_kind,
                         format!(
@@ -141,14 +136,12 @@ impl UpstreamSender {
                 }
             }
             Ok(Err(err)) => {
-                eprintln!("relay upstream rpc_err url={} error={}", url, err);
                 Err(RelayError::UpstreamAllFailed(UpstreamFailure::new(
                     UpstreamFailureKind::Rpc,
                     format!("{url}: {err}"),
                 )))
             }
             Err(err) => {
-                eprintln!("relay upstream timeout url={} error={}", url, err);
                 Err(RelayError::UpstreamAllFailed(UpstreamFailure::new(
                     UpstreamFailureKind::Timeout,
                     format!("{url}: {err}"),
@@ -251,16 +244,6 @@ impl UpstreamSender {
                     format!("list_dynamic_fields: {e}"),
                 ))
             })?;
-            eprintln!(
-                "list_dynamic_fields raw: kind={:?} parent={:?} field_id={:?} child_id={:?} name.value={:?} value_type={:?} value.bytes={:?}",
-                field.kind,
-                field.parent,
-                field.field_id,
-                field.child_id,
-                field.name.as_ref().and_then(|n| n.value.as_ref().map(|b| hex::encode(b))),
-                field.value_type,
-                field.value.as_ref().and_then(|bcs| bcs.value.as_ref().map(|b| hex::encode(b))),
-            );
             let name_bytes = field
                 .name
                 .and_then(|n| n.value)

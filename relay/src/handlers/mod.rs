@@ -64,6 +64,7 @@ pub(super) struct BoardProjection {
     pub(super) closed: bool,
     pub(super) deleted: bool,
     pub(super) mods: Table,
+    pub(super) bans: Table,
     pub(super) threads: Table,
     pub(super) posts: Table,
     pub(super) bumps: Feed,
@@ -84,7 +85,9 @@ pub(super) struct ThreadProjection {
     pub(super) closed: bool,
     pub(super) deleted: bool,
     pub(super) pinned: bool,
+    pub(super) admin: Option<Address>,
     pub(super) mods: Table,
+    pub(super) bans: Table,
     pub(super) posts: Table,
     pub(super) last_3: Vec<Address>,
 }
