@@ -38,6 +38,7 @@ pub(super) struct ForumObject {
     pub(super) id: Address,
     pub(super) feed: Feed,
     pub(super) projection: ForumProjection,
+    pub(super) genesis: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -55,6 +56,7 @@ pub(super) struct BoardObject {
     pub(super) id: Address,
     pub(super) feed: Feed,
     pub(super) projection: BoardProjection,
+    pub(super) genesis: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -77,6 +79,7 @@ pub(super) struct ThreadObject {
     pub(super) id: Address,
     pub(super) feed: Feed,
     pub(super) projection: ThreadProjection,
+    pub(super) genesis: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -100,6 +103,7 @@ pub(super) struct PostObject {
     pub(super) id: Address,
     pub(super) feed: Feed,
     pub(super) projection: PostProjection,
+    pub(super) genesis: bool,
 }
 
 #[derive(Serialize, Deserialize)]
