@@ -79,6 +79,7 @@ impl AppState {
             seaweed: SeaweedClient::new(cfg.seaweed_filer_url, cfg.seaweed_jwt_signing_key),
             kms: KmsClient::from_conf(
                 aws_sdk_kms::Config::builder()
+                    .behavior_version(aws_sdk_kms::config::BehaviorVersion::latest())
                     .region(aws_sdk_kms::config::Region::new(cfg.kms_region.clone()))
                     .credentials_provider(
                         aws_sdk_kms::config::Credentials::new(
