@@ -564,9 +564,9 @@ fun apply_post(
 
 public fun apply_forum_intent(
     ctx: &mut TxContext,
-    clock: &Clock,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
+    clock: &Clock,
     nonce_shard: &mut Shard<address>,
     forum: &mut ForumObject<ForumEvent, ForumProjection>,
 ) {
@@ -575,7 +575,7 @@ public fun apply_forum_intent(
         b"forum",
         b"apply_forum_intent",
         signature,
-        vector[object::id(nonce_shard), object::id(forum)],
+        vector[object::id(clock), object::id(nonce_shard), object::id(forum)],
     );
     nonce_shard.inc_checked(&intent.sender(), intent.nonce());
 
@@ -604,9 +604,9 @@ public fun apply_forum_intent(
 
 public fun apply_board_intent(
     ctx: &mut TxContext,
-    clock: &Clock,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
+    clock: &Clock,
     nonce_shard: &mut Shard<address>,
     forum: &ForumObject<ForumEvent, ForumProjection>,
     board: &mut ForumObject<BoardEvent, BoardProjection>,
@@ -616,7 +616,7 @@ public fun apply_board_intent(
         b"forum",
         b"apply_board_intent",
         signature,
-        vector[object::id(nonce_shard), object::id(forum), object::id(board)],
+        vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
     );
     nonce_shard.inc_checked(&intent.sender(), intent.nonce());
 
