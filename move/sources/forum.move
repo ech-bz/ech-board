@@ -41,9 +41,11 @@ public struct ForumObject<phantom E: store, P: store> has key, store {
     id: UID,
     feed: Feed<E>,
     projection: P,
+    genesis: bool,
 }
 
-fun share<E: store, P: store>(self: ForumObject<E, P>) {
+fun share<E: store, P: store>(mut self: ForumObject<E, P>) {
+    self.genesis = false;
     transfer::share_object(self);
 }
 
@@ -88,6 +90,7 @@ fun new_forum(ctx: &mut TxContext): ForumObject<ForumEvent, ForumProjection> {
             boards: table::new(ctx),
             timestamp_precision_ms: 0,
         },
+        genesis: true,
     };
     let admin = ctx.sender();
     forum.feed.push(ForumEvent::Genesis { admin }).share();
@@ -232,6 +235,7 @@ fun new_board(ctx: &mut TxContext, slug: String): ForumObject<BoardEvent, BoardP
             posts: table::new(ctx),
             bumps: feed::new(ctx),
         },
+        genesis: true,
     };
     board.feed.push(BoardEvent::Genesis { slug }).share();
     board.projection.slug = slug;
@@ -493,6 +497,7 @@ fun new_thread(
             posts: table::new(ctx),
             last_3: vector[],
         },
+        genesis: true,
     };
     thread.feed.push(ThreadEvent::Genesis { board_slug, number }).share();
     thread.projection.board_slug = board_slug;
@@ -571,7 +576,8 @@ fun apply_thread(
         },
         ThreadEvent::SetTopic(topic_hash) => {
             assert!(
-                sender == forum.projection.admin
+                self.genesis
+                    || sender == forum.projection.admin
                     || forum.projection.mods.contains(sender)
                     || board.projection.mods.contains(sender)
                     || self.projection.admin.is_some_and!(|a| sender == a)
@@ -666,6 +672,7 @@ fun new_post(
             text_hash: option::none(),
             media_hashes: vector[],
         },
+        genesis: true,
     };
     post
         .feed
@@ -711,7 +718,7 @@ fun apply_post(
         PostEvent::SetDeleted(deleted) => {
             assert!(self.projection.deleted != deleted);
             assert!(
-                sender == self.projection.author
+                (sender == self.projection.author && deleted)
                     || sender == forum.projection.admin
                     || forum.projection.mods.contains(sender)
                     || board.projection.mods.contains(sender)
