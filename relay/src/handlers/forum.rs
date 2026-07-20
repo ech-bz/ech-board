@@ -4,16 +4,10 @@ use crate::error::RelayError;
 use serde::Serialize;
 use sui_sdk_types::Address;
 
-#[derive(Debug, Serialize)]
-pub(crate) struct BoardSlug {
-    pub(crate) slug: String,
-    pub(crate) id: Address,
-}
-
 #[derive(Serialize)]
 pub(crate) struct ForumView {
     pub(crate) forum: ForumObject,
-    pub(crate) boards: Vec<BoardSlug>,
+    pub(crate) boards: Vec<BoardObject>,
 }
 
 pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
@@ -44,21 +38,18 @@ pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
 
     let board_objects = state.upstream.fetch_objects(child_ids).await?;
 
-    let mut slugs = Vec::with_capacity(board_objects.len());
+    let mut boards = Vec::with_capacity(board_objects.len());
     for obj in board_objects.into_iter().flatten() {
         let board = obj
             .contents()
             .deserialize::<BoardObject>()
             .map_err(|e| RelayError::Internal(format!("bcs decode BoardObject: {e}")))?;
-        slugs.push(BoardSlug {
-            slug: board.projection.slug,
-            id: board.id,
-        });
+        boards.push(board);
     }
 
     let response = ForumView {
         forum: forum_obj,
-        boards: slugs,
+        boards,
     };
 
     bcs::to_bytes(&response).map_err(|e| RelayError::Internal(format!("bcs encode ForumView: {e}")))
