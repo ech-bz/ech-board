@@ -318,6 +318,7 @@ fun apply_board(
                 number,
             );
             thread.apply_thread(clock, forum, self, ThreadEvent::SetTopic(topic_hash), sender);
+            self.projection.threads.add(number, object::uid_to_address(&thread.id));
             thread.apply_thread_board(
                 ctx,
                 clock,
@@ -327,7 +328,6 @@ fun apply_board(
                 sender,
                 tweak,
             );
-            self.projection.threads.add(number, object::uid_to_address(&thread.id));
             thread.share();
         },
         BoardEvent::NewPost { thread, post, bump } => {
