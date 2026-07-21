@@ -37,8 +37,9 @@ pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
         };
     }
 
-    eprintln!("forum: board child_ids count={}", child_ids.len());
+    eprintln!("forum: board child_ids count={} ids={:?}", child_ids.len(), child_ids);
     let board_objects = state.upstream.fetch_objects(child_ids).await?;
+    eprintln!("forum: fetch_objects returned {} results", board_objects.len());
 
     let mut boards = Vec::with_capacity(board_objects.len());
     for (i, obj) in board_objects.into_iter().enumerate() {
