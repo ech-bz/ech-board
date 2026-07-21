@@ -28,18 +28,24 @@ pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
     let mut child_ids = Vec::with_capacity(fields.len());
     for (_name_bytes, _child_id, value_bytes) in &fields {
         let Some(value) = value_bytes else {
+            eprintln!("forum: board dynamic field value is None");
             continue;
         };
-        let Ok(addr) = bcs::from_bytes::<Address>(value) else {
-            continue;
+        match bcs::from_bytes::<Address>(value) {
+            Ok(addr) => child_ids.push(addr),
+            Err(e) => eprintln!("forum: bcs decode board addr failed len={} err={e}", value.len()),
         };
-        child_ids.push(addr);
     }
 
+    eprintln!("forum: board child_ids count={}", child_ids.len());
     let board_objects = state.upstream.fetch_objects(child_ids).await?;
 
     let mut boards = Vec::with_capacity(board_objects.len());
-    for obj in board_objects.into_iter().flatten() {
+    for (i, obj) in board_objects.into_iter().enumerate() {
+        let Some(obj) = obj else {
+            eprintln!("forum: board object {i} not found");
+            continue;
+        };
         let board = obj
             .contents()
             .deserialize::<BoardObject>()
