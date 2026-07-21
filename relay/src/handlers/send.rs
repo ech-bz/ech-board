@@ -128,7 +128,7 @@ impl IntentPayload for NewPostPayload {
             state,
             text,
             media_files,
-            intent.objects[2].id,
+            intent.objects[3].id,
             &self.text_hash,
             &self.media_hashes,
         )
