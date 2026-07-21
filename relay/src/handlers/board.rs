@@ -5,7 +5,8 @@ use crate::error::RelayError;
 use serde::Serialize;
 use sui_sdk_types::Address;
 
-use super::fetch_text;
+use super::fetch_content;
+use crate::types::ContentKind;
 use super::{BoardObject, PostObject, ThreadObject};
 
 const LIMIT: u64 = 20;
@@ -15,7 +16,8 @@ pub(crate) struct BoardView {
     pub(crate) board: BoardObject,
     pub(crate) threads: Vec<ThreadObject>,
     pub(crate) last_3: HashMap<Address, Vec<PostObject>>,
-    pub(crate) content: HashMap<Address, Vec<u8>>,
+    pub(crate) text: HashMap<Address, Vec<u8>>,
+    pub(crate) plain_text: HashMap<Address, Vec<u8>>,
     pub(crate) next_cursor: Option<u64>,
 }
 
@@ -93,8 +95,18 @@ pub(crate) async fn fetch(
         .flat_map(|posts| posts.iter())
         .filter_map(|p| p.projection.text_hash)
         .collect();
+    let text = fetch_content(&state.seaweed, ContentKind::Text, text_hashes).await;
 
-    let content = fetch_text(&state.seaweed, text_hashes).await;
+    let mut plain_text_hashes = HashSet::new();
+    if let Some(h) = board.projection.description_hash {
+        plain_text_hashes.insert(h);
+    }
+    for thread in &threads {
+        if let Some(h) = thread.projection.topic_hash {
+            plain_text_hashes.insert(h);
+        }
+    }
+    let plain_text = fetch_content(&state.seaweed, ContentKind::PlainText, plain_text_hashes).await;
 
     let next_cursor = if start > 1 { Some(start) } else { None };
 
@@ -102,7 +114,8 @@ pub(crate) async fn fetch(
         board,
         threads,
         last_3,
-        content,
+        text,
+        plain_text,
         next_cursor,
     };
 

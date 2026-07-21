@@ -157,6 +157,8 @@ async fn send(
                 intent,
                 form.signature.data.to_vec(),
                 form.text,
+                form.description.map(|t| t.into_inner()),
+                form.topic.map(|t| t.into_inner()),
                 form.media,
             )
             .await?,

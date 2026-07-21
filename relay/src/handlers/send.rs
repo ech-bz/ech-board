@@ -24,6 +24,8 @@ trait IntentPayload: Send + Sync {
         &self,
         state: &AppState,
         text: &Option<MultipartBytes>,
+        description: Option<&str>,
+        topic: Option<&str>,
         media_files: &[TempFile],
         intent: &Intent,
     ) -> Result<(), error::RelayError>;
@@ -31,8 +33,38 @@ trait IntentPayload: Send + Sync {
 }
 
 #[derive(Deserialize)]
-struct NewThreadPayload {
+struct NewBoardPayload {
     #[allow(dead_code)]
+    slug: Vec<u8>,
+    description_hash: Option<Address>,
+    #[allow(dead_code)]
+    max_media: u64,
+    #[allow(dead_code)]
+    bump_limit: u64,
+}
+
+#[async_trait]
+impl IntentPayload for NewBoardPayload {
+    async fn verify(
+        &self,
+        state: &AppState,
+        _text: &Option<MultipartBytes>,
+        description: Option<&str>,
+        _topic: Option<&str>,
+        _media_files: &[TempFile],
+        _intent: &Intent,
+    ) -> Result<(), error::RelayError> {
+        verify_plaintext(state, &self.description_hash, description).await
+    }
+    async fn cleanup(&self, state: &AppState) {
+        if let Some(hash) = &self.description_hash {
+            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct NewThreadPayload {
     topic_hash: Option<Address>,
     text_hash: Option<Address>,
     media_hashes: Vec<Address>,
@@ -44,6 +76,8 @@ impl IntentPayload for NewThreadPayload {
         &self,
         state: &AppState,
         text: &Option<MultipartBytes>,
+        _description: Option<&str>,
+        topic: Option<&str>,
         media_files: &[TempFile],
         intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -55,10 +89,21 @@ impl IntentPayload for NewThreadPayload {
             &self.text_hash,
             &self.media_hashes,
         )
-        .await
+        .await?;
+        if let Some(t) = topic {
+            if t.len() > 50 {
+                return Err(error::RelayError::SponsorBuild(
+                    "topic exceeds 50 chars".into(),
+                ));
+            }
+        }
+        verify_plaintext(state, &self.topic_hash, topic).await
     }
     async fn cleanup(&self, state: &AppState) {
-        cleanup_content(state, &self.text_hash, &self.media_hashes).await
+        cleanup_content(state, &self.text_hash, &self.media_hashes).await;
+        if let Some(hash) = &self.topic_hash {
+            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+        }
     }
 }
 
@@ -74,6 +119,8 @@ impl IntentPayload for NewPostPayload {
         &self,
         state: &AppState,
         text: &Option<MultipartBytes>,
+        _description: Option<&str>,
+        _topic: Option<&str>,
         media_files: &[TempFile],
         intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -186,6 +233,31 @@ async fn cleanup_content(state: &AppState, text_hash: &Option<Address>, media_ha
     }
 }
 
+async fn verify_plaintext(
+    state: &AppState,
+    hash: &Option<Address>,
+    value: Option<&str>,
+) -> Result<(), error::RelayError> {
+    match (hash, value) {
+        (Some(hash), Some(text)) => {
+            let data = text.as_bytes();
+            verify_hash(hash, data)?;
+            state
+                .seaweed
+                .put(ContentKind::PlainText, hash, data)
+                .await?;
+            Ok(())
+        }
+        (None, None) => Ok(()),
+        (Some(_), None) => Err(error::RelayError::SponsorBuild(
+            "plaintext hash present but no content provided".into(),
+        )),
+        (None, Some(_)) => Err(error::RelayError::SponsorBuild(
+            "plaintext provided but intent hash is None".into(),
+        )),
+    }
+}
+
 fn verify_hash(expected: &Address, blob: &[u8]) -> Result<(), error::RelayError> {
     if Blake2b::digest(blob).as_slice() != expected.as_bytes() {
         return Err(error::RelayError::SponsorBuild(
@@ -263,20 +335,29 @@ pub(crate) async fn handle_send(
     intent: Intent,
     signature_bytes: Vec<u8>,
     text: Option<MultipartBytes>,
+    description: Option<String>,
+    topic: Option<String>,
     media_files: Vec<TempFile>,
 ) -> Result<Vec<u8>, error::RelayError> {
     let payload_err = |e| error::RelayError::SponsorBuild(format!("failed to decode payload: {e}"));
     let payload: Option<Box<dyn IntentPayload>> =
         match (intent.module.as_str(), intent.function.as_str()) {
+            ("forum", "apply_forum_intent") => match intent.payload.first() {
+                Some(&3) => Some(Box::new(
+                    bcs::from_bytes::<NewBoardPayload>(&intent.payload[1..])
+                        .map_err(payload_err)?,
+                )),
+                _ => None,
+            },
             ("forum", "apply_board_intent") => match intent.payload.first() {
-                Some(&6) => Some(Box::new(
+                Some(&7) => Some(Box::new(
                     bcs::from_bytes::<NewThreadPayload>(&intent.payload[1..])
                         .map_err(payload_err)?,
                 )),
                 _ => None,
             },
             ("forum", "apply_thread_board_intent") => match intent.payload.first() {
-                Some(&5) => Some(Box::new(
+                Some(&6) => Some(Box::new(
                     bcs::from_bytes::<NewPostPayload>(&intent.payload[1..]).map_err(payload_err)?,
                 )),
                 _ => None,
@@ -285,7 +366,15 @@ pub(crate) async fn handle_send(
         };
 
     if let Some(ref p) = payload {
-        p.verify(state, &text, &media_files, &intent).await?;
+        p.verify(
+            state,
+            &text,
+            description.as_deref(),
+            topic.as_deref(),
+            &media_files,
+            &intent,
+        )
+        .await?;
     }
 
     let mut attempt = 0u64;

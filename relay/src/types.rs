@@ -10,6 +10,7 @@ pub(crate) enum ContentKind {
     Text,
     Media,
     Thumbnail,
+    PlainText,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,6 +51,8 @@ pub(crate) struct SendForm {
     pub(crate) signature: MultipartBytes,
     pub(crate) captcha: Text<String>,
     pub(crate) text: Option<MultipartBytes>,
+    pub(crate) description: Option<Text<String>>,
+    pub(crate) topic: Option<Text<String>>,
     pub(crate) media: Vec<TempFile>,
 }
 

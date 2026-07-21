@@ -76,19 +76,19 @@ async fn moderator_action(
     );
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
-        .body(send::handle_send(&state, intent, signature, None, vec![]).await?))
+        .body(send::handle_send(&state, intent, signature, None, None, None, vec![]).await?))
 }
 
 pub(crate) async fn add_moderator(
     state: web::Data<AppState>,
     moderator: Address,
 ) -> Result<HttpResponse, RelayError> {
-    moderator_action(state, moderator, 0).await
+    moderator_action(state, moderator, 1).await
 }
 
 pub(crate) async fn del_moderator(
     state: web::Data<AppState>,
     moderator: Address,
 ) -> Result<HttpResponse, RelayError> {
-    moderator_action(state, moderator, 1).await
+    moderator_action(state, moderator, 2).await
 }

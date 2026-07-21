@@ -5,14 +5,16 @@ use crate::error::RelayError;
 use serde::Serialize;
 use sui_sdk_types::Address;
 
-use super::fetch_text;
+use super::fetch_content;
+use crate::types::ContentKind;
 use super::{PostObject, ThreadObject};
 
 #[derive(Serialize)]
 pub(crate) struct ThreadView {
     pub(crate) thread: ThreadObject,
     pub(crate) posts: Vec<PostObject>,
-    pub(crate) content: HashMap<Address, Vec<u8>>,
+    pub(crate) text: HashMap<Address, Vec<u8>>,
+    pub(crate) plain_text: HashMap<Address, Vec<u8>>,
 }
 
 pub(crate) async fn fetch(state: &AppState, thread_uid: Address) -> Result<Vec<u8>, RelayError> {
@@ -56,13 +58,19 @@ pub(crate) async fn fetch(state: &AppState, thread_uid: Address) -> Result<Vec<u
         .iter()
         .filter_map(|p| p.projection.text_hash)
         .collect();
+    let text = fetch_content(&state.seaweed, ContentKind::Text, text_hashes).await;
 
-    let content = fetch_text(&state.seaweed, text_hashes).await;
+    let mut plain_text_hashes = HashSet::new();
+    if let Some(h) = thread.projection.topic_hash {
+        plain_text_hashes.insert(h);
+    }
+    let plain_text = fetch_content(&state.seaweed, ContentKind::PlainText, plain_text_hashes).await;
 
     let response = ThreadView {
         thread,
         posts,
-        content,
+        text,
+        plain_text,
     };
 
     bcs::to_bytes(&response)

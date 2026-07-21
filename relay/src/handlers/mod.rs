@@ -127,12 +127,13 @@ pub(super) struct Shard {
     pub(super) counters: Table,
 }
 
-pub(super) async fn fetch_text(
+pub(super) async fn fetch_content(
     seaweed: &SeaweedClient,
+    kind: ContentKind,
     hashes: HashSet<Address>,
 ) -> HashMap<Address, Vec<u8>> {
     futures::stream::iter(hashes.into_iter().map(|addr| async move {
-        match seaweed.get(ContentKind::Text, &addr).await {
+        match seaweed.get(kind, &addr).await {
             Ok(Some(data)) => Some((addr, data)),
             _ => None,
         }
