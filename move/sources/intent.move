@@ -110,8 +110,9 @@ public(package) fun decode(
     let mut responses = bcs::new(responses);
     let relay_sig = responses.peel_vec_u8();
     let relay_pk = responses.peel_u256();
+    let response_bytes = responses.into_remainder_bytes();
     let mut message = signature;
-    message.append(responses.into_remainder_bytes());
+    message.append(copy response_bytes);
     assert!(
         ed25519::ed25519_verify(
             &relay_sig,
@@ -120,8 +121,7 @@ public(package) fun decode(
         ),
         error::intent_relay_signature_invalid(),
     );
-    let mut responses = bcs::new(message);
-    responses.peel_vec_u8();
+    let mut responses = bcs::new(response_bytes);
 
     let mut event = bcs::new(intent.event);
     let event_tag = event.peel_vec_u8();
