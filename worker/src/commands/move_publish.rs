@@ -107,7 +107,7 @@ pub(crate) async fn run(ctx: &Ctx, config_path: &Path) -> anyhow::Result<()> {
                     object_type,
                     object_id,
                     ..
-                } if object_type.starts_with(&format!("{package_id}::forum::ForumObject<")) => {
+                } if object_type.starts_with(&format!("{package_id}::forum::Forum")) => {
                     Some(object_id.clone())
                 }
                 _ => None,
