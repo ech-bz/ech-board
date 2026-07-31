@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::error::RelayError;
-use crate::types::{Intent, IntentObject};
+use crate::types::{Intent, IntentObject, Request};
 use actix_web::{HttpResponse, web};
 use blake2::Digest;
 use blake2::digest::consts::U32;
@@ -24,7 +24,7 @@ fn shard_id(sharded_counter: &Address, sender: &Address) -> Address {
 
 async fn build_intent(
     state: &AppState,
-    opcode: u8,
+    event: &str,
     moderator: Address,
 ) -> Result<Intent, RelayError> {
     let sponsor_pk = state.sponsor.sponsor_public_key();
@@ -36,12 +36,14 @@ async fn build_intent(
     let forum_id = state.forum.id;
 
     let mut payload = Vec::new();
-    bcs::serialize_into(&mut payload, &opcode).unwrap();
-    bcs::serialize_into(&mut payload, &moderator).unwrap();
+    bcs::serialize_into(&mut payload, event)
+        .map_err(|e| RelayError::SponsorBuild(format!("event tag encode: {e}")))?;
+    bcs::serialize_into(&mut payload, &moderator)
+        .map_err(|e| RelayError::SponsorBuild(format!("moderator encode: {e}")))?;
 
     Ok(Intent {
-        module: "forum".into(),
-        function: "apply_forum_intent".into(),
+        module: "main".into(),
+        function: "forum_apply_intent_uid".into(),
         nonce: nonce.nonce,
         objects: vec![
             IntentObject {
@@ -58,37 +60,37 @@ async fn build_intent(
             },
         ],
         payload,
+        requests: vec![Request::Uid],
         public_key: sponsor_pk,
         tweak: Address::ZERO,
-        uid: vec![],
     })
 }
 
 async fn moderator_action(
     state: web::Data<AppState>,
     moderator: Address,
-    opcode: u8,
+    event: &str,
 ) -> Result<HttpResponse, RelayError> {
-    let intent = build_intent(&state, opcode, moderator).await?;
+    let intent = build_intent(&state, event, moderator).await?;
     let signature = state.sponsor.sign_blake2b(
         &bcs::to_bytes(&intent)
             .map_err(|e| RelayError::SponsorBuild(format!("failed to encode intent: {e}")))?,
     );
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
-        .body(send::handle_send(&state, intent, signature, None, None, None, vec![]).await?))
+        .body(send::handle_send(&state, intent, signature, "0.0.0.0", None, None, None, vec![]).await?))
 }
 
 pub(crate) async fn add_moderator(
     state: web::Data<AppState>,
     moderator: Address,
 ) -> Result<HttpResponse, RelayError> {
-    moderator_action(state, moderator, 1).await
+    moderator_action(state, moderator, "add_moderator").await
 }
 
 pub(crate) async fn del_moderator(
     state: web::Data<AppState>,
     moderator: Address,
 ) -> Result<HttpResponse, RelayError> {
-    moderator_action(state, moderator, 2).await
+    moderator_action(state, moderator, "del_moderator").await
 }

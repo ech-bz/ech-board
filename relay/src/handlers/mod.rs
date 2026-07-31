@@ -1,17 +1,18 @@
 pub(crate) mod admin;
 pub(crate) mod board;
 pub(crate) mod content;
+pub(crate) mod decrypt;
 pub(crate) mod feed;
 pub(crate) mod forum;
 pub(crate) mod nonce;
 pub(crate) mod send;
 pub(crate) mod thread;
-pub(crate) mod uid;
 
 use crate::seaweed::SeaweedClient;
 use crate::types::ContentKind;
 use actix_web::HttpRequest;
 use futures::StreamExt;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use sui_sdk_types::Address;
@@ -46,12 +47,12 @@ pub(super) struct ForumProjection {
     pub(super) nonce_shards: Address,
     pub(super) admin: Address,
     pub(super) mods: Table,
-    pub(super) bans: Table,
+    pub(super) bans: Bans,
     pub(super) boards: Table,
     pub(super) timestamp_precision_ms: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub(super) struct BoardObject {
     pub(super) id: Address,
     pub(super) feed: Feed,
@@ -59,7 +60,7 @@ pub(super) struct BoardObject {
     pub(super) genesis: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub(super) struct BoardProjection {
     pub(super) slug: String,
     pub(super) description_hash: Option<Address>,
@@ -67,14 +68,15 @@ pub(super) struct BoardProjection {
     pub(super) bump_limit: u64,
     pub(super) closed: bool,
     pub(super) deleted: bool,
+    pub(super) ignore_forum_bans: bool,
     pub(super) mods: Table,
-    pub(super) bans: Table,
+    pub(super) bans: Bans,
     pub(super) threads: Table,
     pub(super) posts: Table,
     pub(super) bumps: Feed,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub(super) struct ThreadObject {
     pub(super) id: Address,
     pub(super) feed: Feed,
@@ -82,9 +84,9 @@ pub(super) struct ThreadObject {
     pub(super) genesis: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub(super) struct ThreadProjection {
-    pub(super) board_slug: String,
+    pub(super) board: Address,
     pub(super) number: u64,
     pub(super) topic_hash: Option<Address>,
     pub(super) op: Address,
@@ -93,12 +95,12 @@ pub(super) struct ThreadProjection {
     pub(super) pinned: bool,
     pub(super) admin: Option<Address>,
     pub(super) mods: Table,
-    pub(super) bans: Table,
-    pub(super) posts: Table,
+    pub(super) bans: Bans,
+    pub(super) posts: Feed,
     pub(super) last_3: Vec<Address>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub(super) struct PostObject {
     pub(super) id: Address,
     pub(super) feed: Feed,
@@ -106,17 +108,39 @@ pub(super) struct PostObject {
     pub(super) genesis: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
+pub(super) struct Sender {
+    pub(super) pk: [u8; 32],
+    pub(super) tweak: [u8; 32],
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub(super) struct PostProjection {
-    pub(super) board_slug: String,
-    pub(super) thread: u64,
+    pub(super) thread: Address,
     pub(super) number: u64,
-    pub(super) author: Address,
-    pub(super) tweak: Address,
+    pub(super) sender: Sender,
+    pub(super) uid: Vec<u8>,
     pub(super) timestamp_ms: u64,
     pub(super) deleted: bool,
     pub(super) text_hash: Option<Address>,
     pub(super) media_hashes: Vec<Address>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(super) struct Registry {
+    pub(super) counter: u64,
+    pub(super) entries: Table,
+    pub(super) identities: Table,
+    pub(super) index: Table,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(super) struct Bans {
+    pub(super) level: Address,
+    pub(super) ip32: Registry,
+    pub(super) ip24: Registry,
+    pub(super) ip20: Registry,
+    pub(super) ip16: Registry,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -125,6 +149,167 @@ pub(super) struct Shard {
     pub(super) shards: u64,
     pub(super) index: u64,
     pub(super) counters: Table,
+}
+
+#[derive(Deserialize)]
+struct Entity {
+    feed: Feed,
+    #[allow(dead_code)]
+    version: u8,
+}
+
+#[derive(Deserialize)]
+struct EntityRoot {
+    #[allow(dead_code)]
+    id: Address,
+    entity: Entity,
+    genesis: bool,
+}
+
+struct DynamicFields {
+    values: HashMap<Vec<u8>, Vec<u8>>,
+}
+
+impl DynamicFields {
+    async fn load(
+        upstream: &crate::upstream::UpstreamSender,
+        parent: Address,
+    ) -> Result<Self, crate::error::RelayError> {
+        let mut values = HashMap::new();
+        for (encoded_name, _, value) in upstream.list_dynamic_fields(parent).await? {
+            let name = bcs::from_bytes::<Vec<u8>>(&encoded_name).unwrap_or(encoded_name);
+            if let Some(value) = value {
+                values.insert(name, value);
+            }
+        }
+        Ok(Self { values })
+    }
+
+    fn get<T: DeserializeOwned>(&self, name: &[u8]) -> Result<T, crate::error::RelayError> {
+        let value = self.values.get(name).ok_or_else(|| {
+            crate::error::RelayError::Internal(format!(
+                "dynamic field '{}' not found",
+                String::from_utf8_lossy(name),
+            ))
+        })?;
+        bcs::from_bytes(value).map_err(|e| {
+            crate::error::RelayError::Internal(format!(
+                "dynamic field '{}' decode: {e}",
+                String::from_utf8_lossy(name),
+            ))
+        })
+    }
+}
+
+async fn load_root(
+    upstream: &crate::upstream::UpstreamSender,
+    id: Address,
+) -> Result<EntityRoot, crate::error::RelayError> {
+    upstream.fetch_objects([id]).await?[0]
+        .as_ref()
+        .ok_or_else(|| crate::error::RelayError::Internal(format!("object {id} not found")))?
+        .contents()
+        .deserialize::<EntityRoot>()
+        .map_err(|e| crate::error::RelayError::Internal(format!("entity root {id} decode: {e}")))
+}
+
+pub(super) async fn load_forum(
+    upstream: &crate::upstream::UpstreamSender,
+    id: Address,
+) -> Result<ForumObject, crate::error::RelayError> {
+    let root = load_root(upstream, id).await?;
+    let fields = DynamicFields::load(upstream, id).await?;
+    Ok(ForumObject {
+        id,
+        feed: root.entity.feed,
+        projection: ForumProjection {
+            nonce_shards: fields.get(b"nonce_shards")?,
+            admin: fields.get(b"admin")?,
+            mods: fields.get(b"moderators")?,
+            bans: fields.get(b"bans")?,
+            boards: fields.get(b"boards")?,
+            timestamp_precision_ms: fields.get(b"timestamp_precision")?,
+        },
+        genesis: root.genesis,
+    })
+}
+
+pub(super) async fn load_board(
+    upstream: &crate::upstream::UpstreamSender,
+    id: Address,
+) -> Result<BoardObject, crate::error::RelayError> {
+    let root = load_root(upstream, id).await?;
+    let fields = DynamicFields::load(upstream, id).await?;
+    Ok(BoardObject {
+        id,
+        feed: root.entity.feed,
+        projection: BoardProjection {
+            slug: fields.get(b"slug")?,
+            description_hash: fields.get(b"description_hash")?,
+            max_media: fields.get(b"max_media")?,
+            bump_limit: fields.get(b"bump_limit")?,
+            closed: fields.get(b"closed")?,
+            deleted: fields.get(b"deleted")?,
+            ignore_forum_bans: fields.get(b"ignore_forum_bans")?,
+            mods: fields.get(b"moderators")?,
+            bans: fields.get(b"bans")?,
+            threads: fields.get(b"threads")?,
+            posts: fields.get(b"posts")?,
+            bumps: fields.get(b"bumps")?,
+        },
+        genesis: root.genesis,
+    })
+}
+
+pub(super) async fn load_thread(
+    upstream: &crate::upstream::UpstreamSender,
+    id: Address,
+) -> Result<ThreadObject, crate::error::RelayError> {
+    let root = load_root(upstream, id).await?;
+    let fields = DynamicFields::load(upstream, id).await?;
+    Ok(ThreadObject {
+        id,
+        feed: root.entity.feed,
+        projection: ThreadProjection {
+            board: fields.get(b"board")?,
+            number: fields.get(b"number")?,
+            topic_hash: fields.get(b"topic_hash")?,
+            op: fields.get(b"op")?,
+            closed: fields.get(b"closed")?,
+            deleted: fields.get(b"deleted")?,
+            pinned: fields.get(b"pinned")?,
+            admin: fields.get(b"admin")?,
+            mods: fields.get(b"moderators")?,
+            bans: fields.get(b"bans")?,
+            posts: fields.get(b"posts")?,
+            last_3: fields.get(b"last_posts")?,
+        },
+        genesis: root.genesis,
+    })
+}
+
+pub(super) async fn load_post(
+    upstream: &crate::upstream::UpstreamSender,
+    id: Address,
+) -> Result<PostObject, crate::error::RelayError> {
+    let root = load_root(upstream, id).await?;
+    let fields = DynamicFields::load(upstream, id).await?;
+    let sender: Sender = fields.get(b"sender")?;
+    Ok(PostObject {
+        id,
+        feed: root.entity.feed,
+        projection: PostProjection {
+            thread: fields.get(b"thread")?,
+            number: fields.get(b"number")?,
+            sender,
+            uid: fields.get(b"uid")?,
+            timestamp_ms: fields.get(b"timestamp_ms")?,
+            deleted: fields.get(b"deleted")?,
+            text_hash: fields.get(b"text_hash")?,
+            media_hashes: fields.get(b"media_hashes")?,
+        },
+        genesis: root.genesis,
+    })
 }
 
 pub(super) async fn fetch_content(

@@ -1,6 +1,6 @@
 use crate::captcha::CaptchaVerifier;
 use crate::config;
-use crate::handlers::ForumObject;
+use crate::handlers::{ForumObject, load_forum};
 use crate::seaweed::SeaweedClient;
 use crate::sponsor::SponsorService;
 use crate::upstream::UpstreamSender;
@@ -55,17 +55,9 @@ impl AppState {
             .await
             .map_err(std::io::Error::other)?;
 
-        let forum = upstream
-            .fetch_objects([forum_registry])
+        let forum = load_forum(&upstream, forum_registry)
             .await
-            .map_err(|e| std::io::Error::other(format!("failed to fetch forum object: {e}")))?
-            .into_iter()
-            .flatten()
-            .next()
-            .ok_or_else(|| std::io::Error::other("forum object not found"))?
-            .contents()
-            .deserialize::<ForumObject>()
-            .map_err(|e| std::io::Error::other(format!("bcs decode ForumObject: {e}")))?;
+            .map_err(|e| std::io::Error::other(format!("failed to load forum: {e}")))?;
 
         Ok(Self {
             captcha: CaptchaVerifier::new(client.clone(), cfg.captcha),

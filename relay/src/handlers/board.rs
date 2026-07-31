@@ -7,7 +7,9 @@ use sui_sdk_types::Address;
 
 use super::fetch_content;
 use crate::types::ContentKind;
-use super::{BoardObject, PostObject, ThreadObject};
+use super::{
+    BoardObject, PostObject, ThreadObject, load_board, load_post, load_thread,
+};
 
 const LIMIT: u64 = 20;
 
@@ -26,12 +28,7 @@ pub(crate) async fn fetch(
     board_uid: Address,
     cursor: Option<u64>,
 ) -> Result<Vec<u8>, RelayError> {
-    let board = state.upstream.fetch_objects([board_uid]).await?[0]
-        .as_ref()
-        .ok_or_else(|| RelayError::Internal("board not found".into()))?
-        .contents()
-        .deserialize::<BoardObject>()
-        .map_err(|e| RelayError::Internal(format!("bcs decode BoardObject: {e}")))?;
+    let board = load_board(&state.upstream, board_uid).await?;
 
     let end = cursor.unwrap_or(board.projection.bumps.counter + 1);
     let start = if end > LIMIT { end - LIMIT } else { 1 };
@@ -49,17 +46,12 @@ pub(crate) async fn fetch(
         }
     }
 
-    let thread_objects = state.upstream.fetch_objects(&thread_addrs).await?;
-
-    let mut threads = Vec::with_capacity(thread_objects.len());
+    let mut threads = Vec::with_capacity(thread_addrs.len());
     let mut post_addrs_by_thread: Vec<(Address, Vec<Address>)> =
-        Vec::with_capacity(thread_objects.len());
+        Vec::with_capacity(thread_addrs.len());
 
-    for obj in thread_objects.iter().flatten() {
-        let thread = obj
-            .contents()
-            .deserialize::<ThreadObject>()
-            .map_err(|e| RelayError::Internal(format!("bcs decode ThreadObject: {e}")))?;
+    for thread_id in thread_addrs {
+        let thread = load_thread(&state.upstream, thread_id).await?;
         let thread_uid = thread.id;
         let mut post_addrs = vec![thread.projection.op];
         post_addrs.extend_from_slice(&thread.projection.last_3);
@@ -72,19 +64,18 @@ pub(crate) async fn fetch(
         .flat_map(|(_, addrs)| addrs.iter().copied())
         .collect();
 
-    let post_objects = state.upstream.fetch_objects(&all_post_ids).await?;
+    let mut post_objects = Vec::with_capacity(all_post_ids.len());
+    for id in all_post_ids {
+        post_objects.push(load_post(&state.upstream, id).await.ok());
+    }
 
     let mut pi = 0;
     let mut last_3 = HashMap::with_capacity(post_addrs_by_thread.len());
     for (thread_uid, addrs) in &post_addrs_by_thread {
         let take = addrs.len();
         let mut posts = Vec::with_capacity(take);
-        for obj in post_objects[pi..pi + take].iter().flatten() {
-            let post = obj
-                .contents()
-                .deserialize::<PostObject>()
-                .map_err(|e| RelayError::Internal(format!("bcs decode PostObject: {e}")))?;
-            posts.push(post);
+        for post in post_objects[pi..pi + take].iter().flatten() {
+            posts.push(post.clone());
         }
         last_3.insert(*thread_uid, posts);
         pi += take;

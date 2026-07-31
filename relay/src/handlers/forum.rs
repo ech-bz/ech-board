@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use super::fetch_content;
-use super::{BoardObject, ForumObject};
+use super::{BoardObject, ForumObject, load_board, load_forum};
 use crate::app_state::AppState;
 use crate::error::RelayError;
 use crate::types::ContentKind;
@@ -17,12 +17,7 @@ pub(crate) struct ForumView {
 
 pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
     let forum_uid = state.forum.id;
-    let forum_obj = state.upstream.fetch_objects([forum_uid]).await?[0]
-        .as_ref()
-        .ok_or_else(|| RelayError::Internal("forum not found".into()))?
-        .contents()
-        .deserialize::<ForumObject>()
-        .map_err(|e| RelayError::Internal(format!("bcs decode ForumObject: {e}")))?;
+    let forum_obj = load_forum(&state.upstream, forum_uid).await?;
 
     let boards_table_id = forum_obj.projection.boards.id;
     let fields = state.upstream.list_dynamic_fields(boards_table_id).await?;
@@ -38,15 +33,9 @@ pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
         child_ids.push(addr);
     }
 
-    let board_objects = state.upstream.fetch_objects(child_ids).await?;
-
-    let mut boards = Vec::with_capacity(board_objects.len());
-    for obj in board_objects.into_iter().flatten() {
-        let board = obj
-            .contents()
-            .deserialize::<BoardObject>()
-            .map_err(|e| RelayError::Internal(format!("bcs decode BoardObject: {e}")))?;
-        boards.push(board);
+    let mut boards = Vec::with_capacity(child_ids.len());
+    for id in child_ids {
+        boards.push(load_board(&state.upstream, id).await?);
     }
 
     let mut plain_text_hashes = HashSet::new();

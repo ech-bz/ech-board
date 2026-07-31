@@ -33,9 +33,7 @@ pub(crate) async fn fetch(state: &AppState, sender: &Address) -> Result<Vec<u8>,
         &bcs::to_bytes(&addr)
             .map_err(|e| RelayError::Internal(format!("bcs encode sender: {e}")))?,
     );
-    let mut buf = [0u8; 8];
-    buf.copy_from_slice(&hash[24..]);
-    let shard_index = u64::from_be_bytes(buf) % SHARD_COUNT;
+    let shard_index = u64::from_be_bytes(hash[24..].try_into().unwrap()) % SHARD_COUNT;
 
     let shard_id = state
         .forum

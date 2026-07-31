@@ -4,6 +4,12 @@ use actix_multipart::form::{
 use serde::{Deserialize, Serialize};
 use sui_sdk_types::Address;
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) enum Request {
+    Uid,
+    Ip32(Address),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ContentKind {
@@ -78,10 +84,10 @@ pub(crate) struct Intent {
     pub(crate) function: String,
     pub(crate) nonce: u64,
     pub(crate) objects: Vec<IntentObject>,
+    pub(crate) requests: Vec<Request>,
     pub(crate) payload: Vec<u8>,
     pub(crate) public_key: Address,
     pub(crate) tweak: Address,
-    pub(crate) uid: Vec<u8>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -91,6 +97,14 @@ pub(crate) struct IntentObject {
 }
 
 pub(crate) const MAX_TEXT_SIZE: usize = 65536;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) struct DecryptRequest {
+    pub(crate) uid: Vec<u8>,
+    pub(crate) path: Vec<Address>,
+    pub(crate) pk: Address,
+    pub(crate) signature: Vec<u8>,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum PostPart {

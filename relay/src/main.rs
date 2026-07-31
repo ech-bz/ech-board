@@ -18,6 +18,7 @@ use clap::Parser;
 use std::path::PathBuf;
 use sui_sdk_types::Address;
 use types::SendForm;
+use types::DecryptRequest;
 
 #[derive(Parser)]
 #[command(name = "ech-board-relay")]
@@ -49,8 +50,7 @@ async fn main() -> std::io::Result<()> {
             .service(content_handler)
             .service(feed_handler)
             .service(healthz)
-            .service(pk_handler)
-            .service(ip_handler)
+            .service(decrypt_handler)
     })
     .bind(&bind_addr)?
     .run();
@@ -132,6 +132,16 @@ async fn feed_handler(
         .body(handlers::feed::fetch(&state, path.into_inner(), query.into_inner()).await?))
 }
 
+#[post("/decrypt")]
+async fn decrypt_handler(
+    state: web::Data<AppState>,
+    body: web::Json<DecryptRequest>,
+) -> Result<HttpResponse, error::RelayError> {
+    Ok(HttpResponse::Ok()
+        .content_type("application/octet-stream")
+        .body(handlers::decrypt::handle(&state, body.into_inner()).await?))
+}
+
 #[post("/send")]
 async fn send(
     req: HttpRequest,
@@ -147,7 +157,6 @@ async fn send(
 
     let intent: types::Intent = bcs::from_bytes(&form.intent.data)
         .map_err(|e| error::RelayError::SponsorBuild(format!("failed to decode intent: {e}")))?;
-    handlers::send::verify_uid(&state, &intent.uid, &remote_ip).await?;
 
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
@@ -156,6 +165,7 @@ async fn send(
                 &state,
                 intent,
                 form.signature.data.to_vec(),
+                &remote_ip,
                 form.text,
                 form.description.map(|t| t.into_inner()),
                 form.topic.map(|t| t.into_inner()),
@@ -163,23 +173,6 @@ async fn send(
             )
             .await?,
         ))
-}
-
-#[get("/pk")]
-async fn pk_handler(state: web::Data<AppState>) -> Result<HttpResponse, error::RelayError> {
-    Ok(HttpResponse::Ok()
-        .content_type("application/octet-stream")
-        .body(handlers::uid::pk(state).await?))
-}
-
-#[get("/ip")]
-async fn ip_handler(
-    req: HttpRequest,
-    state: web::Data<AppState>,
-) -> Result<HttpResponse, error::RelayError> {
-    Ok(HttpResponse::Ok()
-        .content_type("application/octet-stream")
-        .body(handlers::uid::ip(state, req).await?))
 }
 
 #[post("/add_moderator")]
