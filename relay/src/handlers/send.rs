@@ -94,9 +94,9 @@ impl IntentPayload for NewThreadPayload {
         )
         .await?;
         if let Some(t) = topic {
-            if t.len() > 50 {
+            if t.len() > 150 {
                 return Err(error::RelayError::SponsorBuild(
-                    "topic exceeds 50 chars".into(),
+                    "topic exceeds 150 chars".into(),
                 ));
             }
         }
