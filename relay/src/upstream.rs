@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 use std::str::FromStr;
 use std::time::Duration;
+use sui_rpc::client::ExecuteAndWaitError;
 use sui_rpc::field::{FieldMask, FieldMaskUtil};
 use sui_rpc::proto::sui::rpc::v2::owner::OwnerKind;
 use sui_rpc::proto::sui::rpc::v2::{
@@ -58,16 +59,13 @@ impl UpstreamSender {
         let mut request = ExecuteTransactionRequest::new(signed.transaction.clone().into());
         request.signatures = signed.signatures.iter().cloned().map(Into::into).collect();
         request.read_mask = Some(FieldMask::from_str("effects.status,events"));
-        let mut exec = client.execution_client();
 
-        let result = tokio::time::timeout(
-            Duration::from_millis(self.timeout_ms),
-            exec.execute_transaction(request),
-        )
-        .await;
+        let result = client
+            .execute_transaction_and_wait_for_checkpoint(request, Duration::from_secs(2))
+            .await;
 
         match result {
-            Ok(Ok(response)) => {
+            Ok(response) => {
                 let response = response.into_inner();
                 let status = response
                     .transaction
@@ -135,18 +133,35 @@ impl UpstreamSender {
                     )))
                 }
             }
-            Ok(Err(err)) => {
-                Err(RelayError::UpstreamAllFailed(UpstreamFailure::new(
-                    UpstreamFailureKind::Rpc,
-                    format!("{url}: {err}"),
-                )))
-            }
-            Err(err) => {
+            Err(ExecuteAndWaitError::CheckpointTimeout(_)) => {
                 Err(RelayError::UpstreamAllFailed(UpstreamFailure::new(
                     UpstreamFailureKind::Timeout,
-                    format!("{url}: {err}"),
+                    format!("{url}: transaction executed but checkpoint wait timed out"),
                 )))
             }
+            Err(ExecuteAndWaitError::CheckpointStreamError { error, .. }) => {
+                Err(RelayError::UpstreamAllFailed(UpstreamFailure::new(
+                    UpstreamFailureKind::Rpc,
+                    format!("{url}: checkpoint stream error after execution: {error}"),
+                )))
+            }
+            Err(ExecuteAndWaitError::RpcError(status)) => {
+                Err(RelayError::UpstreamAllFailed(UpstreamFailure::new(
+                    UpstreamFailureKind::Rpc,
+                    format!("{url}: {status}"),
+                )))
+            }
+            Err(ExecuteAndWaitError::MissingTransaction)
+            | Err(ExecuteAndWaitError::ProtoConversionError(_)) => {
+                Err(RelayError::UpstreamAllFailed(UpstreamFailure::new(
+                    UpstreamFailureKind::Rpc,
+                    format!("{url}: invalid transaction for execution"),
+                )))
+            }
+            Err(_) => Err(RelayError::UpstreamAllFailed(UpstreamFailure::new(
+                UpstreamFailureKind::Rpc,
+                format!("{url}: transaction execution failed"),
+            ))),
         }
     }
 
@@ -217,7 +232,9 @@ impl UpstreamSender {
         .into_iter()
         .flatten()
         .map(|obj| {
-            Ok(obj.contents().value
+            Ok(obj
+                .contents()
+                .value
                 .as_ref()
                 .ok_or_else(|| RelayError::Internal("feed entry has no bcs contents".into()))?
                 .to_vec())
@@ -233,7 +250,9 @@ impl UpstreamSender {
         let request = ListDynamicFieldsRequest::const_default()
             .with_parent(parent_id.to_string())
             .with_page_size(1000)
-            .with_read_mask(FieldMask::from_str("parent,field_id,name.value,child_id,value.value"));
+            .with_read_mask(FieldMask::from_str(
+                "parent,field_id,name.value,child_id,value.value",
+            ));
         let stream = client.list_dynamic_fields(request);
         let mut stream = Box::pin(stream);
         let mut results = Vec::new();

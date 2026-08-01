@@ -17,8 +17,8 @@ use app_state::AppState;
 use clap::Parser;
 use std::path::PathBuf;
 use sui_sdk_types::Address;
-use types::SendForm;
 use types::DecryptRequest;
+use types::SendForm;
 
 #[derive(Parser)]
 #[command(name = "ech-board-relay")]

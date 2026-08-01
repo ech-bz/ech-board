@@ -45,35 +45,23 @@ pub(crate) async fn handle(
         .await
         .map_err(|e| error::RelayError::SponsorBuild(format!("path[0] not a forum: {e}")))?;
 
-    let board = if req.path.len() >= 2 {
-        Some(
-            load_board(&state.upstream, req.path[1])
+    let board = (req.path.len() >= 2).then_some(
+        load_board(&state.upstream, req.path[1])
             .await
             .map_err(|e| error::RelayError::SponsorBuild(format!("path[1] not a board: {e}")))?,
-        )
-    } else {
-        None
-    };
+    );
 
-    let thread = if req.path.len() >= 3 {
-        Some(
-            load_thread(&state.upstream, req.path[2])
+    let thread = (req.path.len() >= 3).then_some(
+        load_thread(&state.upstream, req.path[2])
             .await
             .map_err(|e| error::RelayError::SponsorBuild(format!("path[2] not a thread: {e}")))?,
-        )
-    } else {
-        None
-    };
+    );
 
-    let _post = if req.path.len() >= 4 {
-        Some(
-            load_post(&state.upstream, req.path[3])
+    let _post = (req.path.len() >= 4).then_some(
+        load_post(&state.upstream, req.path[3])
             .await
             .map_err(|e| error::RelayError::SponsorBuild(format!("path[3] not a post: {e}")))?,
-        )
-    } else {
-        None
-    };
+    );
 
     let mut mods_table_ids = vec![forum.projection.mods.id];
     let mut bans_registry = &forum.projection.bans;
@@ -116,9 +104,8 @@ pub(crate) async fn handle(
         .ok_or_else(|| error::RelayError::SponsorBuild("kms decrypt: no plaintext".into()))?;
 
     let pt = plaintext.as_ref();
-    let chunks: [[u8; 32]; 4] = bcs::from_bytes(pt).map_err(|e| {
-        error::RelayError::SponsorBuild(format!("bcs decode hmac chunks: {e}"))
-    })?;
+    let chunks: [[u8; 32]; 4] = bcs::from_bytes(pt)
+        .map_err(|e| error::RelayError::SponsorBuild(format!("bcs decode hmac chunks: {e}")))?;
     let mask_bytes: [u8; 4] = [32, 24, 20, 16];
     let registries = [
         &bans_registry.ip32.entries.id,

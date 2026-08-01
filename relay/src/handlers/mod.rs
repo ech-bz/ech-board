@@ -35,6 +35,15 @@ pub(super) struct Feed {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub(super) struct Moderators {
+    pub(super) forum_mods: Vec<Address>,
+    pub(super) board_mods: Vec<Address>,
+    pub(super) thread_mods: Vec<Address>,
+    pub(super) forum_admin: Option<Address>,
+    pub(super) thread_admin: Option<Address>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub(super) struct ForumObject {
     pub(super) id: Address,
     pub(super) feed: Feed,
@@ -213,12 +222,38 @@ async fn load_root(
         .map_err(|e| crate::error::RelayError::Internal(format!("entity root {id} decode: {e}")))
 }
 
+async fn load_roots(
+    upstream: &crate::upstream::UpstreamSender,
+    ids: &[Address],
+) -> Result<Vec<EntityRoot>, crate::error::RelayError> {
+    let objects = upstream.fetch_objects(ids).await?;
+    ids.iter()
+        .zip(objects.into_iter())
+        .map(|(id, object)| {
+            object
+                .as_ref()
+                .ok_or_else(|| {
+                    crate::error::RelayError::Internal(format!("object {id} not found"))
+                })?
+                .contents()
+                .deserialize::<EntityRoot>()
+                .map_err(|e| {
+                    crate::error::RelayError::Internal(format!("entity root {id} decode: {e}"))
+                })
+        })
+        .collect()
+}
+
 pub(super) async fn load_forum(
     upstream: &crate::upstream::UpstreamSender,
     id: Address,
 ) -> Result<ForumObject, crate::error::RelayError> {
-    let root = load_root(upstream, id).await?;
-    let fields = DynamicFields::load(upstream, id).await?;
+    let (root, fields) = tokio::join!(
+        load_root(upstream, id),
+        DynamicFields::load(upstream, id),
+    );
+    let root = root?;
+    let fields = fields?;
     Ok(ForumObject {
         id,
         feed: root.entity.feed,
@@ -234,12 +269,11 @@ pub(super) async fn load_forum(
     })
 }
 
-pub(super) async fn load_board(
-    upstream: &crate::upstream::UpstreamSender,
+fn decode_board(
     id: Address,
+    root: EntityRoot,
+    fields: DynamicFields,
 ) -> Result<BoardObject, crate::error::RelayError> {
-    let root = load_root(upstream, id).await?;
-    let fields = DynamicFields::load(upstream, id).await?;
     Ok(BoardObject {
         id,
         feed: root.entity.feed,
@@ -261,12 +295,60 @@ pub(super) async fn load_board(
     })
 }
 
+pub(super) async fn load_board(
+    upstream: &crate::upstream::UpstreamSender,
+    id: Address,
+) -> Result<BoardObject, crate::error::RelayError> {
+    let (root, fields) = tokio::join!(
+        load_root(upstream, id),
+        DynamicFields::load(upstream, id),
+    );
+    decode_board(id, root?, fields?)
+}
+
+async fn load_board_from_root(
+    upstream: &crate::upstream::UpstreamSender,
+    id: Address,
+    root: EntityRoot,
+) -> Result<BoardObject, crate::error::RelayError> {
+    let fields = DynamicFields::load(upstream, id).await?;
+    decode_board(id, root, fields)
+}
+
+pub(super) async fn load_posts_and_board(
+    upstream: &crate::upstream::UpstreamSender,
+    post_ids: Vec<Address>,
+    board_id: Address,
+) -> Result<(Vec<PostObject>, BoardObject), crate::error::RelayError> {
+    let mut ids = post_ids.clone();
+    ids.push(board_id);
+    let mut roots = load_roots(upstream, &ids).await?.into_iter();
+    let board_root = roots.next_back().ok_or_else(|| {
+        crate::error::RelayError::Internal("load_posts_and_board: empty ids".to_string())
+    })?;
+    let board = load_board_from_root(upstream, board_id, board_root).await?;
+    let posts = futures::stream::iter(post_ids.into_iter().zip(roots).map(|(id, root)| async move {
+        let fields = DynamicFields::load(upstream, id).await?;
+        decode_post(id, root, fields)
+    }))
+    .buffer_unordered(16)
+    .collect::<Vec<_>>()
+    .await
+    .into_iter()
+    .collect::<Result<Vec<_>, crate::error::RelayError>>()?;
+    Ok((posts, board))
+}
+
 pub(super) async fn load_thread(
     upstream: &crate::upstream::UpstreamSender,
     id: Address,
 ) -> Result<ThreadObject, crate::error::RelayError> {
-    let root = load_root(upstream, id).await?;
-    let fields = DynamicFields::load(upstream, id).await?;
+    let (root, fields) = tokio::join!(
+        load_root(upstream, id),
+        DynamicFields::load(upstream, id),
+    );
+    let root = root?;
+    let fields = fields?;
     Ok(ThreadObject {
         id,
         feed: root.entity.feed,
@@ -288,12 +370,11 @@ pub(super) async fn load_thread(
     })
 }
 
-pub(super) async fn load_post(
-    upstream: &crate::upstream::UpstreamSender,
+fn decode_post(
     id: Address,
+    root: EntityRoot,
+    fields: DynamicFields,
 ) -> Result<PostObject, crate::error::RelayError> {
-    let root = load_root(upstream, id).await?;
-    let fields = DynamicFields::load(upstream, id).await?;
     let sender: Sender = fields.get(b"sender")?;
     Ok(PostObject {
         id,
@@ -310,6 +391,34 @@ pub(super) async fn load_post(
         },
         genesis: root.genesis,
     })
+}
+
+pub(super) async fn load_post(
+    upstream: &crate::upstream::UpstreamSender,
+    id: Address,
+) -> Result<PostObject, crate::error::RelayError> {
+    let (root, fields) = tokio::join!(
+        load_root(upstream, id),
+        DynamicFields::load(upstream, id),
+    );
+    decode_post(id, root?, fields?)
+}
+
+pub(super) async fn list_mods(
+    upstream: &crate::upstream::UpstreamSender,
+    mods_table_id: Address,
+) -> Result<Vec<Address>, crate::error::RelayError> {
+    let fields = upstream.list_dynamic_fields(mods_table_id).await?;
+    let mut mods = Vec::with_capacity(fields.len());
+    for (name_bytes, _, value) in fields {
+        if value.is_none() {
+            continue;
+        }
+        if let Ok(addr) = bcs::from_bytes::<Address>(&name_bytes) {
+            mods.push(addr);
+        }
+    }
+    Ok(mods)
 }
 
 pub(super) async fn fetch_content(
@@ -332,5 +441,7 @@ pub(super) async fn fetch_content(
 }
 
 pub(super) fn client_ip(req: &HttpRequest) -> Option<String> {
-    req.connection_info().realip_remote_addr().map(|s| s.to_string())
+    req.connection_info()
+        .realip_remote_addr()
+        .map(|s| s.to_string())
 }

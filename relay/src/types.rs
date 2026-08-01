@@ -109,9 +109,9 @@ pub(crate) struct DecryptRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum PostPart {
     Plain(String),
-    Bold(String),
-    Italic(String),
-    Code(String),
+    Bold(Vec<PostPart>),
+    Italic(Vec<PostPart>),
+    Code(Vec<PostPart>),
     ReplyTo(Address, Address),
     Secret {
         data_nonce: [u8; 12],

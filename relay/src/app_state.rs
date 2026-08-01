@@ -73,15 +73,13 @@ impl AppState {
                 aws_sdk_kms::Config::builder()
                     .behavior_version(aws_sdk_kms::config::BehaviorVersion::latest())
                     .region(aws_sdk_kms::config::Region::new(cfg.kms_region.clone()))
-                    .credentials_provider(
-                        aws_sdk_kms::config::Credentials::new(
-                            cfg.aws_access_key_id.clone(),
-                            cfg.aws_secret_access_key.clone(),
-                            None,
-                            None,
-                            "ech-board-relay",
-                        ),
-                    )
+                    .credentials_provider(aws_sdk_kms::config::Credentials::new(
+                        cfg.aws_access_key_id.clone(),
+                        cfg.aws_secret_access_key.clone(),
+                        None,
+                        None,
+                        "ech-board-relay",
+                    ))
                     .build(),
             ),
             kms_hmac: cfg.kms_hmac,

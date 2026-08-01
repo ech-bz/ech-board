@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use super::fetch_content;
-use super::{BoardObject, ForumObject, load_board, load_forum};
+use super::{BoardObject, ForumObject, Moderators, list_mods, load_board, load_forum};
 use crate::app_state::AppState;
 use crate::error::RelayError;
 use crate::types::ContentKind;
@@ -13,6 +13,7 @@ pub(crate) struct ForumView {
     pub(crate) forum: ForumObject,
     pub(crate) boards: Vec<BoardObject>,
     pub(crate) plain_text: HashMap<Address, Vec<u8>>,
+    pub(crate) moderators: Moderators,
 }
 
 pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
@@ -46,10 +47,19 @@ pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
     }
     let plain_text = fetch_content(&state.seaweed, ContentKind::PlainText, plain_text_hashes).await;
 
+    let moderators = Moderators {
+        forum_mods: list_mods(&state.upstream, forum_obj.projection.mods.id).await?,
+        board_mods: Vec::new(),
+        thread_mods: Vec::new(),
+        forum_admin: Some(forum_obj.projection.admin),
+        thread_admin: None,
+    };
+
     let response = ForumView {
         forum: forum_obj,
         boards,
         plain_text,
+        moderators,
     };
 
     bcs::to_bytes(&response).map_err(|e| RelayError::Internal(format!("bcs encode ForumView: {e}")))

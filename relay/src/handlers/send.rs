@@ -296,19 +296,18 @@ pub(crate) async fn handle_send(
     let (event_tag, event_payload) = split_event(&intent.payload)?;
     validate_target(&intent, event_tag)?;
     let payload_err = |e| error::RelayError::SponsorBuild(format!("failed to decode payload: {e}"));
-    let payload: Option<Box<dyn IntentPayload>> =
-        match (intent.function.as_str(), event_tag) {
-            ("forum_apply_intent_uid", "new_board") => Some(Box::new(
-                bcs::from_bytes::<NewBoardPayload>(event_payload).map_err(payload_err)?,
-            )),
-            ("board_apply_intent_uid", "new_thread") => Some(Box::new(
-                bcs::from_bytes::<NewThreadPayload>(event_payload).map_err(payload_err)?,
-            )),
-            ("board_apply_thread_intent_uid", "new_post") => Some(Box::new(
-                bcs::from_bytes::<NewPostPayload>(event_payload).map_err(payload_err)?,
-            )),
-            _ => None,
-        };
+    let payload: Option<Box<dyn IntentPayload>> = match (intent.function.as_str(), event_tag) {
+        ("forum_apply_intent_uid", "new_board") => Some(Box::new(
+            bcs::from_bytes::<NewBoardPayload>(event_payload).map_err(payload_err)?,
+        )),
+        ("board_apply_intent_uid", "new_thread") => Some(Box::new(
+            bcs::from_bytes::<NewThreadPayload>(event_payload).map_err(payload_err)?,
+        )),
+        ("board_apply_thread_intent_uid", "new_post") => Some(Box::new(
+            bcs::from_bytes::<NewPostPayload>(event_payload).map_err(payload_err)?,
+        )),
+        _ => None,
+    };
 
     if let Some(ref p) = payload {
         p.verify(

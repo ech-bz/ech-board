@@ -6,10 +6,8 @@ use serde::Serialize;
 use sui_sdk_types::Address;
 
 use super::fetch_content;
+use super::{BoardObject, Moderators, PostObject, ThreadObject, list_mods, load_board, load_post, load_thread};
 use crate::types::ContentKind;
-use super::{
-    BoardObject, PostObject, ThreadObject, load_board, load_post, load_thread,
-};
 
 const LIMIT: u64 = 20;
 
@@ -21,6 +19,7 @@ pub(crate) struct BoardView {
     pub(crate) text: HashMap<Address, Vec<u8>>,
     pub(crate) plain_text: HashMap<Address, Vec<u8>>,
     pub(crate) next_cursor: Option<u64>,
+    pub(crate) moderators: Moderators,
 }
 
 pub(crate) async fn fetch(
@@ -101,6 +100,14 @@ pub(crate) async fn fetch(
 
     let next_cursor = if start > 1 { Some(start) } else { None };
 
+    let moderators = Moderators {
+        forum_mods: list_mods(&state.upstream, state.forum.projection.mods.id).await?,
+        board_mods: list_mods(&state.upstream, board.projection.mods.id).await?,
+        thread_mods: Vec::new(),
+        forum_admin: Some(state.forum.projection.admin),
+        thread_admin: None,
+    };
+
     let response = BoardView {
         board,
         threads,
@@ -108,6 +115,7 @@ pub(crate) async fn fetch(
         text,
         plain_text,
         next_cursor,
+        moderators,
     };
 
     bcs::to_bytes(&response).map_err(|e| RelayError::Internal(format!("bcs encode BoardView: {e}")))

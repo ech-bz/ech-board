@@ -25,10 +25,7 @@ pub(crate) async fn fetch(
     let end = query.cursor.unwrap_or(query.counter + 1);
     let start = if end > LIMIT { end - LIMIT } else { 1 };
 
-    let mut items = state
-        .upstream
-        .fetch_feed_raw(feed_id, start, end)
-        .await?;
+    let mut items = state.upstream.fetch_feed_raw(feed_id, start, end).await?;
 
     items.reverse();
 

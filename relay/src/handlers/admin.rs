@@ -78,7 +78,19 @@ async fn moderator_action(
     );
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
-        .body(send::handle_send(&state, intent, signature, "0.0.0.0", None, None, None, vec![]).await?))
+        .body(
+            send::handle_send(
+                &state,
+                intent,
+                signature,
+                "0.0.0.0",
+                None,
+                None,
+                None,
+                vec![],
+            )
+            .await?,
+        ))
 }
 
 pub(crate) async fn add_moderator(
