@@ -27,6 +27,7 @@ trait IntentPayload: Send + Sync {
         text: &Option<MultipartBytes>,
         description: Option<&str>,
         topic: Option<&str>,
+        reason: Option<&str>,
         media_files: &[TempFile],
         intent: &Intent,
     ) -> Result<(), error::RelayError>;
@@ -52,6 +53,7 @@ impl IntentPayload for NewBoardPayload {
         _text: &Option<MultipartBytes>,
         description: Option<&str>,
         _topic: Option<&str>,
+        _reason: Option<&str>,
         _media_files: &[TempFile],
         _intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -81,6 +83,7 @@ impl IntentPayload for NewThreadPayload {
         text: &Option<MultipartBytes>,
         _description: Option<&str>,
         topic: Option<&str>,
+        _reason: Option<&str>,
         media_files: &[TempFile],
         intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -128,6 +131,7 @@ impl IntentPayload for NewPostPayload {
         text: &Option<MultipartBytes>,
         _description: Option<&str>,
         _topic: Option<&str>,
+        _reason: Option<&str>,
         media_files: &[TempFile],
         intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -143,6 +147,134 @@ impl IntentPayload for NewPostPayload {
     }
     async fn cleanup(&self, state: &AppState) {
         cleanup_content(state, &self.text_hash, &self.media_hashes).await
+    }
+}
+
+#[derive(Deserialize)]
+struct SetTextPayload {
+    text_hash: Option<Address>,
+}
+
+#[async_trait]
+impl IntentPayload for SetTextPayload {
+    async fn verify(
+        &self,
+        state: &AppState,
+        text: &Option<MultipartBytes>,
+        _description: Option<&str>,
+        _topic: Option<&str>,
+        _reason: Option<&str>,
+        _media_files: &[TempFile],
+        intent: &Intent,
+    ) -> Result<(), error::RelayError> {
+        verify_content(
+            state,
+            text,
+            &[],
+            intent.objects[3].id,
+            &self.text_hash,
+            &[],
+        )
+        .await
+    }
+    async fn cleanup(&self, state: &AppState) {
+        if let Some(hash) = &self.text_hash {
+            let _ = state.seaweed.delete(ContentKind::Text, hash).await;
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct SetTopicPayload {
+    topic_hash: Option<Address>,
+}
+
+#[async_trait]
+impl IntentPayload for SetTopicPayload {
+    async fn verify(
+        &self,
+        state: &AppState,
+        _text: &Option<MultipartBytes>,
+        _description: Option<&str>,
+        topic: Option<&str>,
+        _reason: Option<&str>,
+        _media_files: &[TempFile],
+        _intent: &Intent,
+    ) -> Result<(), error::RelayError> {
+        if let Some(t) = topic {
+            if t.len() > 150 {
+                return Err(error::RelayError::SponsorBuild(
+                    "topic exceeds 150 chars".into(),
+                ));
+            }
+        }
+        verify_plaintext(state, &self.topic_hash, topic).await
+    }
+    async fn cleanup(&self, state: &AppState) {
+        if let Some(hash) = &self.topic_hash {
+            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct SetDescriptionPayload {
+    description_hash: Option<Address>,
+}
+
+#[async_trait]
+impl IntentPayload for SetDescriptionPayload {
+    async fn verify(
+        &self,
+        state: &AppState,
+        _text: &Option<MultipartBytes>,
+        description: Option<&str>,
+        _topic: Option<&str>,
+        _reason: Option<&str>,
+        _media_files: &[TempFile],
+        _intent: &Intent,
+    ) -> Result<(), error::RelayError> {
+        verify_plaintext(state, &self.description_hash, description).await
+    }
+    async fn cleanup(&self, state: &AppState) {
+        if let Some(hash) = &self.description_hash {
+            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct BanPayload {
+    #[allow(dead_code)]
+    level: Address,
+    #[allow(dead_code)]
+    mask: u8,
+    #[allow(dead_code)]
+    ip_hash: Address,
+    reason_hash: Address,
+    #[allow(dead_code)]
+    expires: u64,
+}
+
+#[async_trait]
+impl IntentPayload for BanPayload {
+    async fn verify(
+        &self,
+        state: &AppState,
+        _text: &Option<MultipartBytes>,
+        _description: Option<&str>,
+        _topic: Option<&str>,
+        reason: Option<&str>,
+        _media_files: &[TempFile],
+        _intent: &Intent,
+    ) -> Result<(), error::RelayError> {
+        if let Some(reason) = reason {
+            verify_plaintext(state, &Some(self.reason_hash), Some(reason)).await?;
+        }
+        Ok(())
+    }
+    async fn cleanup(&self, state: &AppState) {
+        let _ = state.seaweed.delete(ContentKind::PlainText, &self.reason_hash).await;
     }
 }
 
@@ -291,6 +423,7 @@ pub(crate) async fn handle_send(
     text: Option<MultipartBytes>,
     description: Option<String>,
     topic: Option<String>,
+    reason: Option<String>,
     media_files: Vec<TempFile>,
 ) -> Result<Vec<u8>, error::RelayError> {
     let (event_tag, event_payload) = split_event(&intent.payload)?;
@@ -306,6 +439,20 @@ pub(crate) async fn handle_send(
         ("board_apply_thread_intent_uid", "new_post") => Some(Box::new(
             bcs::from_bytes::<NewPostPayload>(event_payload).map_err(payload_err)?,
         )),
+        ("post_apply_intent_uid", "set_text") => Some(Box::new(
+            bcs::from_bytes::<SetTextPayload>(event_payload).map_err(payload_err)?,
+        )),
+        ("thread_apply_intent_uid", "set_topic") => Some(Box::new(
+            bcs::from_bytes::<SetTopicPayload>(event_payload).map_err(payload_err)?,
+        )),
+        ("board_apply_intent_uid", "set_description") => Some(Box::new(
+            bcs::from_bytes::<SetDescriptionPayload>(event_payload).map_err(payload_err)?,
+        )),
+        ("forum_apply_post_intent_uid", "ban")
+        | ("board_apply_post_intent_uid", "ban")
+        | ("thread_apply_post_intent_uid", "ban") => Some(Box::new(
+            bcs::from_bytes::<BanPayload>(event_payload).map_err(payload_err)?,
+        )),
         _ => None,
     };
 
@@ -315,6 +462,7 @@ pub(crate) async fn handle_send(
             &text,
             description.as_deref(),
             topic.as_deref(),
+            reason.as_deref(),
             &media_files,
             &intent,
         )

@@ -59,6 +59,7 @@ pub(crate) struct SendForm {
     pub(crate) text: Option<MultipartBytes>,
     pub(crate) description: Option<Text<String>>,
     pub(crate) topic: Option<Text<String>>,
+    pub(crate) reason: Option<Text<String>>,
     pub(crate) media: Vec<TempFile>,
 }
 

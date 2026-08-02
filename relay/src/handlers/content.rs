@@ -23,7 +23,7 @@ pub(crate) async fn fetch(
     let thread = load_thread(&state.upstream, thread_uid)
         .await
         .map_err(actix_web::Error::from)?;
-    if thread.projection.deleted || thread.projection.closed {
+    if thread.projection.deleted {
         return Ok(HttpResponse::NotFound().finish());
     }
 

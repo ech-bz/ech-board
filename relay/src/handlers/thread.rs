@@ -31,10 +31,15 @@ pub(crate) async fn fetch(state: &AppState, thread_uid: Address) -> Result<Vec<u
     let (mut posts, board) =
         load_posts_and_board(&state.upstream, post_ids, thread.projection.board).await?;
 
+    if thread.projection.deleted || board.projection.deleted {
+        return Err(RelayError::NotFound("thread or board deleted".into()));
+    }
+
     posts.sort_by_key(|p| p.projection.number);
 
     let text_hashes: HashSet<Address> = posts
         .iter()
+        .filter(|p| !p.projection.deleted)
         .filter_map(|p| p.projection.text_hash)
         .collect();
     let text = fetch_content(&state.seaweed, ContentKind::Text, text_hashes).await;

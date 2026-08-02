@@ -64,6 +64,8 @@ pub enum RelayError {
     SponsorBuild(String),
     #[error("internal error: {0}")]
     Internal(String),
+    #[error("not found: {0}")]
+    NotFound(String),
 }
 
 impl RelayError {
@@ -82,6 +84,7 @@ impl ResponseError for RelayError {
             RelayError::UpstreamAllFailed(_) => StatusCode::BAD_GATEWAY,
             RelayError::CaptchaRequest(_) | RelayError::CaptchaDecode(_) => StatusCode::BAD_GATEWAY,
             RelayError::SponsorBuild(_) => StatusCode::BAD_REQUEST,
+            RelayError::NotFound(_) => StatusCode::NOT_FOUND,
             RelayError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
             RelayError::ConfigInvalid(_) => StatusCode::INTERNAL_SERVER_ERROR,
             RelayError::SponsorConfig(_) => StatusCode::INTERNAL_SERVER_ERROR,

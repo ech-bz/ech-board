@@ -1,10 +1,12 @@
 pub(crate) mod admin;
+pub(crate) mod bans;
 pub(crate) mod board;
 pub(crate) mod content;
 pub(crate) mod decrypt;
 pub(crate) mod feed;
 pub(crate) mod forum;
 pub(crate) mod nonce;
+pub(crate) mod post;
 pub(crate) mod send;
 pub(crate) mod thread;
 
@@ -15,6 +17,7 @@ use futures::StreamExt;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 use sui_sdk_types::Address;
 
 #[derive(Deserialize)]
@@ -80,6 +83,7 @@ pub(super) struct BoardProjection {
     pub(super) ignore_forum_bans: bool,
     pub(super) mods: Table,
     pub(super) bans: Bans,
+    pub(super) reactions: Vec<Address>,
     pub(super) threads: Table,
     pub(super) posts: Table,
     pub(super) bumps: Feed,
@@ -124,6 +128,13 @@ pub(super) struct Sender {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub(super) struct BanKey {
+    pub(super) level: Address,
+    pub(super) mask: u8,
+    pub(super) ip_hash: Address,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub(super) struct PostProjection {
     pub(super) thread: Address,
     pub(super) number: u64,
@@ -131,6 +142,7 @@ pub(super) struct PostProjection {
     pub(super) uid: Vec<u8>,
     pub(super) timestamp_ms: u64,
     pub(super) deleted: bool,
+    pub(super) banned: Option<BanKey>,
     pub(super) text_hash: Option<Address>,
     pub(super) media_hashes: Vec<Address>,
 }
@@ -287,6 +299,7 @@ fn decode_board(
             ignore_forum_bans: fields.get(b"ignore_forum_bans")?,
             mods: fields.get(b"moderators")?,
             bans: fields.get(b"bans")?,
+            reactions: fields.get(b"reactions")?,
             threads: fields.get(b"threads")?,
             posts: fields.get(b"posts")?,
             bumps: fields.get(b"bumps")?,
@@ -386,6 +399,7 @@ fn decode_post(
             uid: fields.get(b"uid")?,
             timestamp_ms: fields.get(b"timestamp_ms")?,
             deleted: fields.get(b"deleted")?,
+            banned: fields.get(b"banned")?,
             text_hash: fields.get(b"text_hash")?,
             media_hashes: fields.get(b"media_hashes")?,
         },
@@ -427,10 +441,17 @@ pub(super) async fn fetch_content(
     hashes: HashSet<Address>,
 ) -> HashMap<Address, Vec<u8>> {
     futures::stream::iter(hashes.into_iter().map(|addr| async move {
-        match seaweed.get(kind, &addr).await {
-            Ok(Some(data)) => Some((addr, data)),
-            _ => None,
+        for attempt in 0..3 {
+            match seaweed.get(kind, &addr).await {
+                Ok(Some(data)) => return Some((addr, data)),
+                Ok(None) => return None,
+                Err(_) if attempt < 2 => {
+                    tokio::time::sleep(Duration::from_millis(50 * (attempt + 1))).await;
+                }
+                Err(_) => return None,
+            }
         }
+        None
     }))
     .buffer_unordered(32)
     .collect::<Vec<_>>()

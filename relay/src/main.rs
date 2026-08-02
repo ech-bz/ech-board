@@ -47,8 +47,10 @@ async fn main() -> std::io::Result<()> {
             .service(forum_handler)
             .service(board_handler)
             .service(thread_handler)
+            .service(post_handler)
             .service(content_handler)
             .service(feed_handler)
+            .service(bans_handler)
             .service(healthz)
             .service(decrypt_handler)
     })
@@ -121,6 +123,16 @@ async fn thread_handler(
         .body(handlers::thread::fetch(&state, path.into_inner()).await?))
 }
 
+#[get("/post/{uid}")]
+async fn post_handler(
+    state: web::Data<AppState>,
+    path: web::Path<Address>,
+) -> Result<HttpResponse, error::RelayError> {
+    Ok(HttpResponse::Ok()
+        .content_type("application/octet-stream")
+        .body(handlers::post::fetch(&state, path.into_inner()).await?))
+}
+
 #[get("/feed/{uid}")]
 async fn feed_handler(
     state: web::Data<AppState>,
@@ -130,6 +142,17 @@ async fn feed_handler(
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
         .body(handlers::feed::fetch(&state, path.into_inner(), query.into_inner()).await?))
+}
+
+#[get("/bans/{uid}")]
+async fn bans_handler(
+    state: web::Data<AppState>,
+    path: web::Path<Address>,
+    query: web::Query<handlers::Pagination>,
+) -> Result<HttpResponse, error::RelayError> {
+    Ok(HttpResponse::Ok()
+        .content_type("application/octet-stream")
+        .body(handlers::bans::fetch(&state, path.into_inner(), query.cursor).await?))
 }
 
 #[post("/decrypt")]
@@ -169,6 +192,7 @@ async fn send(
                 form.text,
                 form.description.map(|t| t.into_inner()),
                 form.topic.map(|t| t.into_inner()),
+                form.reason.map(|t| t.into_inner()),
                 form.media,
             )
             .await?,

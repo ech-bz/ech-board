@@ -41,7 +41,7 @@ pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
 
     let mut plain_text_hashes = HashSet::new();
     for board in &boards {
-        if let Some(h) = board.projection.description_hash {
+        if let Some(h) = board.projection.description_hash && !board.projection.deleted {
             plain_text_hashes.insert(h);
         }
     }

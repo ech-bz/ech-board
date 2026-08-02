@@ -29,6 +29,10 @@ pub(crate) async fn fetch(
 ) -> Result<Vec<u8>, RelayError> {
     let board = load_board(&state.upstream, board_uid).await?;
 
+    if board.projection.deleted {
+        return Err(RelayError::NotFound("board deleted".into()));
+    }
+
     let end = cursor.unwrap_or(board.projection.bumps.counter + 1);
     let start = if end > LIMIT { end - LIMIT } else { 1 };
 
@@ -80,9 +84,13 @@ pub(crate) async fn fetch(
         pi += take;
     }
 
+    let deleted_threads: HashSet<Address> =
+        threads.iter().filter(|t| t.projection.deleted).map(|t| t.id).collect();
     let text_hashes: HashSet<Address> = last_3
-        .values()
-        .flat_map(|posts| posts.iter())
+        .iter()
+        .filter(|(tid, _)| !deleted_threads.contains(tid))
+        .flat_map(|(_, posts)| posts.iter())
+        .filter(|p| !p.projection.deleted)
         .filter_map(|p| p.projection.text_hash)
         .collect();
     let text = fetch_content(&state.seaweed, ContentKind::Text, text_hashes).await;
@@ -92,6 +100,9 @@ pub(crate) async fn fetch(
         plain_text_hashes.insert(h);
     }
     for thread in &threads {
+        if thread.projection.deleted {
+            continue;
+        }
         if let Some(h) = thread.projection.topic_hash {
             plain_text_hashes.insert(h);
         }
