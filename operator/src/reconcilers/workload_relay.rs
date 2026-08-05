@@ -1,9 +1,9 @@
 use crate::config::OperatorSettings;
+use crate::crds::{EchBoardNetwork, ExternalSecret};
+use crate::error::Result;
 use crate::reconcilers::fullnode_rpc::FullnodeRpcComponent;
 use crate::reconcilers::key_node::KeySponsorComponent;
 use crate::reconcilers::move_publish::MovePackageComponent;
-use crate::crds::{EchBoardNetwork, ExternalSecret};
-use crate::error::Result;
 use crate::support::extensions::{
     DeploymentExt, ExternalSecretExt, HeadlessServiceExt, ReadyReplicasExt,
 };
@@ -164,16 +164,14 @@ impl Reconciler for WorkloadRelayReconciler {
                 &[(TRIPCODE_KEY, Some(TRIPCODE_KEY))],
             )
             .await?;
-        let tripcode_key = client
+        let key_tripcode = client
             .namespaced::<Secret>(&ns)
             .store_load(KeyTripcodeComponent.name(&owner))
             .await?;
-        let secure_tripcode_key = tripcode_key
+        let secure_tripcode_key = key_tripcode
             .get(TRIPCODE_KEY)
             .map_err(|e| {
-                crate::error::OperatorError::ControllerFatal(format!(
-                    "key-tripcode not found: {e}"
-                ))
+                crate::error::OperatorError::ControllerFatal(format!("key-tripcode not found: {e}"))
             })?
             .to_string();
 
