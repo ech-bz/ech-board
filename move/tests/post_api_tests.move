@@ -4,6 +4,7 @@ module forum::post_api_tests;
 use forum::board::{Self, Board};
 use forum::forum::{Self, Forum};
 use forum::post::{Self, Post};
+use forum::responses::{Self, Responses};
 use forum::sender::{Self, Sender};
 use forum::thread::{Self, Thread};
 use std::ascii;
@@ -21,6 +22,14 @@ fun actor(pk: u256): Sender {
     sender::new(pk, 0)
 }
 
+fun uid(value: vector<u8>): Responses {
+    responses::new(option::some(value), option::none(), option::none(), option::none())
+}
+
+fun uid_ip(value: vector<u8>, ip32: u256): Responses {
+    responses::new(option::some(value), option::some(ip32), option::none(), option::none())
+}
+
 fun fixture(
     ctx: &mut TxContext,
     text_hash: Option<u256>,
@@ -28,24 +37,25 @@ fun fixture(
     vote_keys: vector<u256>,
 ): (Forum, Board, Thread, Post, Clock) {
     let admin = actor(ADMIN_PK);
-    let mut forum = forum::new(ctx, admin, b"forum", admin.addr());
-    let board = board::new(ctx, admin, b"board", ascii::string(b"test"));
+    let mut forum = forum::new(ctx, uid(b"forum"), admin, admin.addr());
+    let board = board::new(ctx, uid(b"board"), admin, ascii::string(b"test"));
     forum.boards_mut().add(ascii::string(b"test"), board.id());
     let thread = thread::new(
         ctx,
+        uid(b"thread"),
         admin,
-        b"thread",
         board.id(),
         1,
         option::none(),
     );
     let post = post::new(
         ctx,
+        uid(b"post"),
         actor(AUTHOR_PK),
-        b"post",
         thread.id(),
         1,
         0,
+        option::none(),
         text_hash,
         media_hashes,
         vote_keys,
@@ -65,34 +75,41 @@ fun finish(forum: Forum, board: Board, thread: Thread, post: Post, clock: Clock)
 #[test]
 fun post_uid_allowed_events_for_author() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, clock) =
-        fixture(&mut ctx, option::some(1), vector[10, 11], vector[]);
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[10, 11],
+        vector[],
+    );
     let author = actor(AUTHOR_PK);
 
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_text(author, b"1", option::some(2)),
+        post::set_text(uid(b"1"), author, option::some(2)),
     );
     assert!(*post.text_hash() == option::some(2));
 
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::remove_media(author, b"2", vector[10]),
+        post::remove_media(uid(b"2"), author, vector[10]),
     );
     assert!(post.media_hashes() == &vector[11]);
 
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_deleted(author, b"3", true),
+        post::set_deleted(uid(b"3"), author, true),
     );
     assert!(*post.deleted());
 
@@ -102,14 +119,19 @@ fun post_uid_allowed_events_for_author() {
 #[test]
 fun post_set_text_none_auto_deletes_empty_post() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[]);
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[],
+    );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_text(actor(AUTHOR_PK), b"1", option::none()),
+        post::set_text(uid(b"1"), actor(AUTHOR_PK), option::none()),
     );
     assert!(post.text_hash().is_none());
     assert!(*post.deleted());
@@ -119,14 +141,19 @@ fun post_set_text_none_auto_deletes_empty_post() {
 #[test]
 fun post_remove_last_media_auto_deletes_empty_post() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, clock) =
-        fixture(&mut ctx, option::none(), vector[10], vector[]);
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::none(),
+        vector[10],
+        vector[],
+    );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::remove_media(actor(AUTHOR_PK), b"1", vector[10]),
+        post::remove_media(uid(b"1"), actor(AUTHOR_PK), vector[10]),
     );
     assert!(post.media_hashes().is_empty());
     assert!(*post.deleted());
@@ -136,22 +163,27 @@ fun post_remove_last_media_auto_deletes_empty_post() {
 #[test]
 fun board_moderator_can_edit_after_self_moderation_window() {
     let mut ctx = tx_context::dummy();
-    let (forum, mut board, thread, mut post, mut clock) =
-        fixture(&mut ctx, option::some(1), vector[10], vector[]);
+    let (forum, mut board, thread, mut post, mut clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[10],
+        vector[],
+    );
     let board_mod = actor(BOARD_MOD_PK);
     board.apply(
         &mut ctx,
         &clock,
         &forum,
-        board::add_moderator(actor(ADMIN_PK), b"1", board_mod.addr()),
+        board::add_moderator(uid(b"1"), actor(ADMIN_PK), board_mod.addr()),
     );
     clock.set_for_testing(600_001);
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_text(board_mod, b"2", option::some(2)),
+        post::set_text(uid(b"2"), board_mod, option::some(2)),
     );
     assert!(*post.text_hash() == option::some(2));
     finish(forum, board, thread, post, clock);
@@ -160,21 +192,27 @@ fun board_moderator_can_edit_after_self_moderation_window() {
 #[test]
 fun thread_moderator_can_edit_after_self_moderation_window() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, mut thread, mut post, mut clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[]);
+    let (forum, board, mut thread, mut post, mut clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[],
+    );
     let thread_mod = actor(THREAD_MOD_PK);
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::add_moderator(actor(ADMIN_PK), b"1", thread_mod.addr()),
+        thread::add_moderator(uid(b"1"), actor(ADMIN_PK), thread_mod.addr()),
     );
     clock.set_for_testing(600_001);
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_text(thread_mod, b"2", option::some(2)),
+        post::set_text(uid(b"2"), thread_mod, option::some(2)),
     );
     assert!(*post.text_hash() == option::some(2));
     finish(forum, board, thread, post, clock);
@@ -183,14 +221,19 @@ fun thread_moderator_can_edit_after_self_moderation_window() {
 #[test]
 fun empty_post_can_be_deleted_by_any_user() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, clock) =
-        fixture(&mut ctx, option::none(), vector[], vector[]);
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::none(),
+        vector[],
+        vector[],
+    );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_deleted(actor(USER_PK), b"1", true),
+        post::set_deleted(uid(b"1"), actor(USER_PK), true),
     );
     assert!(*post.deleted());
     finish(forum, board, thread, post, clock);
@@ -199,48 +242,56 @@ fun empty_post_can_be_deleted_by_any_user() {
 #[test]
 fun post_reaction_add_toggle_and_change() {
     let mut ctx = tx_context::dummy();
-    let (forum, mut board, thread, mut post, clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[]);
+    let (forum, mut board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[],
+    );
     let admin = actor(ADMIN_PK);
     let user = actor(USER_PK);
     board.apply(
         &mut ctx,
         &clock,
         &forum,
-        board::set_reactions(admin, b"1", vector[100, 101]),
+        board::set_reactions(uid(b"1"), admin, vector[100, 101]),
     );
 
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_reaction(user, b"2", 500, 100),
+        post::set_reaction(uid_ip(b"2", 500), user, 100),
     );
     assert!(post.reactions()[&100] == 1);
 
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_reaction(user, b"3", 500, 100),
+        post::set_reaction(uid_ip(b"3", 500), user, 100),
     );
     assert!(!post.reactions().contains(&100));
 
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_reaction(user, b"4", 500, 100),
+        post::set_reaction(uid_ip(b"4", 500), user, 100),
     );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_reaction(user, b"5", 500, 101),
+        post::set_reaction(uid_ip(b"5", 500), user, 101),
     );
     assert!(!post.reactions().contains(&100));
     assert!(post.reactions()[&101] == 1);
@@ -251,14 +302,19 @@ fun post_reaction_add_toggle_and_change() {
 #[test]
 fun post_vote_allowed_event() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[200]);
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[200],
+    );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::vote(actor(USER_PK), b"1", 500, 200),
+        post::vote(uid_ip(b"1", 500), actor(USER_PK), 200),
     );
     assert!(post.votes()[&200] == 1);
     finish(forum, board, thread, post, clock);
@@ -268,15 +324,20 @@ fun post_vote_allowed_event() {
 #[expected_failure(abort_code = 14)]
 fun post_author_cannot_edit_after_self_moderation_window() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, mut clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[]);
+    let (forum, board, thread, mut post, mut clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[],
+    );
     clock.set_for_testing(600_001);
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_text(actor(AUTHOR_PK), b"1", option::some(2)),
+        post::set_text(uid(b"1"), actor(AUTHOR_PK), option::some(2)),
     );
     abort
 }
@@ -285,14 +346,19 @@ fun post_author_cannot_edit_after_self_moderation_window() {
 #[expected_failure(abort_code = 14)]
 fun post_other_user_cannot_edit() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[]);
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[],
+    );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_deleted(actor(USER_PK), b"1", true),
+        post::set_deleted(uid(b"1"), actor(USER_PK), true),
     );
     abort
 }
@@ -301,14 +367,19 @@ fun post_other_user_cannot_edit() {
 #[expected_failure(abort_code = 16)]
 fun post_rejects_unconfigured_reaction() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[]);
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[],
+    );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_reaction(actor(USER_PK), b"1", 500, 100),
+        post::set_reaction(uid_ip(b"1", 500), actor(USER_PK), 100),
     );
     abort
 }
@@ -317,14 +388,19 @@ fun post_rejects_unconfigured_reaction() {
 #[expected_failure(abort_code = 16)]
 fun post_rejects_unknown_vote_option() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[200]);
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[200],
+    );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::vote(actor(USER_PK), b"1", 500, 201),
+        post::vote(uid_ip(b"1", 500), actor(USER_PK), 201),
     );
     abort
 }
@@ -333,22 +409,28 @@ fun post_rejects_unknown_vote_option() {
 #[expected_failure(abort_code = 17)]
 fun post_rejects_duplicate_vote_by_ip() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[200]);
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[200],
+    );
     let user = actor(USER_PK);
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::vote(user, b"1", 500, 200),
+        post::vote(uid_ip(b"1", 500), user, 200),
     );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::vote(user, b"2", 500, 200),
+        post::vote(uid_ip(b"2", 500), user, 200),
     );
     abort
 }
@@ -357,27 +439,33 @@ fun post_rejects_duplicate_vote_by_ip() {
 #[expected_failure(abort_code = 14)]
 fun post_rejects_reaction_takeover_by_same_ip() {
     let mut ctx = tx_context::dummy();
-    let (forum, mut board, thread, mut post, clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[]);
+    let (forum, mut board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[],
+    );
     board.apply(
         &mut ctx,
         &clock,
         &forum,
-        board::set_reactions(actor(ADMIN_PK), b"1", vector[100]),
+        board::set_reactions(uid(b"1"), actor(ADMIN_PK), vector[100]),
     );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_reaction(actor(USER_PK), b"2", 500, 100),
+        post::set_reaction(uid_ip(b"2", 500), actor(USER_PK), 100),
     );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::set_reaction(actor(OTHER_USER_PK), b"3", 500, 100),
+        post::set_reaction(uid_ip(b"3", 500), actor(OTHER_USER_PK), 100),
     );
     abort
 }
@@ -386,22 +474,28 @@ fun post_rejects_reaction_takeover_by_same_ip() {
 #[expected_failure(abort_code = 17)]
 fun post_rejects_duplicate_vote_by_sender_on_different_ip() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[200]);
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[200],
+    );
     let user = actor(USER_PK);
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::vote(user, b"1", 500, 200),
+        post::vote(uid_ip(b"1", 500), user, 200),
     );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &thread,
-        post::vote(user, b"2", 501, 200),
+        post::vote(uid_ip(b"2", 501), user, 200),
     );
     abort
 }
@@ -410,22 +504,27 @@ fun post_rejects_duplicate_vote_by_sender_on_different_ip() {
 #[expected_failure(abort_code = 15)]
 fun post_rejects_thread_cross_reference_mismatch() {
     let mut ctx = tx_context::dummy();
-    let (forum, board, _thread, mut post, clock) =
-        fixture(&mut ctx, option::some(1), vector[], vector[]);
+    let (forum, board, _thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[],
+        vector[],
+    );
     let wrong_thread = thread::new(
         &mut ctx,
+        uid(b"wrong"),
         actor(ADMIN_PK),
-        b"wrong",
         board.id(),
         2,
         option::none(),
     );
     post.apply(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &wrong_thread,
-        post::set_text(actor(AUTHOR_PK), b"1", option::some(2)),
+        post::set_text(uid(b"1"), actor(AUTHOR_PK), option::some(2)),
     );
     abort
 }

@@ -5,6 +5,7 @@ use forum::bans;
 use forum::board;
 use forum::forum::{Self, Forum};
 use forum::post;
+use forum::responses::{Self, Responses};
 use forum::sender::{Self, Sender};
 use forum::thread;
 use std::ascii;
@@ -18,9 +19,13 @@ fun actor(pk: u256): Sender {
     sender::new(pk, 0)
 }
 
+fun uid(value: vector<u8>): Responses {
+    responses::new(option::some(value), option::none(), option::none(), option::none())
+}
+
 fun fixture(ctx: &mut TxContext): Forum {
     let admin = actor(ADMIN_PK);
-    forum::new(ctx, admin, b"genesis", admin.addr())
+    forum::new(ctx, uid(b"genesis"), admin, admin.addr())
 }
 
 #[test]
@@ -34,14 +39,14 @@ fun forum_admin_allowed_events() {
     forum.apply(
         &mut ctx,
         &clock,
-        forum::add_moderator(admin, b"1", moderator),
+        forum::add_moderator(uid(b"1"), admin, moderator),
     );
     assert!(forum.mods().contains(moderator));
 
     forum.apply(
         &mut ctx,
         &clock,
-        forum::del_moderator(admin, b"2", moderator),
+        forum::del_moderator(uid(b"2"), admin, moderator),
     );
     assert!(!forum.mods().contains(moderator));
 
@@ -49,14 +54,14 @@ fun forum_admin_allowed_events() {
     forum.apply(
         &mut ctx,
         &clock,
-        forum::new_board(admin, b"3", copy slug, 4, 100, option::some(11)),
+        forum::new_board(uid(b"3"), admin, copy slug, 4, 100, option::some(11)),
     );
     assert!(forum.boards().contains(slug));
 
     forum.apply(
         &mut ctx,
         &clock,
-        forum::set_timestamp_precision(admin, b"4", 60_000),
+        forum::set_timestamp_precision(uid(b"4"), admin, 60_000),
     );
     assert!(*forum.timestamp_precision() == 60_000);
 
@@ -75,18 +80,18 @@ fun forum_moderator_can_create_board_and_set_precision() {
     forum.apply(
         &mut ctx,
         &clock,
-        forum::add_moderator(admin, b"1", moderator.addr()),
+        forum::add_moderator(uid(b"1"), admin, moderator.addr()),
     );
     let slug = ascii::string(b"modboard");
     forum.apply(
         &mut ctx,
         &clock,
-        forum::new_board(moderator, b"2", copy slug, 1, 10, option::none()),
+        forum::new_board(uid(b"2"), moderator, copy slug, 1, 10, option::none()),
     );
     forum.apply(
         &mut ctx,
         &clock,
-        forum::set_timestamp_precision(moderator, b"3", 1_000),
+        forum::set_timestamp_precision(uid(b"3"), moderator, 1_000),
     );
 
     assert!(forum.boards().contains(slug));
@@ -108,12 +113,12 @@ fun forum_moderator_cannot_add_moderator() {
     forum.apply(
         &mut ctx,
         &clock,
-        forum::add_moderator(admin, b"1", moderator.addr()),
+        forum::add_moderator(uid(b"1"), admin, moderator.addr()),
     );
     forum.apply(
         &mut ctx,
         &clock,
-        forum::add_moderator(moderator, b"2", actor(USER_PK).addr()),
+        forum::add_moderator(uid(b"2"), moderator, actor(USER_PK).addr()),
     );
 
     abort
@@ -129,8 +134,8 @@ fun forum_user_cannot_create_board() {
         &mut ctx,
         &clock,
         forum::new_board(
+            uid(b"1"),
             actor(USER_PK),
-            b"1",
             ascii::string(b"forbidden"),
             1,
             10,
@@ -150,7 +155,7 @@ fun forum_user_cannot_set_timestamp_precision() {
     forum.apply(
         &mut ctx,
         &clock,
-        forum::set_timestamp_precision(actor(USER_PK), b"1", 1_000),
+        forum::set_timestamp_precision(uid(b"1"), actor(USER_PK), 1_000),
     );
 
     abort
@@ -166,8 +171,8 @@ fun forum_rejects_invalid_board_slug() {
         &mut ctx,
         &clock,
         forum::new_board(
+            uid(b"1"),
             actor(ADMIN_PK),
-            b"1",
             ascii::string(b"INVALID"),
             1,
             10,
@@ -185,26 +190,27 @@ fun forum_post_ban_unban_allowed_events() {
     let mut forum = fixture(&mut ctx);
     let board = board::new(
         &mut ctx,
+        uid(b"board"),
         admin,
-        b"board",
         ascii::string(b"test"),
     );
     forum.boards_mut().add(ascii::string(b"test"), board.id());
     let thread = thread::new(
         &mut ctx,
+        uid(b"thread"),
         admin,
-        b"thread",
         board.id(),
         1,
         option::none(),
     );
     let mut post = post::new(
         &mut ctx,
+        uid(b"post"),
         admin,
-        b"post",
         thread.id(),
         1,
         0,
+        option::none(),
         option::some(7),
         vector[],
         vector[],
@@ -213,20 +219,22 @@ fun forum_post_ban_unban_allowed_events() {
     let key = bans::key(forum.id(), 32, 77);
 
     forum.apply_post(
+        &mut ctx,
         &clock,
         &board,
         &thread,
         &mut post,
-        forum::ban(admin, b"1", key, bans::value(9, 100)),
+        forum::ban(uid(b"1"), admin, key, bans::value(9, 100)),
     );
     assert!(post.banned().borrow() == key);
 
     forum.apply_post(
+        &mut ctx,
         &clock,
         &board,
         &thread,
         &mut post,
-        forum::unban(admin, b"2", key),
+        forum::unban(uid(b"2"), admin, key),
     );
     assert!(post.banned().is_none());
 
@@ -245,26 +253,27 @@ fun forum_post_ban_rejects_user() {
     let mut forum = fixture(&mut ctx);
     let board = board::new(
         &mut ctx,
+        uid(b"board"),
         admin,
-        b"board",
         ascii::string(b"test"),
     );
     forum.boards_mut().add(ascii::string(b"test"), board.id());
     let thread = thread::new(
         &mut ctx,
+        uid(b"thread"),
         admin,
-        b"thread",
         board.id(),
         1,
         option::none(),
     );
     let mut post = post::new(
         &mut ctx,
+        uid(b"post"),
         admin,
-        b"post",
         thread.id(),
         1,
         0,
+        option::none(),
         option::some(7),
         vector[],
         vector[],
@@ -273,11 +282,12 @@ fun forum_post_ban_rejects_user() {
     let key = bans::key(forum.id(), 32, 77);
 
     forum.apply_post(
+        &mut ctx,
         &clock,
         &board,
         &thread,
         &mut post,
-        forum::ban(actor(USER_PK), b"1", key, bans::value(9, 100)),
+        forum::ban(uid(b"1"), actor(USER_PK), key, bans::value(9, 100)),
     );
 
     abort

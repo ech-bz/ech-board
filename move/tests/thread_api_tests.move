@@ -5,6 +5,7 @@ use forum::bans;
 use forum::board::{Self, Board};
 use forum::forum::{Self, Forum};
 use forum::post;
+use forum::responses::{Self, Responses};
 use forum::sender::{Self, Sender};
 use forum::thread::{Self, Thread};
 use std::ascii;
@@ -22,15 +23,19 @@ fun actor(pk: u256): Sender {
     sender::new(pk, 0)
 }
 
+fun uid(value: vector<u8>): Responses {
+    responses::new(option::some(value), option::none(), option::none(), option::none())
+}
+
 fun fixture(ctx: &mut TxContext): (Forum, Board, Thread, Clock) {
     let admin = actor(ADMIN_PK);
-    let mut forum = forum::new(ctx, admin, b"forum", admin.addr());
-    let board = board::new(ctx, admin, b"board", ascii::string(b"test"));
+    let mut forum = forum::new(ctx, uid(b"forum"), admin, admin.addr());
+    let board = board::new(ctx, uid(b"board"), admin, ascii::string(b"test"));
     forum.boards_mut().add(ascii::string(b"test"), board.id());
     let thread = thread::new(
         ctx,
+        uid(b"thread"),
         admin,
-        b"thread",
         board.id(),
         1,
         option::none(),
@@ -47,46 +52,53 @@ fun thread_allowed_events_for_forum_admin() {
     let moderator = actor(THREAD_MOD_PK).addr();
 
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::add_moderator(admin, b"1", moderator),
+        thread::add_moderator(uid(b"1"), admin, moderator),
     );
     assert!(thread.mods().contains(moderator));
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::del_moderator(admin, b"2", moderator),
+        thread::del_moderator(uid(b"2"), admin, moderator),
     );
     assert!(!thread.mods().contains(moderator));
 
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_pinned(admin, b"3", true),
+        thread::set_pinned(uid(b"3"), admin, true),
     );
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_topic(admin, b"4", option::some(100)),
+        thread::set_topic(uid(b"4"), admin, option::some(100)),
     );
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_admin(admin, b"5", option::some(actor(THREAD_ADMIN_PK).addr())),
+        thread::set_admin(uid(b"5"), admin, option::some(actor(THREAD_ADMIN_PK).addr())),
     );
     assert!(*thread.pinned());
     assert!(*thread.topic_hash() == option::some(100));
     assert!(*thread.admin() == option::some(actor(THREAD_ADMIN_PK).addr()));
 
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_closed(admin, b"6", true),
+        thread::set_closed(uid(b"6"), admin, true),
     );
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_deleted(admin, b"7", true),
+        thread::set_deleted(uid(b"7"), admin, true),
     );
     assert!(*thread.closed());
     assert!(*thread.deleted());
@@ -106,29 +118,34 @@ fun thread_admin_and_moderator_allowed_subsets() {
     let thread_mod = actor(THREAD_MOD_PK);
 
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_admin(forum_admin, b"1", option::some(thread_admin.addr())),
+        thread::set_admin(uid(b"1"), forum_admin, option::some(thread_admin.addr())),
     );
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::add_moderator(thread_admin, b"2", thread_mod.addr()),
+        thread::add_moderator(uid(b"2"), thread_admin, thread_mod.addr()),
     );
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_topic(thread_mod, b"3", option::some(10)),
+        thread::set_topic(uid(b"3"), thread_mod, option::some(10)),
     );
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_closed(thread_mod, b"4", true),
+        thread::set_closed(uid(b"4"), thread_mod, true),
     );
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_deleted(thread_mod, b"5", true),
+        thread::set_deleted(uid(b"5"), thread_mod, true),
     );
 
     assert!(thread.mods().contains(thread_mod.addr()));
@@ -150,12 +167,13 @@ fun board_moderator_can_pin_thread() {
         &mut ctx,
         &clock,
         &forum,
-        board::add_moderator(actor(ADMIN_PK), b"1", board_mod.addr()),
+        board::add_moderator(uid(b"1"), actor(ADMIN_PK), board_mod.addr()),
     );
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_pinned(board_mod, b"2", true),
+        thread::set_pinned(uid(b"2"), board_mod, true),
     );
     assert!(*thread.pinned());
 
@@ -170,9 +188,10 @@ fun thread_user_can_set_topic_during_genesis() {
     let mut ctx = tx_context::dummy();
     let (forum, board, mut thread, clock) = fixture(&mut ctx);
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_topic(actor(USER_PK), b"1", option::some(10)),
+        thread::set_topic(uid(b"1"), actor(USER_PK), option::some(10)),
     );
     assert!(*thread.topic_hash() == option::some(10));
 
@@ -189,11 +208,12 @@ fun thread_post_ban_unban_allowed_events() {
     let admin = actor(ADMIN_PK);
     let mut post = post::new(
         &mut ctx,
+        uid(b"post"),
         admin,
-        b"post",
         thread.id(),
         1,
         0,
+        option::none(),
         option::some(1),
         vector[],
         vector[],
@@ -201,19 +221,21 @@ fun thread_post_ban_unban_allowed_events() {
     let key = bans::key(thread.id(), 32, 100);
 
     thread.apply_post(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &mut post,
-        thread::ban(admin, b"1", key, bans::value(2, 100)),
+        thread::ban(uid(b"1"), admin, key, bans::value(2, 100)),
     );
     assert!(post.banned().borrow() == key);
     thread.apply_post(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &mut post,
-        thread::unban(admin, b"2", key),
+        thread::unban(uid(b"2"), admin, key),
     );
     assert!(post.banned().is_none());
 
@@ -230,9 +252,10 @@ fun thread_user_cannot_add_moderator() {
     let mut ctx = tx_context::dummy();
     let (forum, board, mut thread, _clock) = fixture(&mut ctx);
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::add_moderator(actor(USER_PK), b"1", actor(THREAD_MOD_PK).addr()),
+        thread::add_moderator(uid(b"1"), actor(USER_PK), actor(THREAD_MOD_PK).addr()),
     );
     abort
 }
@@ -243,9 +266,10 @@ fun thread_user_cannot_close_thread() {
     let mut ctx = tx_context::dummy();
     let (forum, board, mut thread, _clock) = fixture(&mut ctx);
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_closed(actor(USER_PK), b"1", true),
+        thread::set_closed(uid(b"1"), actor(USER_PK), true),
     );
     abort
 }
@@ -256,9 +280,10 @@ fun thread_user_cannot_pin_thread() {
     let mut ctx = tx_context::dummy();
     let (forum, board, mut thread, _clock) = fixture(&mut ctx);
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_pinned(actor(USER_PK), b"1", true),
+        thread::set_pinned(uid(b"1"), actor(USER_PK), true),
     );
     abort
 }
@@ -268,18 +293,18 @@ fun thread_user_cannot_pin_thread() {
 fun thread_user_cannot_change_topic_after_genesis() {
     let admin = actor(ADMIN_PK);
     let mut scenario = test_scenario::begin(admin.addr());
-    let mut forum = forum::new(scenario.ctx(), admin, b"forum", admin.addr());
+    let mut forum = forum::new(scenario.ctx(), uid(b"forum"), admin, admin.addr());
     let board = board::new(
         scenario.ctx(),
+        uid(b"board"),
         admin,
-        b"board",
         ascii::string(b"test"),
     );
     forum.boards_mut().add(ascii::string(b"test"), board.id());
     thread::new(
         scenario.ctx(),
+        uid(b"thread"),
         admin,
-        b"thread",
         board.id(),
         1,
         option::none(),
@@ -288,9 +313,10 @@ fun thread_user_cannot_change_topic_after_genesis() {
     scenario.next_tx(actor(USER_PK).addr());
     let mut thread = scenario.take_shared<Thread>();
     thread.apply(
+        scenario.ctx(),
         &forum,
         &board,
-        thread::set_topic(actor(USER_PK), b"1", option::some(1)),
+        thread::set_topic(uid(b"1"), actor(USER_PK), option::some(1)),
     );
     abort
 }
@@ -301,9 +327,10 @@ fun thread_user_cannot_set_admin() {
     let mut ctx = tx_context::dummy();
     let (forum, board, mut thread, _clock) = fixture(&mut ctx);
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_admin(actor(USER_PK), b"1", option::some(actor(USER_PK).addr())),
+        thread::set_admin(uid(b"1"), actor(USER_PK), option::some(actor(USER_PK).addr())),
     );
     abort
 }
@@ -317,19 +344,22 @@ fun thread_moderator_cannot_add_moderator() {
     let thread_admin = actor(THREAD_ADMIN_PK);
     let thread_mod = actor(THREAD_MOD_PK);
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_admin(admin, b"1", option::some(thread_admin.addr())),
+        thread::set_admin(uid(b"1"), admin, option::some(thread_admin.addr())),
     );
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::add_moderator(thread_admin, b"2", thread_mod.addr()),
+        thread::add_moderator(uid(b"2"), thread_admin, thread_mod.addr()),
     );
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::add_moderator(thread_mod, b"3", actor(USER_PK).addr()),
+        thread::add_moderator(uid(b"3"), thread_mod, actor(USER_PK).addr()),
     );
     abort
 }
@@ -342,14 +372,16 @@ fun thread_moderator_cannot_pin_thread() {
     let admin = actor(ADMIN_PK);
     let thread_mod = actor(THREAD_MOD_PK);
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::add_moderator(admin, b"1", thread_mod.addr()),
+        thread::add_moderator(uid(b"1"), admin, thread_mod.addr()),
     );
     thread.apply(
+        &mut ctx,
         &forum,
         &board,
-        thread::set_pinned(thread_mod, b"2", true),
+        thread::set_pinned(uid(b"2"), thread_mod, true),
     );
     abort
 }
@@ -362,22 +394,24 @@ fun thread_post_ban_rejects_user() {
     let admin = actor(ADMIN_PK);
     let mut post = post::new(
         &mut ctx,
+        uid(b"post"),
         admin,
-        b"post",
         thread.id(),
         1,
         0,
+        option::none(),
         option::some(1),
         vector[],
         vector[],
     );
     let key = bans::key(thread.id(), 32, 100);
     thread.apply_post(
+        &mut ctx,
         &clock,
         &forum,
         &board,
         &mut post,
-        thread::ban(actor(USER_PK), b"1", key, bans::value(2, 100)),
+        thread::ban(uid(b"1"), actor(USER_PK), key, bans::value(2, 100)),
     );
     abort
 }
