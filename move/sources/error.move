@@ -33,3 +33,7 @@ public(package) fun cross_reference_mismatch(): u64 { 15 }
 public(package) fun reaction_not_allowed(): u64 { 16 }
 
 public(package) fun already_voted(): u64 { 17 }
+
+public(package) fun event_version_unsupported(): u64 { 18 }
+
+public(package) fun entity_version_unsupported(): u64 { 19 }

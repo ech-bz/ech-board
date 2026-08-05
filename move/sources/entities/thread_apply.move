@@ -5,26 +5,40 @@ use forum::board::{Self, Board};
 use forum::empty;
 use forum::entity;
 use forum::error;
+use forum::event;
 use forum::forum::{Self, Forum};
 use forum::post::{Self, Post};
+use forum::responses;
 use forum::sender::{Self, Sender};
 use forum::thread::{Self, Thread};
 use sui::bcs;
 use sui::clock::{Self, Clock};
 
-public(package) fun apply(self: &mut Thread, forum: &Forum, board: &Board, event: vector<u8>) {
+public(package) fun apply(
+    self: &mut Thread,
+    ctx: &mut TxContext,
+    forum: &Forum,
+    board: &Board,
+    event: vector<u8>,
+) {
     self.push(event);
 
     assert!(forum.boards().contains(*board.slug()), error::cross_reference_mismatch());
     assert!(board.id() == self.board(), error::cross_reference_mismatch());
 
     let mut event = bcs::new(event);
-    let tag = event.peel_vec_u8();
-    let sender = sender::new(event.peel_u256(), event.peel_u256());
+    event::peel_version(&mut event);
+    responses::peel(&mut event);
+    let sender = sender::peel(&mut event);
     let addr = sender.addr();
-    let _uid = event.peel_vec_u8();
-
+    let tag = event.peel_vec_u8();
+    if (tag != b"upgrade" && !self.check_version()) {
+        abort error::entity_version_unsupported()
+    };
     match (tag) {
+        b"upgrade" => {
+            self.do_upgrade(ctx);
+        },
         b"add_moderator" => {
             let moderator = event.peel_address();
             assert!(
@@ -137,6 +151,7 @@ public(package) fun apply(self: &mut Thread, forum: &Forum, board: &Board, event
 
 public(package) fun apply_post(
     self: &mut Thread,
+    ctx: &mut TxContext,
     clock: &Clock,
     forum: &Forum,
     board: &Board,
@@ -150,12 +165,18 @@ public(package) fun apply_post(
     assert!(self.id() == post.thread(), error::cross_reference_mismatch());
 
     let mut event = bcs::new(event);
-    let tag = event.peel_vec_u8();
-    let sender = sender::new(event.peel_u256(), event.peel_u256());
+    event::peel_version(&mut event);
+    let responses = responses::peel(&mut event);
+    let sender = sender::peel(&mut event);
     let addr = sender.addr();
-    let uid = event.peel_vec_u8();
-
+    let tag = event.peel_vec_u8();
+    if (tag != b"upgrade" && !self.check_version()) {
+        abort error::entity_version_unsupported()
+    };
     match (tag) {
+        b"upgrade" => {
+            self.do_upgrade(ctx);
+        },
         b"ban" => {
             let key = bans::key(event.peel_address(), event.peel_u8(), event.peel_u256());
             let value = bans::value(event.peel_u256(), event.peel_u64());
@@ -169,11 +190,12 @@ public(package) fun apply_post(
             );
             self.bans_mut().ban(key, value);
             post.apply(
+                ctx,
                 clock,
                 forum,
                 board,
                 self,
-                post::set_banned(sender, uid, option::some(key)),
+                post::set_banned(responses, sender, option::some(key)),
             );
         },
         b"unban" => {
@@ -189,11 +211,12 @@ public(package) fun apply_post(
             );
             self.bans_mut().unban(key);
             post.apply(
+                ctx,
                 clock,
                 forum,
                 board,
                 self,
-                post::set_banned(sender, uid, option::none()),
+                post::set_banned(responses, sender, option::none()),
             );
         },
         _ => abort,

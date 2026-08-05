@@ -5,10 +5,13 @@ use forum::empty::{Self, Empty};
 use forum::entity::{Self, Entity};
 use forum::event;
 use forum::feed::{Self, Feed};
+use forum::responses::Responses;
 use forum::sender::{Self, Sender};
 use sui::bcs;
 use sui::dynamic_field;
 use sui::table::{Self, Table};
+
+const VERSION: u16 = 1;
 
 public struct Thread has key {
     id: UID,
@@ -36,7 +39,9 @@ public(package) fun share(mut self: Thread) {
     transfer::share_object(self)
 }
 
-const VERSION: u8 = 0;
+public(package) fun check_version(self: &Thread): bool {
+    self.entity.version() == VERSION
+}
 
 const DF_BOARD: vector<u8> = b"board";
 const DF_NUMBER: vector<u8> = b"number";
@@ -148,8 +153,18 @@ public(package) fun last3_mut(self: &mut Thread): &mut vector<address> {
 }
 
 fun empty(ctx: &mut TxContext): Thread {
-    let entity = entity::new(ctx, VERSION);
+    let entity = entity::new(ctx, 0);
     let mut self = Thread { id: object::new(ctx), entity, genesis: true };
+    self.do_upgrade(ctx);
+    self
+}
+
+public(package) fun do_upgrade(self: &mut Thread, ctx: &mut TxContext) {
+    if (self.entity.version() < 1) self.init_v1(ctx);
+}
+
+fun init_v1(self: &mut Thread, ctx: &mut TxContext) {
+    self.entity.set_version(1);
     let id = self.id();
     dynamic_field::add(&mut self.id, DF_BOARD, @0x0);
     dynamic_field::add(&mut self.id, DF_NUMBER, 0u64);
@@ -163,19 +178,18 @@ fun empty(ctx: &mut TxContext): Thread {
     dynamic_field::add(&mut self.id, DF_BANS, bans::new(ctx, id));
     dynamic_field::add(&mut self.id, DF_POSTS, feed::new<address>(ctx));
     dynamic_field::add(&mut self.id, DF_LAST3, vector<address>[]);
-    self
 }
 
 public(package) fun new(
     ctx: &mut TxContext,
+    responses: Responses,
     sender: Sender,
-    uid: vector<u8>,
     board: address,
     number: u64,
     topic_hash: Option<u256>,
 ): Thread {
     let mut self = empty(ctx);
-    let mut event = event::new("genesis", sender, uid);
+    let mut event = event::new("genesis", responses, sender);
 
     event = event.with(&board);
     *self.board_mut() = board;
@@ -190,46 +204,67 @@ public(package) fun new(
     self
 }
 
-public(package) fun add_moderator(sender: Sender, uid: vector<u8>, moderator: address): vector<u8> {
-    event::new("add_moderator", sender, uid).with(&moderator).build()
+public(package) fun add_moderator(
+    responses: Responses,
+    sender: Sender,
+    moderator: address,
+): vector<u8> {
+    event::new("add_moderator", responses, sender).with(&moderator).build()
 }
 
-public(package) fun del_moderator(sender: Sender, uid: vector<u8>, moderator: address): vector<u8> {
-    event::new("del_moderator", sender, uid).with(&moderator).build()
+public(package) fun del_moderator(
+    responses: Responses,
+    sender: Sender,
+    moderator: address,
+): vector<u8> {
+    event::new("del_moderator", responses, sender).with(&moderator).build()
 }
 
-public(package) fun set_closed(sender: Sender, uid: vector<u8>, closed: bool): vector<u8> {
-    event::new("set_closed", sender, uid).with(&closed).build()
+public(package) fun set_closed(responses: Responses, sender: Sender, closed: bool): vector<u8> {
+    event::new("set_closed", responses, sender).with(&closed).build()
 }
 
-public(package) fun set_deleted(sender: Sender, uid: vector<u8>, deleted: bool): vector<u8> {
-    event::new("set_deleted", sender, uid).with(&deleted).build()
+public(package) fun set_deleted(responses: Responses, sender: Sender, deleted: bool): vector<u8> {
+    event::new("set_deleted", responses, sender).with(&deleted).build()
 }
 
-public(package) fun set_pinned(sender: Sender, uid: vector<u8>, pinned: bool): vector<u8> {
-    event::new("set_pinned", sender, uid).with(&pinned).build()
+public(package) fun set_pinned(responses: Responses, sender: Sender, pinned: bool): vector<u8> {
+    event::new("set_pinned", responses, sender).with(&pinned).build()
 }
 
 public(package) fun set_topic(
+    responses: Responses,
     sender: Sender,
-    uid: vector<u8>,
     topic_hash: Option<u256>,
 ): vector<u8> {
-    event::new("set_topic", sender, uid).with(&topic_hash).build()
+    event::new("set_topic", responses, sender).with(&topic_hash).build()
 }
 
-public(package) fun set_admin(sender: Sender, uid: vector<u8>, admin: Option<address>): vector<u8> {
-    event::new("set_admin", sender, uid).with(&admin).build()
+public(package) fun set_admin(
+    responses: Responses,
+    sender: Sender,
+    admin: Option<address>,
+): vector<u8> {
+    event::new("set_admin", responses, sender).with(&admin).build()
 }
 
-public(package) fun new_post(sender: Sender, uid: vector<u8>, post: address): vector<u8> {
-    event::new("new_post", sender, uid).with(&post).build()
+public(package) fun new_post(responses: Responses, sender: Sender, post: address): vector<u8> {
+    event::new("new_post", responses, sender).with(&post).build()
 }
 
-public(package) fun ban(sender: Sender, uid: vector<u8>, key: BanKey, value: BanValue): vector<u8> {
-    event::new("ban", sender, uid).with(&key).with(&value).build()
+public(package) fun ban(
+    responses: Responses,
+    sender: Sender,
+    key: BanKey,
+    value: BanValue,
+): vector<u8> {
+    event::new("ban", responses, sender).with(&key).with(&value).build()
 }
 
-public(package) fun unban(sender: Sender, uid: vector<u8>, key: BanKey): vector<u8> {
-    event::new("unban", sender, uid).with(&key).build()
+public(package) fun unban(responses: Responses, sender: Sender, key: BanKey): vector<u8> {
+    event::new("unban", responses, sender).with(&key).build()
+}
+
+public(package) fun upgrade(responses: Responses, sender: Sender): vector<u8> {
+    event::new("upgrade", responses, sender).build()
 }

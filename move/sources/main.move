@@ -5,6 +5,7 @@ use forum::entity::{Self, Entity};
 use forum::forum::{Self, Forum};
 use forum::intent;
 use forum::post::Post;
+use forum::responses;
 use forum::sender;
 use forum::sharded_counter::Shard;
 use forum::thread::Thread;
@@ -12,7 +13,12 @@ use sui::clock::Clock;
 
 fun init(ctx: &mut TxContext) {
     let admin = ctx.sender();
-    forum::new(ctx, sender::new(0, 0), vector[], admin).share();
+    forum::new(
+        ctx,
+        responses::new(option::some(vector[]), option::none(), option::none(), option::none()),
+        sender::new(0, 0),
+        admin,
+    ).share();
 }
 
 public fun forum_apply_intent_uid(
@@ -32,13 +38,14 @@ public fun forum_apply_intent_uid(
         vector[intent::request_uid()],
         responses,
         vector[object::id(clock), object::id(nonce_shard), object::id(forum)],
-        vector["add_moderator", "del_moderator", "new_board", "set_timestamp_precision"],
+        vector["upgrade", "add_moderator", "del_moderator", "new_board", "set_timestamp_precision"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     forum.apply(ctx, clock, intent.into_event());
 }
 
 public fun forum_apply_post_intent_uid(
+    ctx: &mut TxContext,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
     responses: vector<u8>,
@@ -67,7 +74,7 @@ public fun forum_apply_post_intent_uid(
         vector["ban", "unban"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
-    forum.apply_post(clock, board, thread, post, intent.into_event());
+    forum.apply_post(ctx, clock, board, thread, post, intent.into_event());
 }
 
 public fun board_apply_intent_uid(
@@ -89,6 +96,7 @@ public fun board_apply_intent_uid(
         responses,
         vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
         vector[
+            "upgrade",
             "add_moderator",
             "del_moderator",
             "set_max_media",
@@ -100,6 +108,30 @@ public fun board_apply_intent_uid(
             "set_ignore_forum_bans",
             "set_reactions",
         ],
+    );
+    nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
+    board.apply(ctx, clock, forum, intent.into_event());
+}
+
+public fun board_apply_intent_uid_tripcode_geo(
+    ctx: &mut TxContext,
+    intent_bytes: vector<u8>,
+    signature: vector<u8>,
+    responses: vector<u8>,
+    clock: &Clock,
+    nonce_shard: &mut Shard<address>,
+    forum: &Forum,
+    board: &mut Board,
+) {
+    let intent = intent::decode(
+        intent_bytes,
+        "main",
+        "board_apply_intent_uid_tripcode_geo",
+        signature,
+        vector[intent::request_uid(), intent::request_tripcode(), intent::request_geo()],
+        responses,
+        vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
+        vector["new_thread", "new_thread_migrate"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply(ctx, clock, forum, intent.into_event());
@@ -136,7 +168,39 @@ public fun board_apply_thread_intent_uid(
     board.apply_thread(ctx, clock, forum, thread, intent.into_event());
 }
 
+public fun board_apply_thread_intent_uid_tripcode_geo(
+    ctx: &mut TxContext,
+    intent_bytes: vector<u8>,
+    signature: vector<u8>,
+    responses: vector<u8>,
+    clock: &Clock,
+    nonce_shard: &mut Shard<address>,
+    forum: &Forum,
+    board: &mut Board,
+    thread: &mut Thread,
+) {
+    let intent = intent::decode(
+        intent_bytes,
+        "main",
+        "board_apply_thread_intent_uid_tripcode_geo",
+        signature,
+        vector[intent::request_uid(), intent::request_tripcode(), intent::request_geo()],
+        responses,
+        vector[
+            object::id(clock),
+            object::id(nonce_shard),
+            object::id(forum),
+            object::id(board),
+            object::id(thread),
+        ],
+        vector["new_post", "new_post_migrate"],
+    );
+    nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
+    board.apply_thread(ctx, clock, forum, thread, intent.into_event());
+}
+
 public fun board_apply_post_intent_uid(
+    ctx: &mut TxContext,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
     responses: vector<u8>,
@@ -165,10 +229,11 @@ public fun board_apply_post_intent_uid(
         vector["ban", "unban"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
-    board.apply_post(clock, forum, thread, post, intent.into_event());
+    board.apply_post(ctx, clock, forum, thread, post, intent.into_event());
 }
 
 public fun thread_apply_intent_uid(
+    ctx: &mut TxContext,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
     responses: vector<u8>,
@@ -186,6 +251,7 @@ public fun thread_apply_intent_uid(
         responses,
         vector[object::id(nonce_shard), object::id(forum), object::id(board), object::id(thread)],
         vector[
+            "upgrade",
             "add_moderator",
             "del_moderator",
             "set_closed",
@@ -196,10 +262,11 @@ public fun thread_apply_intent_uid(
         ],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
-    thread.apply(forum, board, intent.into_event());
+    thread.apply(ctx, forum, board, intent.into_event());
 }
 
 public fun thread_apply_post_intent_uid(
+    ctx: &mut TxContext,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
     responses: vector<u8>,
@@ -228,10 +295,11 @@ public fun thread_apply_post_intent_uid(
         vector["ban", "unban"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
-    thread.apply_post(clock, forum, board, post, intent.into_event());
+    thread.apply_post(ctx, clock, forum, board, post, intent.into_event());
 }
 
 public fun post_apply_intent_uid(
+    ctx: &mut TxContext,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
     responses: vector<u8>,
@@ -257,13 +325,14 @@ public fun post_apply_intent_uid(
             object::id(thread),
             object::id(post),
         ],
-        vector["set_deleted", "set_text", "remove_media"],
+        vector["upgrade", "set_deleted", "set_text", "remove_media"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
-    post.apply(clock, forum, board, thread, intent.into_event());
+    post.apply(ctx, clock, forum, board, thread, intent.into_event());
 }
 
 public fun post_apply_intent_uid_ip32(
+    ctx: &mut TxContext,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
     responses: vector<u8>,
@@ -292,5 +361,5 @@ public fun post_apply_intent_uid_ip32(
         vector["set_reaction", "vote"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
-    post.apply(clock, forum, board, thread, intent.into_event());
+    post.apply(ctx, clock, forum, board, thread, intent.into_event());
 }

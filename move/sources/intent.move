@@ -1,7 +1,10 @@
 module forum::intent;
 
 use forum::error;
+use forum::event;
+use forum::responses;
 use forum::sender::{Self, Sender};
+use forum::tripcode;
 use std::ascii::{Self, String};
 use sui::bcs;
 use sui::ed25519;
@@ -10,6 +13,8 @@ use sui::hash;
 public enum Request has copy, drop, store {
     Uid,
     Ip32(address),
+    Tripcode,
+    Geo,
 }
 
 public(package) fun request_uid(): Request {
@@ -20,15 +25,18 @@ public(package) fun request_ip32(domain: address): Request {
     Request::Ip32(domain)
 }
 
+public(package) fun request_tripcode(): Request {
+    Request::Tripcode
+}
+
+public(package) fun request_geo(): Request {
+    Request::Geo
+}
+
 #[allow(unused_field)]
 public struct IntentObject has copy, drop, store {
     id: ID,
     mutable: bool,
-}
-
-public struct IntentResponses has drop, store {
-    uid: Option<vector<u8>>,
-    ip32: Option<u256>,
 }
 
 public struct Intent {
@@ -44,14 +52,6 @@ public struct Intent {
 public(package) fun into_event(self: Intent): vector<u8> {
     let Intent { event, .. } = self;
     event
-}
-
-public(package) fun uid(self: &IntentResponses): vector<u8> {
-    *self.uid.borrow()
-}
-
-public(package) fun ip32(self: &IntentResponses): u256 {
-    *self.ip32.borrow()
 }
 
 public(package) fun decode(
@@ -79,6 +79,8 @@ public(package) fun decode(
             |bcs| match (bcs.peel_enum_tag()) {
                 0 => Request::Uid,
                 1 => Request::Ip32(bcs.peel_address()),
+                2 => Request::Tripcode,
+                3 => Request::Geo,
                 _ => abort error::intent_args_mismatch(),
             },
         ),
@@ -126,24 +128,30 @@ public(package) fun decode(
     let mut event = bcs::new(intent.event);
     let event_tag = event.peel_vec_u8();
     assert!(allowed_events.any!(|tag| tag.as_bytes() == event_tag), error::intent_args_mismatch());
-    intent.event = bcs::to_bytes(&event_tag);
-    let sender = intent.sender();
-    intent.event.append(bcs::to_bytes(&sender));
 
     let mut uid = option::none();
     let mut ip32 = option::none();
+    let mut tripcode = option::none();
+    let mut geo = option::none();
     intent
         .requests
         .do_ref!(
             |req| match (req) {
                 Request::Uid => uid.fill(responses.peel_vec_u8()),
                 Request::Ip32(_) => ip32.fill(responses.peel_u256()),
+                Request::Tripcode => tripcode.fill(
+                    tripcode::new(responses.peel_bool(), ascii::string(responses.peel_vec_u8())),
+                ),
+                Request::Geo => geo.fill(responses.peel_u32()),
             },
         );
     assert!(responses.into_remainder_bytes().is_empty(), error::intent_args_mismatch());
-    uid.do!(|v| intent.event.append(bcs::to_bytes(&v)));
-    ip32.do!(|v| intent.event.append(bcs::to_bytes(&v)));
 
+    let sender = intent.sender();
+    intent.event = bcs::to_bytes(&event::version());
+    intent.event.append(bcs::to_bytes(&responses::new(uid, ip32, tripcode, geo)));
+    intent.event.append(bcs::to_bytes(&sender));
+    intent.event.append(bcs::to_bytes(&event_tag));
     intent.event.append(event.into_remainder_bytes());
 
     intent

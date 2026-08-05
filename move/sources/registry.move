@@ -18,11 +18,7 @@ public fun new<T: store>(ctx: &mut TxContext): Registry<T> {
     }
 }
 
-public(package) fun add<T: store>(
-    self: &mut Registry<T>,
-    hashes: vector<u256>,
-    entry: T,
-): u64 {
+public(package) fun add<T: store>(self: &mut Registry<T>, hashes: vector<u256>, entry: T): u64 {
     hashes.do_ref!(|h| self.index.add(*h, self.counter));
     self.identities.add(self.counter, hashes);
     self.entries.add(self.counter, entry);

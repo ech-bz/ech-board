@@ -5,8 +5,10 @@ use forum::board::{Self, Board};
 use forum::empty;
 use forum::entity;
 use forum::error;
+use forum::event;
 use forum::forum::{Self, Forum};
 use forum::post::{Self, Post};
+use forum::responses;
 use forum::sender::{Self, Sender};
 use forum::thread::{Self, Thread};
 use sui::bcs;
@@ -25,12 +27,18 @@ public(package) fun apply(
     assert!(forum.boards().contains(*self.slug()), error::cross_reference_mismatch());
 
     let mut event = bcs::new(event);
-    let tag = event.peel_vec_u8();
-    let sender = sender::new(event.peel_u256(), event.peel_u256());
+    event::peel_version(&mut event);
+    let responses = responses::peel(&mut event);
+    let sender = sender::peel(&mut event);
     let addr = sender.addr();
-    let uid = event.peel_vec_u8();
-
+    let tag = event.peel_vec_u8();
+    if (tag != b"upgrade" && !self.check_version()) {
+        abort error::entity_version_unsupported()
+    };
     match (tag) {
+        b"upgrade" => {
+            self.do_upgrade(ctx);
+        },
         b"add_moderator" => {
             let moderator = event.peel_address();
             assert!(
@@ -94,20 +102,64 @@ public(package) fun apply(
             let text_hash = event.peel_option!(|b| b.peel_u256());
             let media_hashes = event.peel_vec!(|b| b.peel_u256());
             let vote_keys = event.peel_vec!(|b| b.peel_u256());
+            let name_hash = event.peel_option!(|b| b.peel_u256());
             assert!(
                 self.max_media() == 0 || media_hashes.length() > 0,
                 error::post_requires_media(),
             );
             let number = self.posts().length() + 1;
-            let mut thread = thread::new(ctx, sender, uid, self.id(), number, topic_hash);
+            let mut thread = thread::new(
+                ctx,
+                copy responses,
+                sender,
+                self.id(),
+                number,
+                topic_hash,
+            );
             self.threads_mut().add(number, thread.id());
             let new_post = board::new_post(
+                responses,
                 sender,
-                uid,
                 thread.id(),
                 text_hash,
                 media_hashes,
                 vote_keys,
+                name_hash,
+            );
+            self.apply_thread(ctx, clock, forum, &mut thread, new_post);
+            thread.share();
+        },
+        b"new_thread_migrate" => {
+            assert!(addr == forum.admin(), error::not_authorized());
+            let timestamp_ms = event.peel_u64();
+            let topic_hash = event.peel_option!(|b| b.peel_u256());
+            let text_hash = event.peel_option!(|b| b.peel_u256());
+            let media_hashes = event.peel_vec!(|b| b.peel_u256());
+            let vote_keys = event.peel_vec!(|b| b.peel_u256());
+            let name_hash = event.peel_option!(|b| b.peel_u256());
+            assert!(
+                self.max_media() == 0 || media_hashes.length() > 0,
+                error::post_requires_media(),
+            );
+            let number = self.posts().length() + 1;
+            let mut thread = thread::new(
+                ctx,
+                copy responses,
+                sender,
+                self.id(),
+                number,
+                topic_hash,
+            );
+            self.threads_mut().add(number, thread.id());
+            let new_post = board::new_post_migrate(
+                responses,
+                sender,
+                timestamp_ms,
+                thread.id(),
+                text_hash,
+                media_hashes,
+                vote_keys,
+                name_hash,
             );
             self.apply_thread(ctx, clock, forum, &mut thread, new_post);
             thread.share();
@@ -161,17 +213,24 @@ public(package) fun apply_thread(
     assert!(self.id() == thread.board(), error::cross_reference_mismatch());
 
     let mut event = bcs::new(event);
-    let tag = event.peel_vec_u8();
-    let sender = sender::new(event.peel_u256(), event.peel_u256());
+    event::peel_version(&mut event);
+    let responses = responses::peel(&mut event);
+    let sender = sender::peel(&mut event);
     let addr = sender.addr();
-    let uid = event.peel_vec_u8();
-
+    let tag = event.peel_vec_u8();
+    if (tag != b"upgrade" && !self.check_version()) {
+        abort error::entity_version_unsupported()
+    };
     match (tag) {
+        b"upgrade" => {
+            self.do_upgrade(ctx);
+        },
         b"new_post" => {
             let thread_id = event.peel_address();
             let text_hash = event.peel_option!(|b| b.peel_u256());
             let media_hashes = event.peel_vec!(|b| b.peel_u256());
             let vote_keys = event.peel_vec!(|b| b.peel_u256());
+            let name_hash = event.peel_option!(|b| b.peel_u256());
             assert!(thread.id() == thread_id, error::cross_reference_mismatch());
             assert!(media_hashes.length() <= *self.max_media(), error::media_limit_exceeded());
             assert!(media_hashes.length() > 0 || text_hash.is_some(), error::post_empty());
@@ -187,11 +246,12 @@ public(package) fun apply_thread(
             let timestamp_ms = if (*precision > 0) ts - ts % *precision else ts;
             let post = post::new(
                 ctx,
+                copy responses,
                 sender,
-                uid,
                 thread.id(),
                 number,
                 timestamp_ms,
+                name_hash,
                 text_hash,
                 media_hashes,
                 vote_keys,
@@ -200,7 +260,44 @@ public(package) fun apply_thread(
             if (thread.posts().next() <= *self.bump_limit()) {
                 self.bumps_mut().push(thread.id()).share();
             };
-            thread.apply(forum, self, thread::new_post(sender, uid, post.id()));
+            thread.apply(ctx, forum, self, thread::new_post(responses, sender, post.id()));
+            post.share();
+        },
+        b"new_post_migrate" => {
+            assert!(addr == forum.admin(), error::not_authorized());
+            let timestamp_ms = event.peel_u64();
+            let thread_id = event.peel_address();
+            let text_hash = event.peel_option!(|b| b.peel_u256());
+            let media_hashes = event.peel_vec!(|b| b.peel_u256());
+            let vote_keys = event.peel_vec!(|b| b.peel_u256());
+            let name_hash = event.peel_option!(|b| b.peel_u256());
+            assert!(thread.id() == thread_id, error::cross_reference_mismatch());
+            assert!(media_hashes.length() <= *self.max_media(), error::media_limit_exceeded());
+            assert!(media_hashes.length() > 0 || text_hash.is_some(), error::post_empty());
+            assert!(
+                !*self.closed() || (addr == forum.admin()
+                    || forum.mods().contains(addr)
+                    || self.mods().contains(addr)),
+                error::board_closed(),
+            );
+            let number = self.posts().length() + 1;
+            let post = post::new(
+                ctx,
+                copy responses,
+                sender,
+                thread.id(),
+                number,
+                timestamp_ms,
+                name_hash,
+                text_hash,
+                media_hashes,
+                vote_keys,
+            );
+            self.posts_mut().add(number, post.id());
+            if (thread.posts().next() <= *self.bump_limit()) {
+                self.bumps_mut().push(thread.id()).share();
+            };
+            thread.apply(ctx, forum, self, thread::new_post(responses, sender, post.id()));
             post.share();
         },
         _ => abort,
@@ -211,6 +308,7 @@ public(package) fun apply_thread(
 
 public(package) fun apply_post(
     self: &mut Board,
+    ctx: &mut TxContext,
     clock: &Clock,
     forum: &Forum,
     thread: &Thread,
@@ -224,12 +322,18 @@ public(package) fun apply_post(
     assert!(thread.id() == post.thread(), error::cross_reference_mismatch());
 
     let mut event = bcs::new(event);
-    let tag = event.peel_vec_u8();
-    let sender = sender::new(event.peel_u256(), event.peel_u256());
+    event::peel_version(&mut event);
+    let responses = responses::peel(&mut event);
+    let sender = sender::peel(&mut event);
     let addr = sender.addr();
-    let uid = event.peel_vec_u8();
-
+    let tag = event.peel_vec_u8();
+    if (tag != b"upgrade" && !self.check_version()) {
+        abort error::entity_version_unsupported()
+    };
     match (tag) {
+        b"upgrade" => {
+            self.do_upgrade(ctx);
+        },
         b"ban" => {
             let key = bans::key(event.peel_address(), event.peel_u8(), event.peel_u256());
             let value = bans::value(event.peel_u256(), event.peel_u64());
@@ -241,11 +345,12 @@ public(package) fun apply_post(
             );
             self.bans_mut().ban(key, value);
             post.apply(
+                ctx,
                 clock,
                 forum,
                 self,
                 thread,
-                post::set_banned(sender, uid, option::some(key)),
+                post::set_banned(responses, sender, option::some(key)),
             );
         },
         b"unban" => {
@@ -259,11 +364,12 @@ public(package) fun apply_post(
             );
             self.bans_mut().unban(key);
             post.apply(
+                ctx,
                 clock,
                 forum,
                 self,
                 thread,
-                post::set_banned(sender, uid, option::none()),
+                post::set_banned(responses, sender, option::none()),
             );
         },
         _ => abort,

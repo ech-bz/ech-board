@@ -5,8 +5,10 @@ use forum::board::{Self, Board};
 use forum::empty::{Self, Empty};
 use forum::entity;
 use forum::error;
+use forum::event;
 use forum::forum::{Self, Forum};
 use forum::post::{Self, Post};
+use forum::responses;
 use forum::sender::{Self, Sender};
 use forum::thread::{Self, Thread};
 use forum::user_entry::{Self, UserEntry};
@@ -18,6 +20,7 @@ use sui::vec_set::{Self, VecSet};
 
 public(package) fun apply(
     self: &mut Post,
+    ctx: &mut TxContext,
     clock: &Clock,
     forum: &Forum,
     board: &Board,
@@ -31,15 +34,22 @@ public(package) fun apply(
     assert!(thread.id() == self.thread(), error::cross_reference_mismatch());
 
     let mut event = bcs::new(event);
-    let tag = event.peel_vec_u8();
-    let sender = sender::new(event.peel_u256(), event.peel_u256());
+    event::peel_version(&mut event);
+    let responses = responses::peel(&mut event);
+    let sender = sender::peel(&mut event);
     let addr = sender.addr();
-    let uid = event.peel_vec_u8();
 
     let can_self_moderate =
         (self.sender() == sender) && (clock.timestamp_ms() - *self.timestamp()) <= 600000;
 
+    let tag = event.peel_vec_u8();
+    if (tag != b"upgrade" && !self.check_version()) {
+        abort error::entity_version_unsupported()
+    };
     match (tag) {
+        b"upgrade" => {
+            self.do_upgrade(ctx);
+        },
         b"set_deleted" => {
             let deleted = event.peel_bool();
             assert!(*self.deleted() != deleted);
@@ -68,7 +78,14 @@ public(package) fun apply(
             );
             *self.text_hash_mut() = hash;
             if (self.media_hashes().is_empty() && self.text_hash().is_none()) {
-                self.apply(clock, forum, board, thread, post::set_deleted(sender, uid, true));
+                self.apply(
+                    ctx,
+                    clock,
+                    forum,
+                    board,
+                    thread,
+                    post::set_deleted(responses, sender, true),
+                );
             };
         },
         b"remove_media" => {
@@ -85,11 +102,18 @@ public(package) fun apply(
             *self.media_hashes_mut() =
                 (*self.media_hashes()).filter!(|hash| !hashes.contains(hash));
             if (self.media_hashes().is_empty() && self.text_hash().is_none()) {
-                self.apply(clock, forum, board, thread, post::set_deleted(sender, uid, true));
+                self.apply(
+                    ctx,
+                    clock,
+                    forum,
+                    board,
+                    thread,
+                    post::set_deleted(responses, sender, true),
+                );
             };
         },
         b"set_reaction" => {
-            let ip32_hash = event.peel_u256();
+            let ip32_hash = *responses.ip32().borrow();
             let reaction_hash = event.peel_u256();
             assert!(board.reactions().contains(&reaction_hash), error::reaction_not_allowed());
             let reacted_id = self.reacted().find(sender.pk()).or!(self.reacted().find(ip32_hash));
@@ -119,7 +143,7 @@ public(package) fun apply(
             };
         },
         b"vote" => {
-            let ip32_hash = event.peel_u256();
+            let ip32_hash = *responses.ip32().borrow();
             let option_hash = event.peel_u256();
             assert!(self.votes().contains(&option_hash), error::reaction_not_allowed());
             assert!(self.voted().find(ip32_hash).is_none(), error::already_voted());
@@ -147,6 +171,18 @@ public(package) fun apply(
                 error::not_authorized(),
             );
             *self.banned_mut() = banned;
+        },
+        b"set_mod_note" => {
+            let mod_note = event.peel_option!(|b| b.peel_u256());
+            assert!(
+                addr == forum.admin()
+                    || forum.mods().contains(addr)
+                    || board.mods().contains(addr)
+                    || thread.admin().is_some_and!(|a| addr == a)
+                    || thread.mods().contains(addr),
+                error::not_authorized(),
+            );
+            *self.mod_note_mut() = mod_note;
         },
         _ => abort,
     };

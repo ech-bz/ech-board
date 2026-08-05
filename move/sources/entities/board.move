@@ -5,12 +5,15 @@ use forum::empty::Empty;
 use forum::entity::{Self, Entity};
 use forum::event;
 use forum::feed::{Self, Feed};
+use forum::responses::Responses;
 use forum::sender::{Self, Sender};
 use std::ascii::{Self, String};
 use sui::bcs;
 use sui::dynamic_field;
 use sui::table::{Self, Table};
 use sui::vec_set::{Self, VecSet};
+
+const VERSION: u16 = 1;
 
 public struct Board has key {
     id: UID,
@@ -39,7 +42,9 @@ public(package) fun share(mut self: Board) {
     transfer::share_object(self)
 }
 
-const VERSION: u8 = 0;
+public(package) fun check_version(self: &Board): bool {
+    self.entity.version() == VERSION
+}
 
 const DF_SLUG: vector<u8> = b"slug";
 const DF_DESC_HASH: vector<u8> = b"description_hash";
@@ -160,8 +165,18 @@ public(package) fun bumps_mut(self: &mut Board): &mut Feed<address> {
 }
 
 fun empty(ctx: &mut TxContext): Board {
-    let entity = entity::new(ctx, VERSION);
+    let entity = entity::new(ctx, 0);
     let mut self = Board { id: object::new(ctx), entity, genesis: true };
+    self.do_upgrade(ctx);
+    self
+}
+
+public(package) fun do_upgrade(self: &mut Board, ctx: &mut TxContext) {
+    if (self.entity.version() < 1) self.init_v1(ctx);
+}
+
+fun init_v1(self: &mut Board, ctx: &mut TxContext) {
+    self.entity.set_version(1);
     let id = self.id();
     dynamic_field::add(&mut self.id, DF_SLUG, ascii::string(b""));
     dynamic_field::add(&mut self.id, DF_DESC_HASH, option::none<u256>());
@@ -176,12 +191,16 @@ fun empty(ctx: &mut TxContext): Board {
     dynamic_field::add(&mut self.id, DF_THREADS, table::new<u64, address>(ctx));
     dynamic_field::add(&mut self.id, DF_POSTS, table::new<u64, address>(ctx));
     dynamic_field::add(&mut self.id, DF_BUMPS, feed::new<address>(ctx));
-    self
 }
 
-public(package) fun new(ctx: &mut TxContext, sender: Sender, uid: vector<u8>, slug: String): Board {
+public(package) fun new(
+    ctx: &mut TxContext,
+    responses: Responses,
+    sender: Sender,
+    slug: String,
+): Board {
     let mut self = empty(ctx);
-    let mut event = event::new("genesis", sender, uid);
+    let mut event = event::new("genesis", responses, sender);
 
     event = event.with(&slug);
     *self.slug_mut() = slug;
@@ -190,90 +209,139 @@ public(package) fun new(ctx: &mut TxContext, sender: Sender, uid: vector<u8>, sl
     self
 }
 
-public(package) fun add_moderator(sender: Sender, uid: vector<u8>, moderator: address): vector<u8> {
-    event::new("add_moderator", sender, uid).with(&moderator).build()
+public(package) fun add_moderator(
+    responses: Responses,
+    sender: Sender,
+    moderator: address,
+): vector<u8> {
+    event::new("add_moderator", responses, sender).with(&moderator).build()
 }
 
-public(package) fun del_moderator(sender: Sender, uid: vector<u8>, moderator: address): vector<u8> {
-    event::new("del_moderator", sender, uid).with(&moderator).build()
+public(package) fun del_moderator(
+    responses: Responses,
+    sender: Sender,
+    moderator: address,
+): vector<u8> {
+    event::new("del_moderator", responses, sender).with(&moderator).build()
 }
 
-public(package) fun set_max_media(sender: Sender, uid: vector<u8>, max_media: u64): vector<u8> {
-    event::new("set_max_media", sender, uid).with(&max_media).build()
+public(package) fun set_max_media(
+    responses: Responses,
+    sender: Sender,
+    max_media: u64,
+): vector<u8> {
+    event::new("set_max_media", responses, sender).with(&max_media).build()
 }
 
-public(package) fun set_bump_limit(sender: Sender, uid: vector<u8>, bump_limit: u64): vector<u8> {
-    event::new("set_bump_limit", sender, uid).with(&bump_limit).build()
+public(package) fun set_bump_limit(
+    responses: Responses,
+    sender: Sender,
+    bump_limit: u64,
+): vector<u8> {
+    event::new("set_bump_limit", responses, sender).with(&bump_limit).build()
 }
 
-public(package) fun set_closed(sender: Sender, uid: vector<u8>, closed: bool): vector<u8> {
-    event::new("set_closed", sender, uid).with(&closed).build()
+public(package) fun set_closed(responses: Responses, sender: Sender, closed: bool): vector<u8> {
+    event::new("set_closed", responses, sender).with(&closed).build()
 }
 
-public(package) fun set_deleted(sender: Sender, uid: vector<u8>, deleted: bool): vector<u8> {
-    event::new("set_deleted", sender, uid).with(&deleted).build()
+public(package) fun set_deleted(responses: Responses, sender: Sender, deleted: bool): vector<u8> {
+    event::new("set_deleted", responses, sender).with(&deleted).build()
 }
 
 public(package) fun new_thread(
+    responses: Responses,
     sender: Sender,
-    uid: vector<u8>,
     topic_hash: Option<u256>,
     text_hash: Option<u256>,
     media_hashes: vector<u256>,
     vote_keys: vector<u256>,
+    name_hash: Option<u256>,
 ): vector<u8> {
-    event::new("new_thread", sender, uid)
+    event::new("new_thread", responses, sender)
         .with(&topic_hash)
         .with(&text_hash)
         .with(&media_hashes)
         .with(&vote_keys)
+        .with(&name_hash)
         .build()
 }
 
 public(package) fun set_description(
+    responses: Responses,
     sender: Sender,
-    uid: vector<u8>,
     desc_hash: Option<u256>,
 ): vector<u8> {
-    event::new("set_description", sender, uid).with(&desc_hash).build()
+    event::new("set_description", responses, sender).with(&desc_hash).build()
 }
 
 public(package) fun set_ignore_forum_bans(
+    responses: Responses,
     sender: Sender,
-    uid: vector<u8>,
     ignore: bool,
 ): vector<u8> {
-    event::new("set_ignore_forum_bans", sender, uid).with(&ignore).build()
+    event::new("set_ignore_forum_bans", responses, sender).with(&ignore).build()
 }
 
 public(package) fun set_reactions(
+    responses: Responses,
     sender: Sender,
-    uid: vector<u8>,
     reactions: vector<u256>,
 ): vector<u8> {
-    event::new("set_reactions", sender, uid).with(&reactions).build()
+    event::new("set_reactions", responses, sender).with(&reactions).build()
 }
 
 public(package) fun new_post(
+    responses: Responses,
     sender: Sender,
-    uid: vector<u8>,
     thread: address,
     text_hash: Option<u256>,
     media_hashes: vector<u256>,
     vote_keys: vector<u256>,
+    name_hash: Option<u256>,
 ): vector<u8> {
-    event::new("new_post", sender, uid)
+    event::new("new_post", responses, sender)
         .with(&thread)
         .with(&text_hash)
         .with(&media_hashes)
         .with(&vote_keys)
+        .with(&name_hash)
         .build()
 }
 
-public(package) fun ban(sender: Sender, uid: vector<u8>, key: BanKey, value: BanValue): vector<u8> {
-    event::new("ban", sender, uid).with(&key).with(&value).build()
+public(package) fun new_post_migrate(
+    responses: Responses,
+    sender: Sender,
+    timestamp_ms: u64,
+    thread: address,
+    text_hash: Option<u256>,
+    media_hashes: vector<u256>,
+    vote_keys: vector<u256>,
+    name_hash: Option<u256>,
+): vector<u8> {
+    event::new("new_post_migrate", responses, sender)
+        .with(&timestamp_ms)
+        .with(&thread)
+        .with(&text_hash)
+        .with(&media_hashes)
+        .with(&vote_keys)
+        .with(&name_hash)
+        .build()
 }
 
-public(package) fun unban(sender: Sender, uid: vector<u8>, key: BanKey): vector<u8> {
-    event::new("unban", sender, uid).with(&key).build()
+public(package) fun ban(
+    responses: Responses,
+    sender: Sender,
+    key: BanKey,
+    value: BanValue,
+): vector<u8> {
+    event::new("ban", responses, sender).with(&key).with(&value).build()
+}
+
+public(package) fun unban(responses: Responses, sender: Sender, key: BanKey): vector<u8> {
+    event::new("unban", responses, sender).with(&key).build()
+}
+
+public(package) fun upgrade(responses: Responses, sender: Sender): vector<u8> {
+    event::new("upgrade", responses, sender).build()
 }

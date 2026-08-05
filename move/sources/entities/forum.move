@@ -6,6 +6,7 @@ use forum::empty::{Self, Empty};
 use forum::entity::{Self, Entity};
 use forum::event;
 use forum::post::{Self, Post};
+use forum::responses::Responses;
 use forum::sender::{Self, Sender};
 use forum::sharded_counter::{Self, ShardedCounter};
 use forum::thread::{Self, Thread};
@@ -13,6 +14,8 @@ use std::ascii::String;
 use sui::bcs;
 use sui::dynamic_field;
 use sui::table::{Self, Table};
+
+const VERSION: u16 = 1;
 
 public struct Forum has key {
     id: UID,
@@ -40,7 +43,9 @@ public(package) fun share(mut self: Forum) {
     transfer::share_object(self)
 }
 
-const VERSION: u8 = 0;
+public(package) fun check_version(self: &Forum): bool {
+    self.entity.version() == VERSION
+}
 
 const DF_NONCE_SHARDS: vector<u8> = b"nonce_shards";
 const DF_ADMIN: vector<u8> = b"admin";
@@ -98,8 +103,18 @@ public(package) fun timestamp_precision_mut(self: &mut Forum): &mut u64 {
 }
 
 fun empty(ctx: &mut TxContext): Forum {
-    let entity = entity::new(ctx, VERSION);
+    let entity = entity::new(ctx, 0);
     let mut self = Forum { id: object::new(ctx), entity, genesis: true };
+    self.do_upgrade(ctx);
+    self
+}
+
+public(package) fun do_upgrade(self: &mut Forum, ctx: &mut TxContext) {
+    if (self.entity.version() < 1) self.init_v1(ctx);
+}
+
+fun init_v1(self: &mut Forum, ctx: &mut TxContext) {
+    self.entity.set_version(1);
     let id = self.id();
     dynamic_field::add(&mut self.id, DF_NONCE_SHARDS, sharded_counter::new<address>(ctx, 512));
     dynamic_field::add(&mut self.id, DF_ADMIN, @0x0);
@@ -107,17 +122,16 @@ fun empty(ctx: &mut TxContext): Forum {
     dynamic_field::add(&mut self.id, DF_BANS, bans::new(ctx, id));
     dynamic_field::add(&mut self.id, DF_BOARDS, table::new<String, address>(ctx));
     dynamic_field::add(&mut self.id, DF_TIMESTAMP_PRECISION, 0u64);
-    self
 }
 
 public(package) fun new(
     ctx: &mut TxContext,
+    responses: Responses,
     sender: Sender,
-    uid: vector<u8>,
     admin: address,
 ): Forum {
     let mut self = empty(ctx);
-    let mut event = event::new("genesis", sender, uid);
+    let mut event = event::new("genesis", responses, sender);
 
     event = event.with(&admin);
     *self.admin_mut() = admin;
@@ -126,23 +140,31 @@ public(package) fun new(
     self
 }
 
-public(package) fun add_moderator(sender: Sender, uid: vector<u8>, moderator: address): vector<u8> {
-    event::new("add_moderator", sender, uid).with(&moderator).build()
+public(package) fun add_moderator(
+    responses: Responses,
+    sender: Sender,
+    moderator: address,
+): vector<u8> {
+    event::new("add_moderator", responses, sender).with(&moderator).build()
 }
 
-public(package) fun del_moderator(sender: Sender, uid: vector<u8>, moderator: address): vector<u8> {
-    event::new("del_moderator", sender, uid).with(&moderator).build()
+public(package) fun del_moderator(
+    responses: Responses,
+    sender: Sender,
+    moderator: address,
+): vector<u8> {
+    event::new("del_moderator", responses, sender).with(&moderator).build()
 }
 
 public(package) fun new_board(
+    responses: Responses,
     sender: Sender,
-    uid: vector<u8>,
     slug: String,
     max_media: u64,
     bump_limit: u64,
     desc_hash: Option<u256>,
 ): vector<u8> {
-    event::new("new_board", sender, uid)
+    event::new("new_board", responses, sender)
         .with(&slug)
         .with(&max_media)
         .with(&bump_limit)
@@ -151,17 +173,26 @@ public(package) fun new_board(
 }
 
 public(package) fun set_timestamp_precision(
+    responses: Responses,
     sender: Sender,
-    uid: vector<u8>,
     precision: u64,
 ): vector<u8> {
-    event::new("set_timestamp_precision", sender, uid).with(&precision).build()
+    event::new("set_timestamp_precision", responses, sender).with(&precision).build()
 }
 
-public(package) fun ban(sender: Sender, uid: vector<u8>, key: BanKey, value: BanValue): vector<u8> {
-    event::new("ban", sender, uid).with(&key).with(&value).build()
+public(package) fun ban(
+    responses: Responses,
+    sender: Sender,
+    key: BanKey,
+    value: BanValue,
+): vector<u8> {
+    event::new("ban", responses, sender).with(&key).with(&value).build()
 }
 
-public(package) fun unban(sender: Sender, uid: vector<u8>, key: BanKey): vector<u8> {
-    event::new("unban", sender, uid).with(&key).build()
+public(package) fun unban(responses: Responses, sender: Sender, key: BanKey): vector<u8> {
+    event::new("unban", responses, sender).with(&key).build()
+}
+
+public(package) fun upgrade(responses: Responses, sender: Sender): vector<u8> {
+    event::new("upgrade", responses, sender).build()
 }

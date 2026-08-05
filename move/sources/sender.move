@@ -13,6 +13,10 @@ public fun new(pk: u256, tweak: u256): Sender {
     Sender { pk, tweak }
 }
 
+public(package) fun peel(reader: &mut bcs::BCS): Sender {
+    new(reader.peel_u256(), reader.peel_u256())
+}
+
 public fun pk(self: &Sender): u256 {
     self.pk
 }
