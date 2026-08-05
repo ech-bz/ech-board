@@ -113,7 +113,7 @@ public fun board_apply_intent_uid(
     board.apply(ctx, clock, forum, intent.into_event());
 }
 
-public fun board_apply_intent_uid_tripcode_geo(
+public fun board_apply_intent_uid_geo(
     ctx: &mut TxContext,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
@@ -126,9 +126,57 @@ public fun board_apply_intent_uid_tripcode_geo(
     let intent = intent::decode(
         intent_bytes,
         "main",
-        "board_apply_intent_uid_tripcode_geo",
+        "board_apply_intent_uid_geo",
         signature,
-        vector[intent::request_uid(), intent::request_tripcode(), intent::request_geo()],
+        vector[intent::request_uid(), intent::request_geo()],
+        responses,
+        vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
+        vector["new_thread", "new_thread_migrate"],
+    );
+    nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
+    board.apply(ctx, clock, forum, intent.into_event());
+}
+
+public fun board_apply_intent_uid_tripcode(
+    ctx: &mut TxContext,
+    intent_bytes: vector<u8>,
+    signature: vector<u8>,
+    responses: vector<u8>,
+    clock: &Clock,
+    nonce_shard: &mut Shard<address>,
+    forum: &Forum,
+    board: &mut Board,
+) {
+    let intent = intent::decode(
+        intent_bytes,
+        "main",
+        "board_apply_intent_uid_tripcode",
+        signature,
+        vector[intent::request_uid(), intent::request_tripcode()],
+        responses,
+        vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
+        vector["new_thread", "new_thread_migrate"],
+    );
+    nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
+    board.apply(ctx, clock, forum, intent.into_event());
+}
+
+public fun board_apply_intent_uid_geo_tripcode(
+    ctx: &mut TxContext,
+    intent_bytes: vector<u8>,
+    signature: vector<u8>,
+    responses: vector<u8>,
+    clock: &Clock,
+    nonce_shard: &mut Shard<address>,
+    forum: &Forum,
+    board: &mut Board,
+) {
+    let intent = intent::decode(
+        intent_bytes,
+        "main",
+        "board_apply_intent_uid_geo_tripcode",
+        signature,
+        vector[intent::request_uid(), intent::request_geo(), intent::request_tripcode()],
         responses,
         vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
         vector["new_thread", "new_thread_migrate"],
@@ -162,13 +210,13 @@ public fun board_apply_thread_intent_uid(
             object::id(board),
             object::id(thread),
         ],
-        vector["new_post"],
+        vector["new_post", "new_post_migrate"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply_thread(ctx, clock, forum, thread, intent.into_event());
 }
 
-public fun board_apply_thread_intent_uid_tripcode_geo(
+public fun board_apply_thread_intent_uid_geo(
     ctx: &mut TxContext,
     intent_bytes: vector<u8>,
     signature: vector<u8>,
@@ -182,9 +230,71 @@ public fun board_apply_thread_intent_uid_tripcode_geo(
     let intent = intent::decode(
         intent_bytes,
         "main",
-        "board_apply_thread_intent_uid_tripcode_geo",
+        "board_apply_thread_intent_uid_geo",
         signature,
-        vector[intent::request_uid(), intent::request_tripcode(), intent::request_geo()],
+        vector[intent::request_uid(), intent::request_geo()],
+        responses,
+        vector[
+            object::id(clock),
+            object::id(nonce_shard),
+            object::id(forum),
+            object::id(board),
+            object::id(thread),
+        ],
+        vector["new_post", "new_post_migrate"],
+    );
+    nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
+    board.apply_thread(ctx, clock, forum, thread, intent.into_event());
+}
+
+public fun board_apply_thread_intent_uid_tripcode(
+    ctx: &mut TxContext,
+    intent_bytes: vector<u8>,
+    signature: vector<u8>,
+    responses: vector<u8>,
+    clock: &Clock,
+    nonce_shard: &mut Shard<address>,
+    forum: &Forum,
+    board: &mut Board,
+    thread: &mut Thread,
+) {
+    let intent = intent::decode(
+        intent_bytes,
+        "main",
+        "board_apply_thread_intent_uid_tripcode",
+        signature,
+        vector[intent::request_uid(), intent::request_tripcode()],
+        responses,
+        vector[
+            object::id(clock),
+            object::id(nonce_shard),
+            object::id(forum),
+            object::id(board),
+            object::id(thread),
+        ],
+        vector["new_post", "new_post_migrate"],
+    );
+    nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
+    board.apply_thread(ctx, clock, forum, thread, intent.into_event());
+}
+
+public fun board_apply_thread_intent_uid_geo_tripcode(
+    ctx: &mut TxContext,
+    intent_bytes: vector<u8>,
+    signature: vector<u8>,
+    responses: vector<u8>,
+    clock: &Clock,
+    nonce_shard: &mut Shard<address>,
+    forum: &Forum,
+    board: &mut Board,
+    thread: &mut Thread,
+) {
+    let intent = intent::decode(
+        intent_bytes,
+        "main",
+        "board_apply_thread_intent_uid_geo_tripcode",
+        signature,
+        vector[intent::request_uid(), intent::request_geo(), intent::request_tripcode()],
         responses,
         vector[
             object::id(clock),
