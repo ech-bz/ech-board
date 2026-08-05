@@ -28,6 +28,7 @@ trait IntentPayload: Send + Sync {
         description: Option<&str>,
         topic: Option<&str>,
         reason: Option<&str>,
+        name: Option<&str>,
         media_files: &[TempFile],
         intent: &Intent,
     ) -> Result<(), error::RelayError>;
@@ -54,6 +55,7 @@ impl IntentPayload for NewBoardPayload {
         description: Option<&str>,
         _topic: Option<&str>,
         _reason: Option<&str>,
+        _name: Option<&str>,
         _media_files: &[TempFile],
         _intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -73,6 +75,7 @@ struct NewThreadPayload {
     media_hashes: Vec<Address>,
     #[allow(dead_code)]
     vote_keys: Vec<Address>,
+    name_hash: Option<Address>,
 }
 
 #[async_trait]
@@ -84,6 +87,7 @@ impl IntentPayload for NewThreadPayload {
         _description: Option<&str>,
         topic: Option<&str>,
         _reason: Option<&str>,
+        name: Option<&str>,
         media_files: &[TempFile],
         intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -103,11 +107,15 @@ impl IntentPayload for NewThreadPayload {
                 ));
             }
         }
-        verify_plaintext(state, &self.topic_hash, topic).await
+        verify_plaintext(state, &self.topic_hash, topic).await?;
+        verify_plaintext(state, &self.name_hash, name).await
     }
     async fn cleanup(&self, state: &AppState) {
         cleanup_content(state, &self.text_hash, &self.media_hashes).await;
         if let Some(hash) = &self.topic_hash {
+            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+        }
+        if let Some(hash) = &self.name_hash {
             let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
         }
     }
@@ -121,6 +129,7 @@ struct NewPostPayload {
     media_hashes: Vec<Address>,
     #[allow(dead_code)]
     vote_keys: Vec<Address>,
+    name_hash: Option<Address>,
 }
 
 #[async_trait]
@@ -132,6 +141,7 @@ impl IntentPayload for NewPostPayload {
         _description: Option<&str>,
         _topic: Option<&str>,
         _reason: Option<&str>,
+        name: Option<&str>,
         media_files: &[TempFile],
         intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -143,10 +153,14 @@ impl IntentPayload for NewPostPayload {
             &self.text_hash,
             &self.media_hashes,
         )
-        .await
+        .await?;
+        verify_plaintext(state, &self.name_hash, name).await
     }
     async fn cleanup(&self, state: &AppState) {
-        cleanup_content(state, &self.text_hash, &self.media_hashes).await
+        cleanup_content(state, &self.text_hash, &self.media_hashes).await;
+        if let Some(hash) = &self.name_hash {
+            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+        }
     }
 }
 
@@ -164,6 +178,7 @@ impl IntentPayload for SetTextPayload {
         _description: Option<&str>,
         _topic: Option<&str>,
         _reason: Option<&str>,
+        _name: Option<&str>,
         _media_files: &[TempFile],
         intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -198,6 +213,7 @@ impl IntentPayload for SetTopicPayload {
         _description: Option<&str>,
         topic: Option<&str>,
         _reason: Option<&str>,
+        _name: Option<&str>,
         _media_files: &[TempFile],
         _intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -231,6 +247,7 @@ impl IntentPayload for SetDescriptionPayload {
         description: Option<&str>,
         _topic: Option<&str>,
         _reason: Option<&str>,
+        _name: Option<&str>,
         _media_files: &[TempFile],
         _intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -265,6 +282,7 @@ impl IntentPayload for BanPayload {
         _description: Option<&str>,
         _topic: Option<&str>,
         reason: Option<&str>,
+        _name: Option<&str>,
         _media_files: &[TempFile],
         _intent: &Intent,
     ) -> Result<(), error::RelayError> {
@@ -424,6 +442,8 @@ pub(crate) async fn handle_send(
     description: Option<String>,
     topic: Option<String>,
     reason: Option<String>,
+    name: Option<String>,
+    tripcode: Option<String>,
     media_files: Vec<TempFile>,
 ) -> Result<Vec<u8>, error::RelayError> {
     let (event_tag, event_payload) = split_event(&intent.payload)?;
@@ -433,10 +453,16 @@ pub(crate) async fn handle_send(
         ("forum_apply_intent_uid", "new_board") => Some(Box::new(
             bcs::from_bytes::<NewBoardPayload>(event_payload).map_err(payload_err)?,
         )),
-        ("board_apply_intent_uid", "new_thread") => Some(Box::new(
+        ("board_apply_intent_uid", "new_thread")
+        | ("board_apply_intent_uid_tripcode", "new_thread")
+        | ("board_apply_intent_uid_geo", "new_thread")
+        | ("board_apply_intent_uid_geo_tripcode", "new_thread") => Some(Box::new(
             bcs::from_bytes::<NewThreadPayload>(event_payload).map_err(payload_err)?,
         )),
-        ("board_apply_thread_intent_uid", "new_post") => Some(Box::new(
+        ("board_apply_thread_intent_uid", "new_post")
+        | ("board_apply_thread_intent_uid_tripcode", "new_post")
+        | ("board_apply_thread_intent_uid_geo", "new_post")
+        | ("board_apply_thread_intent_uid_geo_tripcode", "new_post") => Some(Box::new(
             bcs::from_bytes::<NewPostPayload>(event_payload).map_err(payload_err)?,
         )),
         ("post_apply_intent_uid", "set_text") => Some(Box::new(
@@ -463,13 +489,14 @@ pub(crate) async fn handle_send(
             description.as_deref(),
             topic.as_deref(),
             reason.as_deref(),
+            name.as_deref(),
             &media_files,
             &intent,
         )
         .await?;
     }
 
-    let responses = resolve_requests(state, &intent, remote_ip).await?;
+    let responses = resolve_requests(state, &intent, remote_ip, tripcode.as_deref()).await?;
     let sealed = seal_responses(&state.sponsor, &signature_bytes, &responses)?;
 
     let mut attempt = 0u64;
@@ -510,6 +537,7 @@ async fn resolve_requests(
     state: &AppState,
     intent: &Intent,
     remote_ip: &str,
+    tripcode: Option<&str>,
 ) -> Result<Vec<u8>, error::RelayError> {
     let mut results = Vec::new();
     for req in &intent.requests {
@@ -592,6 +620,40 @@ async fn resolve_requests(
                     .try_into()
                     .map_err(|_| error::RelayError::SponsorBuild("hmac not 32 bytes".into()))?;
                 results.extend_from_slice(&mac);
+            }
+            Request::Tripcode => {
+                let raw = tripcode.ok_or_else(|| {
+                    error::RelayError::SponsorBuild(
+                        "tripcode requested but not provided".into(),
+                    )
+                })?;
+                let (secured, trip) = if let Some(seed) = raw.strip_prefix("##") {
+                    (
+                        true,
+                        crate::tripcode::secure_tripcode(seed, &state.secure_tripcode_key)?,
+                    )
+                } else if let Some(seed) = raw.strip_prefix('#') {
+                    (false, crate::tripcode::tripcode(seed)?)
+                } else {
+                    return Err(error::RelayError::SponsorBuild(
+                        "tripcode must start with # or ##".into(),
+                    ));
+                };
+                let trip_bytes = trip.as_bytes().to_vec();
+                results.push(secured as u8);
+                results.extend_from_slice(
+                    &bcs::to_bytes(&trip_bytes).map_err(|e| {
+                        error::RelayError::SponsorBuild(format!("bcs encode tripcode: {e}"))
+                    })?,
+                );
+            }
+            Request::Geo => {
+                let ip = remote_ip
+                    .parse::<std::net::Ipv4Addr>()
+                    .map_err(|e| error::RelayError::SponsorBuild(format!("invalid ipv4: {e}")))?
+                    .into();
+                let code = state.geoip.country_code(ip).unwrap_or(0);
+                results.extend_from_slice(&code.to_le_bytes());
             }
         }
     }
@@ -707,8 +769,14 @@ fn hierarchy_indices(
         | "thread_apply_post_intent_uid"
         | "post_apply_intent_uid"
         | "post_apply_intent_uid_ip32" => Ok((2, Some(3), Some(4))),
-        "board_apply_intent_uid" => Ok((2, Some(3), None)),
-        "board_apply_thread_intent_uid" => Ok((2, Some(3), Some(4))),
+        "board_apply_intent_uid"
+        | "board_apply_intent_uid_tripcode"
+        | "board_apply_intent_uid_geo"
+        | "board_apply_intent_uid_geo_tripcode" => Ok((2, Some(3), None)),
+        "board_apply_thread_intent_uid"
+        | "board_apply_thread_intent_uid_tripcode"
+        | "board_apply_thread_intent_uid_geo"
+        | "board_apply_thread_intent_uid_geo_tripcode" => Ok((2, Some(3), Some(4))),
         "thread_apply_intent_uid" => Ok((1, Some(2), Some(3))),
         _ => Err(error::RelayError::SponsorBuild(
             "unsupported intent hierarchy".into(),
@@ -798,6 +866,12 @@ fn validate_target(intent: &Intent, event_tag: &str) -> Result<(), error::RelayE
             "set_reactions",
         ],
         "board_apply_thread_intent_uid" => &["new_post"],
+        "board_apply_intent_uid_tripcode" => &["new_thread"],
+        "board_apply_intent_uid_geo" => &["new_thread"],
+        "board_apply_intent_uid_geo_tripcode" => &["new_thread"],
+        "board_apply_thread_intent_uid_tripcode" => &["new_post"],
+        "board_apply_thread_intent_uid_geo" => &["new_post"],
+        "board_apply_thread_intent_uid_geo_tripcode" => &["new_post"],
         "board_apply_post_intent_uid" => &["ban", "unban"],
         "thread_apply_intent_uid" => &[
             "add_moderator",

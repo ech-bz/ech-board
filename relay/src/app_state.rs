@@ -1,11 +1,13 @@
 use crate::captcha::CaptchaVerifier;
 use crate::config;
+use crate::geoip::GeoIp;
 use crate::handlers::{ForumObject, load_forum};
 use crate::seaweed::SeaweedClient;
 use crate::sponsor::SponsorService;
 use crate::upstream::UpstreamSender;
 use aws_sdk_kms::Client as KmsClient;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use sui_sdk_types::Address;
 
@@ -20,6 +22,8 @@ pub(crate) struct AppState {
     pub(crate) forum: ForumObject,
     pub(crate) package_id: Address,
     pub(crate) seaweed: SeaweedClient,
+    pub(crate) geoip: Arc<GeoIp>,
+    pub(crate) secure_tripcode_key: String,
     pub(crate) kms: KmsClient,
     pub(crate) kms_hmac: String,
     pub(crate) kms_moderator: String,
@@ -59,6 +63,13 @@ impl AppState {
             .await
             .map_err(|e| std::io::Error::other(format!("failed to load forum: {e}")))?;
 
+        let seaweed = SeaweedClient::new(cfg.seaweed_filer_url, cfg.seaweed_jwt_signing_key);
+        let geoip_bytes = seaweed.download_geoip().await.map_err(std::io::Error::other)?;
+        let geoip = Arc::new(
+            GeoIp::from_bytes(geoip_bytes)
+                .map_err(|e| std::io::Error::other(format!("failed to load geoip db: {e}")))?,
+        );
+
         Ok(Self {
             captcha: CaptchaVerifier::new(client.clone(), cfg.captcha),
             upstream,
@@ -68,7 +79,9 @@ impl AppState {
             sponsor_gas_price: sponsor_cfg.gas_price,
             forum,
             package_id,
-            seaweed: SeaweedClient::new(cfg.seaweed_filer_url, cfg.seaweed_jwt_signing_key),
+            seaweed,
+            geoip,
+            secure_tripcode_key: cfg.secure_tripcode_key,
             kms: KmsClient::from_conf(
                 aws_sdk_kms::Config::builder()
                     .behavior_version(aws_sdk_kms::config::BehaviorVersion::latest())

@@ -11,7 +11,7 @@ pub(crate) mod send;
 pub(crate) mod thread;
 
 use crate::seaweed::SeaweedClient;
-use crate::types::ContentKind;
+use crate::types::{ContentKind, Tripcode};
 use actix_web::HttpRequest;
 use futures::StreamExt;
 use serde::de::DeserializeOwned;
@@ -49,7 +49,7 @@ pub(super) struct Moderators {
 #[derive(Serialize, Deserialize, Clone)]
 pub(super) struct ForumObject {
     pub(super) id: Address,
-    pub(super) feed: Feed,
+    pub(super) entity: Entity,
     pub(super) projection: ForumProjection,
     pub(super) genesis: bool,
 }
@@ -67,7 +67,7 @@ pub(super) struct ForumProjection {
 #[derive(Serialize, Deserialize, Clone)]
 pub(super) struct BoardObject {
     pub(super) id: Address,
-    pub(super) feed: Feed,
+    pub(super) entity: Entity,
     pub(super) projection: BoardProjection,
     pub(super) genesis: bool,
 }
@@ -92,7 +92,7 @@ pub(super) struct BoardProjection {
 #[derive(Serialize, Deserialize, Clone)]
 pub(super) struct ThreadObject {
     pub(super) id: Address,
-    pub(super) feed: Feed,
+    pub(super) entity: Entity,
     pub(super) projection: ThreadProjection,
     pub(super) genesis: bool,
 }
@@ -116,7 +116,7 @@ pub(super) struct ThreadProjection {
 #[derive(Serialize, Deserialize, Clone)]
 pub(super) struct PostObject {
     pub(super) id: Address,
-    pub(super) feed: Feed,
+    pub(super) entity: Entity,
     pub(super) projection: PostProjection,
     pub(super) genesis: bool,
 }
@@ -145,6 +145,12 @@ pub(super) struct PostProjection {
     pub(super) banned: Option<BanKey>,
     pub(super) text_hash: Option<Address>,
     pub(super) media_hashes: Vec<Address>,
+    pub(super) name_hash: Option<Address>,
+    pub(super) trip: Option<Tripcode>,
+    pub(super) geo: Option<u32>,
+    pub(super) mod_note: Option<Address>,
+    pub(super) reactions: Vec<(Address, u64)>,
+    pub(super) votes: Vec<(Address, u64)>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -172,11 +178,10 @@ pub(super) struct Shard {
     pub(super) counters: Table,
 }
 
-#[derive(Deserialize)]
-struct Entity {
-    feed: Feed,
-    #[allow(dead_code)]
-    version: u8,
+#[derive(Serialize, Deserialize, Clone)]
+pub(super) struct Entity {
+    pub(super) feed: Feed,
+    pub(super) version: u16,
 }
 
 #[derive(Deserialize)]
@@ -268,7 +273,7 @@ pub(super) async fn load_forum(
     let fields = fields?;
     Ok(ForumObject {
         id,
-        feed: root.entity.feed,
+        entity: Entity { feed: root.entity.feed, version: root.entity.version },
         projection: ForumProjection {
             nonce_shards: fields.get(b"nonce_shards")?,
             admin: fields.get(b"admin")?,
@@ -288,7 +293,7 @@ fn decode_board(
 ) -> Result<BoardObject, crate::error::RelayError> {
     Ok(BoardObject {
         id,
-        feed: root.entity.feed,
+        entity: Entity { feed: root.entity.feed, version: root.entity.version },
         projection: BoardProjection {
             slug: fields.get(b"slug")?,
             description_hash: fields.get(b"description_hash")?,
@@ -364,7 +369,7 @@ pub(super) async fn load_thread(
     let fields = fields?;
     Ok(ThreadObject {
         id,
-        feed: root.entity.feed,
+        entity: Entity { feed: root.entity.feed, version: root.entity.version },
         projection: ThreadProjection {
             board: fields.get(b"board")?,
             number: fields.get(b"number")?,
@@ -391,7 +396,7 @@ fn decode_post(
     let sender: Sender = fields.get(b"sender")?;
     Ok(PostObject {
         id,
-        feed: root.entity.feed,
+        entity: Entity { feed: root.entity.feed, version: root.entity.version },
         projection: PostProjection {
             thread: fields.get(b"thread")?,
             number: fields.get(b"number")?,
@@ -402,6 +407,12 @@ fn decode_post(
             banned: fields.get(b"banned")?,
             text_hash: fields.get(b"text_hash")?,
             media_hashes: fields.get(b"media_hashes")?,
+            name_hash: fields.get(b"name")?,
+            trip: fields.get(b"trip")?,
+            geo: fields.get(b"geo")?,
+            mod_note: fields.get(b"mod_note")?,
+            reactions: fields.get(b"reactions")?,
+            votes: fields.get(b"votes")?,
         },
         genesis: root.genesis,
     })

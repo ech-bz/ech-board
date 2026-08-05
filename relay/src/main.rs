@@ -2,10 +2,12 @@ mod app_state;
 mod captcha;
 mod config;
 mod error;
+mod geoip;
 mod handlers;
 mod seaweed;
 mod sponsor;
 mod thumbnail;
+mod tripcode;
 mod types;
 mod upstream;
 
@@ -46,6 +48,7 @@ async fn main() -> std::io::Result<()> {
             .service(nonce_handler)
             .service(forum_handler)
             .service(board_handler)
+            .service(resolve_post_handler)
             .service(thread_handler)
             .service(post_handler)
             .service(content_handler)
@@ -111,6 +114,17 @@ async fn board_handler(
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
         .body(handlers::board::fetch(&state, path.into_inner(), query.cursor).await?))
+}
+
+#[get("/board/{uid}/post/{number}")]
+async fn resolve_post_handler(
+    state: web::Data<AppState>,
+    path: web::Path<(Address, u64)>,
+) -> Result<HttpResponse, error::RelayError> {
+    let (uid, number) = path.into_inner();
+    Ok(HttpResponse::Ok()
+        .content_type("application/octet-stream")
+        .body(handlers::board::resolve_post(&state, uid, number).await?))
 }
 
 #[get("/thread/{uid}")]
@@ -193,6 +207,8 @@ async fn send(
                 form.description.map(|t| t.into_inner()),
                 form.topic.map(|t| t.into_inner()),
                 form.reason.map(|t| t.into_inner()),
+                form.name.map(|t| t.into_inner()),
+                form.tripcode.map(|t| t.into_inner()),
                 form.media,
             )
             .await?,

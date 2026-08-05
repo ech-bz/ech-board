@@ -61,7 +61,7 @@ impl UpstreamSender {
         request.read_mask = Some(FieldMask::from_str("effects.status,events"));
 
         let result = client
-            .execute_transaction_and_wait_for_checkpoint(request, Duration::from_secs(2))
+            .execute_transaction_and_wait_for_checkpoint(request, Duration::from_secs(5))
             .await;
 
         match result {

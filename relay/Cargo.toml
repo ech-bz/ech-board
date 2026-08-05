@@ -26,5 +26,10 @@ hex = "0.4"
 graphql_client = { version = "0.14", default-features = false, features = ["graphql_query_derive"] }
 jsonwebtoken = "9"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+encoding_rs = "0.8"
+sha1 = "0.10"
+pwhash = "1"
 ech-board-common = { path = "../common" }
 aws-sdk-kms = "1"
+maxminddb = "0.30.0"
+iso3166 = "1"

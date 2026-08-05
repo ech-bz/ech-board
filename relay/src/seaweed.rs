@@ -63,6 +63,29 @@ impl SeaweedClient {
         format!("{}/{}", self.filer_url, self.path(kind, hash))
     }
 
+    pub(crate) async fn download_geoip(&self) -> Result<Vec<u8>, RelayError> {
+        let url = format!("{}/GeoLite2-Country.mmdb", self.filer_url);
+        let resp = self
+            .client
+            .get(&url)
+            .header("Authorization", &self.auth_header()?)
+            .send()
+            .await
+            .map_err(|e| RelayError::Internal(format!("seaweed geoip download: {e}")))?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(RelayError::Internal(format!(
+                "seaweed geoip download HTTP {}",
+                status
+            )));
+        }
+        let bytes = resp
+            .bytes()
+            .await
+            .map_err(|e| RelayError::Internal(format!("seaweed geoip download body: {e}")))?;
+        Ok(bytes.to_vec())
+    }
+
     pub(crate) async fn put(
         &self,
         kind: ContentKind,

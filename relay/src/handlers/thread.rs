@@ -48,6 +48,11 @@ pub(crate) async fn fetch(state: &AppState, thread_uid: Address) -> Result<Vec<u
     if let Some(h) = thread.projection.topic_hash {
         plain_text_hashes.insert(h);
     }
+    for post in posts.iter().filter(|p| !p.projection.deleted) {
+        if let Some(h) = post.projection.name_hash {
+            plain_text_hashes.insert(h);
+        }
+    }
     let plain_text = fetch_content(&state.seaweed, ContentKind::PlainText, plain_text_hashes).await;
 
     let moderators = Moderators {

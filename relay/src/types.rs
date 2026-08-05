@@ -8,6 +8,14 @@ use sui_sdk_types::Address;
 pub(crate) enum Request {
     Uid,
     Ip32(Address),
+    Tripcode,
+    Geo,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) struct Tripcode {
+    pub(crate) secured: bool,
+    pub(crate) trip: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
@@ -60,6 +68,8 @@ pub(crate) struct SendForm {
     pub(crate) description: Option<Text<String>>,
     pub(crate) topic: Option<Text<String>>,
     pub(crate) reason: Option<Text<String>>,
+    pub(crate) name: Option<Text<String>>,
+    pub(crate) tripcode: Option<Text<String>>,
     pub(crate) media: Vec<TempFile>,
 }
 
@@ -113,12 +123,18 @@ pub(crate) enum PostPart {
     Bold(Vec<PostPart>),
     Italic(Vec<PostPart>),
     Code(Vec<PostPart>),
-    ReplyTo(Address, Address),
+    ReplyTo(Address, Address, Address, String),
     Secret {
         data_nonce: [u8; 12],
         data_ct: Vec<u8>,
         encrypted_keys: Vec<EncryptedKey>,
     },
+    Underline(Vec<PostPart>),
+    Overline(Vec<PostPart>),
+    Spoiler(Vec<PostPart>),
+    Strike(Vec<PostPart>),
+    Sup(Vec<PostPart>),
+    Sub(Vec<PostPart>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

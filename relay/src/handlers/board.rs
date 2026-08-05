@@ -2,14 +2,51 @@ use std::collections::{HashMap, HashSet};
 
 use crate::app_state::AppState;
 use crate::error::RelayError;
-use serde::Serialize;
-use sui_sdk_types::Address;
+use serde::{Deserialize, Serialize};
+use sui_sdk_types::{Address, TypeTag};
 
 use super::fetch_content;
 use super::{BoardObject, Moderators, PostObject, ThreadObject, list_mods, load_board, load_post, load_thread};
 use crate::types::ContentKind;
 
 const LIMIT: u64 = 20;
+
+pub(crate) async fn resolve_post(
+    state: &AppState,
+    board_uid: Address,
+    number: u64,
+) -> Result<Vec<u8>, RelayError> {
+    let board = load_board(&state.upstream, board_uid).await?;
+    if board.projection.deleted {
+        return Err(RelayError::NotFound("board deleted".into()));
+    }
+    let child_id = board
+        .projection
+        .posts
+        .id
+        .derive_dynamic_child_id(&TypeTag::U64, &number.to_le_bytes());
+    let object = state
+        .upstream
+        .fetch_objects([child_id])
+        .await?
+        .into_iter()
+        .next()
+        .flatten()
+        .ok_or_else(|| RelayError::NotFound(format!("post {number} not found")))?;
+    let entry: PostEntry = object.contents().deserialize().map_err(|e| {
+        RelayError::Internal(format!("post table entry decode: {e}"))
+    })?;
+    Ok(entry.value.as_bytes().to_vec())
+}
+
+#[derive(Deserialize)]
+struct PostEntry {
+    #[allow(dead_code)]
+    id: Address,
+    #[allow(dead_code)]
+    name: u64,
+    value: Address,
+}
 
 #[derive(Serialize)]
 pub(crate) struct BoardView {
@@ -105,6 +142,16 @@ pub(crate) async fn fetch(
         }
         if let Some(h) = thread.projection.topic_hash {
             plain_text_hashes.insert(h);
+        }
+    }
+    for (tid, posts) in &last_3 {
+        if deleted_threads.contains(tid) {
+            continue;
+        }
+        for post in posts.iter().filter(|p| !p.projection.deleted) {
+            if let Some(h) = post.projection.name_hash {
+                plain_text_hashes.insert(h);
+            }
         }
     }
     let plain_text = fetch_content(&state.seaweed, ContentKind::PlainText, plain_text_hashes).await;
