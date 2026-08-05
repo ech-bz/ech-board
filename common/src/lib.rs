@@ -118,12 +118,7 @@ pub struct RelayTurnstileConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RelayUpstreamConfig {
     pub submit_url: String,
-    #[serde(default = "default_relay_timeout")]
     pub request_timeout_ms: u64,
-}
-
-fn default_relay_timeout() -> u64 {
-    5000
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,4 +143,5 @@ pub struct RelayConfig {
     pub kms_region: String,
     pub aws_access_key_id: String,
     pub aws_secret_access_key: String,
+    pub secure_tripcode_key: String,
 }
