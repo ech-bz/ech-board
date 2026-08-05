@@ -2,8 +2,11 @@ use crate::config::OperatorSettings;
 use crate::reconcilers::fullnode_rpc::FullnodeRpcComponent;
 use crate::reconcilers::key_node::KeySponsorComponent;
 use crate::reconcilers::move_publish::MovePackageComponent;
-use crate::support::extensions::{DeploymentExt, HeadlessServiceExt, ReadyReplicasExt};
-use crate::{crds::EchBoardNetwork, error::Result};
+use crate::crds::{EchBoardNetwork, ExternalSecret};
+use crate::error::Result;
+use crate::support::extensions::{
+    DeploymentExt, ExternalSecretExt, HeadlessServiceExt, ReadyReplicasExt,
+};
 use ech_board_common::NodeKeypairs;
 use ech_board_common::keys::{FORUM_REGISTRY, KEYS, MOVE_ORIGINAL_ID};
 use ech_k8s::{Component, CrMeta, K8sClient, NodeState, Reconciler, ResourcesExt, StoreExt};
@@ -22,10 +25,15 @@ use std::collections::BTreeMap;
 
 const RELAY_CONFIG_FILE_NAME: &str = "config.json";
 const RELAY_CONFIG_DIR: &str = "/opt/ech-board/config";
+const TRIPCODE_KEY: &str = "key-tripcode";
 
 #[derive(Clone, Copy, Serialize, Component)]
 #[component(name = "workload-relay")]
 pub(crate) struct WorkloadRelayComponent;
+
+#[derive(Clone, Copy, Serialize, Component)]
+#[component(name = "key-tripcode")]
+pub(crate) struct KeyTripcodeComponent;
 
 #[derive(Clone, Serialize)]
 pub(crate) struct WorkloadRelayReconciler {
@@ -147,6 +155,27 @@ impl Reconciler for WorkloadRelayReconciler {
                 ))
             })?
             .to_string();
+        client
+            .namespaced::<ExternalSecret>(&ns)
+            .apply_external_secret(
+                &owner,
+                KeyTripcodeComponent,
+                KeyTripcodeComponent,
+                &[(TRIPCODE_KEY, Some(TRIPCODE_KEY))],
+            )
+            .await?;
+        let tripcode_key = client
+            .namespaced::<Secret>(&ns)
+            .store_load(KeyTripcodeComponent.name(&owner))
+            .await?;
+        let secure_tripcode_key = tripcode_key
+            .get(TRIPCODE_KEY)
+            .map_err(|e| {
+                crate::error::OperatorError::ControllerFatal(format!(
+                    "tripcode-key not found: {e}"
+                ))
+            })?
+            .to_string();
 
         client
             .namespaced::<Secret>(&ns)
@@ -191,6 +220,7 @@ impl Reconciler for WorkloadRelayReconciler {
                         kms_region: network.spec.relay.kms_region.clone(),
                         aws_access_key_id: aws_access_key_id.clone(),
                         aws_secret_access_key: aws_secret_access_key.clone(),
+                        secure_tripcode_key,
                     })
                     .map_err(|e| {
                         crate::error::OperatorError::ControllerFatal(format!(
@@ -310,6 +340,14 @@ impl Reconciler for WorkloadRelayReconciler {
         client
             .namespaced::<Deployment>(&ns)
             .delete_if_exists(instance.name(&owner))
+            .await?;
+        client
+            .namespaced::<ExternalSecret>(&ns)
+            .delete_if_exists(KeyTripcodeComponent.name(&owner))
+            .await?;
+        client
+            .namespaced::<Secret>(&ns)
+            .delete_if_exists(KeyTripcodeComponent.name(&owner))
             .await?;
         Ok(())
     }
