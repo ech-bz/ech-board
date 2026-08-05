@@ -1,2 +1,7 @@
 target
+build
+traces
+.coverage_map.mvcov
 Cargo.lock
+node_modules
+dist
