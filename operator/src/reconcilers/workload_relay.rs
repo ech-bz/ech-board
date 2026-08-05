@@ -172,7 +172,7 @@ impl Reconciler for WorkloadRelayReconciler {
             .get(TRIPCODE_KEY)
             .map_err(|e| {
                 crate::error::OperatorError::ControllerFatal(format!(
-                    "tripcode-key not found: {e}"
+                    "key-tripcode not found: {e}"
                 ))
             })?
             .to_string();
