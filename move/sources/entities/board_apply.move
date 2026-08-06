@@ -97,12 +97,13 @@ public(package) fun apply(
             assert!(*self.closed());
             *self.deleted_mut() = deleted;
         },
-        b"new_thread" => {
+        b"new_thread_v2" => {
             let topic_hash = event.peel_option!(|b| b.peel_u256());
             let text_hash = event.peel_option!(|b| b.peel_u256());
             let media_hashes = event.peel_vec!(|b| b.peel_u256());
-            let vote_keys = event.peel_vec!(|b| b.peel_u256());
             let name_hash = event.peel_option!(|b| b.peel_u256());
+            let vote_keys = event.peel_vec!(|b| b.peel_u256());
+            let multi_vote = event.peel_bool();
             assert!(
                 self.max_media() == 0 || media_hashes.length() > 0,
                 error::post_requires_media(),
@@ -117,26 +118,28 @@ public(package) fun apply(
                 topic_hash,
             );
             self.threads_mut().add(number, thread.id());
-            let new_post = board::new_post(
+            let new_post = board::new_post_v2(
                 responses,
                 sender,
                 thread.id(),
                 text_hash,
                 media_hashes,
-                vote_keys,
                 name_hash,
+                vote_keys,
+                multi_vote,
             );
             self.apply_thread(ctx, clock, forum, &mut thread, new_post);
             thread.share();
         },
-        b"new_thread_migrate" => {
+        b"new_thread_migrate_v2" => {
             assert!(addr == forum.admin(), error::not_authorized());
             let timestamp_ms = event.peel_u64();
             let topic_hash = event.peel_option!(|b| b.peel_u256());
             let text_hash = event.peel_option!(|b| b.peel_u256());
             let media_hashes = event.peel_vec!(|b| b.peel_u256());
-            let vote_keys = event.peel_vec!(|b| b.peel_u256());
             let name_hash = event.peel_option!(|b| b.peel_u256());
+            let vote_keys = event.peel_vec!(|b| b.peel_u256());
+            let multi_vote = event.peel_bool();
             assert!(
                 self.max_media() == 0 || media_hashes.length() > 0,
                 error::post_requires_media(),
@@ -151,15 +154,16 @@ public(package) fun apply(
                 topic_hash,
             );
             self.threads_mut().add(number, thread.id());
-            let new_post = board::new_post_migrate(
+            let new_post = board::new_post_migrate_v2(
                 responses,
                 sender,
                 timestamp_ms,
                 thread.id(),
                 text_hash,
                 media_hashes,
-                vote_keys,
                 name_hash,
+                vote_keys,
+                multi_vote,
             );
             self.apply_thread(ctx, clock, forum, &mut thread, new_post);
             thread.share();
@@ -193,6 +197,16 @@ public(package) fun apply(
             );
             *self.reactions_mut() = vec_set::from_keys(reactions);
         },
+        b"set_pinned" => {
+            let pinned = event.peel_vec!(|b| b.peel_address());
+            assert!(
+                addr == forum.admin()
+                    || forum.mods().contains(addr)
+                    || self.mods().contains(addr),
+                error::not_authorized(),
+            );
+            *self.pinned_mut() = pinned;
+        },
         _ => abort,
     };
 
@@ -225,15 +239,17 @@ public(package) fun apply_thread(
         b"upgrade" => {
             self.do_upgrade(ctx);
         },
-        b"new_post" => {
+        b"new_post_v2" => {
             let thread_id = event.peel_address();
             let text_hash = event.peel_option!(|b| b.peel_u256());
             let media_hashes = event.peel_vec!(|b| b.peel_u256());
-            let vote_keys = event.peel_vec!(|b| b.peel_u256());
             let name_hash = event.peel_option!(|b| b.peel_u256());
+            let vote_keys = event.peel_vec!(|b| b.peel_u256());
+            let multi_vote = event.peel_bool();
             assert!(thread.id() == thread_id, error::cross_reference_mismatch());
             assert!(media_hashes.length() <= *self.max_media(), error::media_limit_exceeded());
             assert!(media_hashes.length() > 0 || text_hash.is_some(), error::post_empty());
+            assert!(vote_keys.length() <= 16, error::vote_options_limit());
             assert!(
                 !*self.closed() || (addr == forum.admin()
                     || forum.mods().contains(addr)
@@ -255,25 +271,28 @@ public(package) fun apply_thread(
                 text_hash,
                 media_hashes,
                 vote_keys,
+                multi_vote,
             );
             self.posts_mut().add(number, post.id());
-            if (thread.posts().next() <= *self.bump_limit()) {
+            if (thread.posts().next() <= *self.bump_limit() && !self.pinned().contains(&thread.id())) {
                 self.bumps_mut().push(thread.id()).share();
             };
             thread.apply(ctx, forum, self, thread::new_post(responses, sender, post.id()));
             post.share();
         },
-        b"new_post_migrate" => {
+        b"new_post_migrate_v2" => {
             assert!(addr == forum.admin(), error::not_authorized());
             let timestamp_ms = event.peel_u64();
             let thread_id = event.peel_address();
             let text_hash = event.peel_option!(|b| b.peel_u256());
             let media_hashes = event.peel_vec!(|b| b.peel_u256());
-            let vote_keys = event.peel_vec!(|b| b.peel_u256());
             let name_hash = event.peel_option!(|b| b.peel_u256());
+            let vote_keys = event.peel_vec!(|b| b.peel_u256());
+            let multi_vote = event.peel_bool();
             assert!(thread.id() == thread_id, error::cross_reference_mismatch());
             assert!(media_hashes.length() <= *self.max_media(), error::media_limit_exceeded());
             assert!(media_hashes.length() > 0 || text_hash.is_some(), error::post_empty());
+            assert!(vote_keys.length() <= 16, error::vote_options_limit());
             assert!(
                 !*self.closed() || (addr == forum.admin()
                     || forum.mods().contains(addr)
@@ -292,9 +311,10 @@ public(package) fun apply_thread(
                 text_hash,
                 media_hashes,
                 vote_keys,
+                multi_vote,
             );
             self.posts_mut().add(number, post.id());
-            if (thread.posts().next() <= *self.bump_limit()) {
+            if (thread.posts().next() <= *self.bump_limit() && !self.pinned().contains(&thread.id())) {
                 self.bumps_mut().push(thread.id()).share();
             };
             thread.apply(ctx, forum, self, thread::new_post(responses, sender, post.id()));

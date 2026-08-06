@@ -13,7 +13,7 @@ use sui::bcs;
 use sui::dynamic_field;
 use sui::vec_map::{Self, VecMap};
 
-const VERSION: u16 = 1;
+const VERSION: u16 = 2;
 
 public struct Post has key {
     id: UID,
@@ -57,6 +57,7 @@ const DF_REACTIONS: vector<u8> = b"reactions";
 const DF_REACTED: vector<u8> = b"reacted";
 const DF_VOTES: vector<u8> = b"votes";
 const DF_VOTED: vector<u8> = b"voted";
+const DF_MULTI_VOTE: vector<u8> = b"multi_vote";
 const DF_NAME: vector<u8> = b"name";
 const DF_TRIP: vector<u8> = b"trip";
 const DF_GEO: vector<u8> = b"geo";
@@ -166,6 +167,14 @@ public(package) fun voted_mut(self: &mut Post): &mut Registry<UserEntry> {
     dynamic_field::borrow_mut(&mut self.id, DF_VOTED)
 }
 
+public(package) fun multi_vote(self: &Post): &bool {
+    dynamic_field::borrow(&self.id, DF_MULTI_VOTE)
+}
+
+public(package) fun multi_vote_mut(self: &mut Post): &mut bool {
+    dynamic_field::borrow_mut(&mut self.id, DF_MULTI_VOTE)
+}
+
 public(package) fun name(self: &Post): &Option<u256> {
     dynamic_field::borrow(&self.id, DF_NAME)
 }
@@ -207,6 +216,7 @@ fun empty(ctx: &mut TxContext): Post {
 
 public(package) fun do_upgrade(self: &mut Post, ctx: &mut TxContext) {
     if (self.entity.version() < 1) self.init_v1(ctx);
+    if (self.entity.version() < 2) self.init_v2(ctx);
 }
 
 fun init_v1(self: &mut Post, ctx: &mut TxContext) {
@@ -230,6 +240,11 @@ fun init_v1(self: &mut Post, ctx: &mut TxContext) {
     dynamic_field::add(&mut self.id, DF_MOD_NOTE, option::none<u256>());
 }
 
+fun init_v2(self: &mut Post, _ctx: &mut TxContext) {
+    self.entity.set_version(2);
+    dynamic_field::add(&mut self.id, DF_MULTI_VOTE, false);
+}
+
 public(package) fun new(
     ctx: &mut TxContext,
     responses: Responses,
@@ -241,6 +256,7 @@ public(package) fun new(
     text_hash: Option<u256>,
     media_hashes: vector<u256>,
     vote_keys: vector<u256>,
+    multi_vote: bool,
 ): Post {
     let mut self = empty(ctx);
     let mut event = event::new("genesis", copy responses, sender);
@@ -269,6 +285,8 @@ public(package) fun new(
 
     event = event.with(&vote_keys);
     vote_keys.do!(|key| self.votes_mut().insert(key, 0));
+
+    *self.multi_vote_mut() = multi_vote;
 
     self.push(event.build());
     self
@@ -300,6 +318,14 @@ public(package) fun set_reaction(
 
 public(package) fun vote(responses: Responses, sender: Sender, option_hash: u256): vector<u8> {
     event::new("vote", responses, sender).with(&option_hash).build()
+}
+
+public(package) fun vote_v2(
+    responses: Responses,
+    sender: Sender,
+    options: vector<u256>,
+): vector<u8> {
+    event::new("vote_v2", responses, sender).with(&options).build()
 }
 
 public(package) fun set_banned(

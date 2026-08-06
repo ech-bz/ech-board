@@ -59,6 +59,40 @@ fun fixture(
         text_hash,
         media_hashes,
         vote_keys,
+        false,
+    );
+    let clock = clock::create_for_testing(ctx);
+    (forum, board, thread, post, clock)
+}
+
+fun fixture_multi(
+    ctx: &mut TxContext,
+    vote_keys: vector<u256>,
+): (Forum, Board, Thread, Post, Clock) {
+    let admin = actor(ADMIN_PK);
+    let mut forum = forum::new(ctx, uid(b"forum"), admin, admin.addr());
+    let board = board::new(ctx, uid(b"board"), admin, ascii::string(b"test"));
+    forum.boards_mut().add(ascii::string(b"test"), board.id());
+    let thread = thread::new(
+        ctx,
+        uid(b"thread"),
+        admin,
+        board.id(),
+        1,
+        option::none(),
+    );
+    let post = post::new(
+        ctx,
+        uid(b"post"),
+        actor(AUTHOR_PK),
+        thread.id(),
+        1,
+        0,
+        option::none(),
+        option::some(1),
+        vector[],
+        vote_keys,
+        true,
     );
     let clock = clock::create_for_testing(ctx);
     (forum, board, thread, post, clock)
@@ -314,7 +348,7 @@ fun post_vote_allowed_event() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"1", 500), actor(USER_PK), 200),
+        post::vote_v2(uid_ip(b"1", 500), actor(USER_PK), vector[200]),
     );
     assert!(post.votes()[&200] == 1);
     finish(forum, board, thread, post, clock);
@@ -385,7 +419,7 @@ fun post_rejects_unconfigured_reaction() {
 }
 
 #[test]
-#[expected_failure(abort_code = 16)]
+#[expected_failure(abort_code = 20)]
 fun post_rejects_unknown_vote_option() {
     let mut ctx = tx_context::dummy();
     let (forum, board, thread, mut post, clock) = fixture(
@@ -400,7 +434,7 @@ fun post_rejects_unknown_vote_option() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"1", 500), actor(USER_PK), 201),
+        post::vote_v2(uid_ip(b"1", 500), actor(USER_PK), vector[201]),
     );
     abort
 }
@@ -422,7 +456,7 @@ fun post_rejects_duplicate_vote_by_ip() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"1", 500), user, 200),
+        post::vote_v2(uid_ip(b"1", 500), user, vector[200]),
     );
     post.apply(
         &mut ctx,
@@ -430,7 +464,7 @@ fun post_rejects_duplicate_vote_by_ip() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"2", 500), user, 200),
+        post::vote_v2(uid_ip(b"2", 500), user, vector[200]),
     );
     abort
 }
@@ -487,7 +521,7 @@ fun post_rejects_duplicate_vote_by_sender_on_different_ip() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"1", 500), user, 200),
+        post::vote_v2(uid_ip(b"1", 500), user, vector[200]),
     );
     post.apply(
         &mut ctx,
@@ -495,7 +529,54 @@ fun post_rejects_duplicate_vote_by_sender_on_different_ip() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"2", 501), user, 200),
+        post::vote_v2(uid_ip(b"2", 501), user, vector[200]),
+    );
+    abort
+}
+
+#[test]
+fun post_multi_vote_single_tx_multiple_options() {
+    let mut ctx = tx_context::dummy();
+    let (forum, board, thread, mut post, clock) = fixture_multi(
+        &mut ctx,
+        vector[200, 201],
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::vote_v2(uid_ip(b"1", 500), actor(USER_PK), vector[200, 201]),
+    );
+    assert!(post.votes()[&200] == 1);
+    assert!(post.votes()[&201] == 1);
+    finish(forum, board, thread, post, clock);
+}
+
+#[test]
+#[expected_failure(abort_code = 17)]
+fun post_multi_vote_rejects_second_tx() {
+    let mut ctx = tx_context::dummy();
+    let (forum, board, thread, mut post, clock) = fixture_multi(
+        &mut ctx,
+        vector[200, 201],
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::vote_v2(uid_ip(b"1", 500), actor(USER_PK), vector[200]),
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::vote_v2(uid_ip(b"1", 500), actor(USER_PK), vector[201]),
     );
     abort
 }

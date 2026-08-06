@@ -120,16 +120,17 @@ public(package) fun apply(
             if (reacted_id.is_some()) {
                 let reacted_id = *reacted_id.borrow();
                 let entry = *self.reacted().entry(reacted_id);
+                let entry_hash = entry.hash()[0];
                 assert!(entry.sender() == sender, error::not_authorized());
-                reaction_dec(self, *entry.hash());
+                reaction_dec(self, entry_hash);
                 self.reacted_mut().remove(reacted_id);
-                if (entry.hash() != reaction_hash) {
+                if (entry_hash != reaction_hash) {
                     reaction_inc(self, reaction_hash);
                     self
                         .reacted_mut()
                         .add(
                             vector[ip32_hash, sender.pk()],
-                            user_entry::new(sender, reaction_hash),
+                            user_entry::new(sender, vector[reaction_hash]),
                         );
                 };
             } else {
@@ -138,24 +139,32 @@ public(package) fun apply(
                     .reacted_mut()
                     .add(
                         vector[ip32_hash, sender.pk()],
-                        user_entry::new(sender, reaction_hash),
+                        user_entry::new(sender, vector[reaction_hash]),
                     );
             };
         },
-        b"vote" => {
+        b"vote_v2" => {
             let ip32_hash = *responses.ip32().borrow();
-            let option_hash = event.peel_u256();
-            assert!(self.votes().contains(&option_hash), error::reaction_not_allowed());
+            let options = event.peel_vec!(|b| b.peel_u256());
+            assert!(
+                options.length() == 1 || (options.length() != 0 && *self.multi_vote()),
+                error::vote_options_mismatch(),
+            );
             assert!(self.voted().find(ip32_hash).is_none(), error::already_voted());
             assert!(self.voted().find(sender.pk()).is_none(), error::already_voted());
+            let options = vec_set::from_keys(options);
+            let keys = *options.keys();
+            keys.do!(|option| {
+                assert!(self.votes().contains(&option), error::vote_options_mismatch());
+                let count = &mut self.votes_mut()[&option];
+                *count = *count + 1;
+            });
             self
                 .voted_mut()
                 .add(
                     vector[ip32_hash, sender.pk()],
-                    user_entry::new(sender, option_hash),
+                    user_entry::new(sender, *options.keys()),
                 );
-            let count = &mut self.votes_mut()[&option_hash];
-            *count = *count + 1;
         },
         b"set_banned" => {
             let banned = event.peel_option!(
