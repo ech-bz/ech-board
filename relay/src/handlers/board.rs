@@ -80,6 +80,11 @@ pub(crate) async fn fetch(
 
     let mut seen = HashSet::new();
     let mut thread_addrs: Vec<Address> = Vec::new();
+    for addr in &board.projection.pinned {
+        if seen.insert(*addr) {
+            thread_addrs.push(*addr);
+        }
+    }
     for addr in bump_addrs.into_iter().rev() {
         if seen.insert(addr) {
             thread_addrs.push(addr);
@@ -91,7 +96,10 @@ pub(crate) async fn fetch(
         Vec::with_capacity(thread_addrs.len());
 
     for thread_id in thread_addrs {
-        let thread = load_thread(&state.upstream, thread_id).await?;
+        let Ok(thread) = load_thread(&state.upstream, thread_id).await else {
+            eprintln!("relay: skipping invalid thread entry {thread_id} on board {board_uid}");
+            continue;
+        };
         let thread_uid = thread.id;
         let mut post_addrs = vec![thread.projection.op];
         post_addrs.extend_from_slice(&thread.projection.last_3);

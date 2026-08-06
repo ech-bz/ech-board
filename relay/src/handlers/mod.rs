@@ -84,6 +84,7 @@ pub(super) struct BoardProjection {
     pub(super) mods: Table,
     pub(super) bans: Bans,
     pub(super) reactions: Vec<Address>,
+    pub(super) pinned: Vec<Address>,
     pub(super) threads: Table,
     pub(super) posts: Table,
     pub(super) bumps: Feed,
@@ -105,7 +106,6 @@ pub(super) struct ThreadProjection {
     pub(super) op: Address,
     pub(super) closed: bool,
     pub(super) deleted: bool,
-    pub(super) pinned: bool,
     pub(super) admin: Option<Address>,
     pub(super) mods: Table,
     pub(super) bans: Bans,
@@ -149,6 +149,7 @@ pub(super) struct PostProjection {
     pub(super) trip: Option<Tripcode>,
     pub(super) geo: Option<u32>,
     pub(super) mod_note: Option<Address>,
+    pub(super) multi_vote: bool,
     pub(super) reactions: Vec<(Address, u64)>,
     pub(super) votes: Vec<(Address, u64)>,
 }
@@ -224,6 +225,13 @@ impl DynamicFields {
                 String::from_utf8_lossy(name),
             ))
         })
+    }
+
+    fn get_or<T: DeserializeOwned>(&self, name: &[u8], default: T) -> T {
+        self.values
+            .get(name)
+            .and_then(|value| bcs::from_bytes(value).ok())
+            .unwrap_or(default)
     }
 }
 
@@ -305,6 +313,7 @@ fn decode_board(
             mods: fields.get(b"moderators")?,
             bans: fields.get(b"bans")?,
             reactions: fields.get(b"reactions")?,
+            pinned: fields.get_or(b"pinned", vec![]),
             threads: fields.get(b"threads")?,
             posts: fields.get(b"posts")?,
             bumps: fields.get(b"bumps")?,
@@ -377,7 +386,6 @@ pub(super) async fn load_thread(
             op: fields.get(b"op")?,
             closed: fields.get(b"closed")?,
             deleted: fields.get(b"deleted")?,
-            pinned: fields.get(b"pinned")?,
             admin: fields.get(b"admin")?,
             mods: fields.get(b"moderators")?,
             bans: fields.get(b"bans")?,
@@ -411,6 +419,7 @@ fn decode_post(
             trip: fields.get(b"trip")?,
             geo: fields.get(b"geo")?,
             mod_note: fields.get(b"mod_note")?,
+            multi_vote: fields.get_or(b"multi_vote", false),
             reactions: fields.get(b"reactions")?,
             votes: fields.get(b"votes")?,
         },

@@ -69,99 +69,138 @@ impl IntentPayload for NewBoardPayload {
 }
 
 #[derive(Deserialize)]
-struct NewThreadPayload {
+struct NewThreadV2Payload {
     topic_hash: Option<Address>,
     text_hash: Option<Address>,
     media_hashes: Vec<Address>,
+    name_hash: Option<Address>,
     #[allow(dead_code)]
     vote_keys: Vec<Address>,
-    name_hash: Option<Address>,
-}
-
-#[async_trait]
-impl IntentPayload for NewThreadPayload {
-    async fn verify(
-        &self,
-        state: &AppState,
-        text: &Option<MultipartBytes>,
-        _description: Option<&str>,
-        topic: Option<&str>,
-        _reason: Option<&str>,
-        name: Option<&str>,
-        media_files: &[TempFile],
-        intent: &Intent,
-    ) -> Result<(), error::RelayError> {
-        verify_content(
-            state,
-            text,
-            media_files,
-            intent.objects[3].id,
-            &self.text_hash,
-            &self.media_hashes,
-        )
-        .await?;
-        if let Some(t) = topic {
-            if t.len() > 150 {
-                return Err(error::RelayError::SponsorBuild(
-                    "topic exceeds 150 chars".into(),
-                ));
-            }
-        }
-        verify_plaintext(state, &self.topic_hash, topic).await?;
-        verify_plaintext(state, &self.name_hash, name).await
-    }
-    async fn cleanup(&self, state: &AppState) {
-        cleanup_content(state, &self.text_hash, &self.media_hashes).await;
-        if let Some(hash) = &self.topic_hash {
-            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
-        }
-        if let Some(hash) = &self.name_hash {
-            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
-        }
-    }
+    #[allow(dead_code)]
+    multi_vote: bool,
 }
 
 #[derive(Deserialize)]
-struct NewPostPayload {
+struct NewPostV2Payload {
     #[allow(dead_code)]
     thread: Address,
     text_hash: Option<Address>,
     media_hashes: Vec<Address>,
+    name_hash: Option<Address>,
     #[allow(dead_code)]
     vote_keys: Vec<Address>,
-    name_hash: Option<Address>,
+    #[allow(dead_code)]
+    multi_vote: bool,
+}
+
+macro_rules! impl_thread_payload {
+    ($t:ty) => {
+        #[async_trait]
+        impl IntentPayload for $t {
+            async fn verify(
+                &self,
+                state: &AppState,
+                text: &Option<MultipartBytes>,
+                _description: Option<&str>,
+                topic: Option<&str>,
+                _reason: Option<&str>,
+                name: Option<&str>,
+                media_files: &[TempFile],
+                intent: &Intent,
+            ) -> Result<(), error::RelayError> {
+                verify_content(
+                    state,
+                    text,
+                    media_files,
+                    intent.objects[3].id,
+                    &self.text_hash,
+                    &self.media_hashes,
+                )
+                .await?;
+                if let Some(t) = topic {
+                    if t.len() > 150 {
+                        return Err(error::RelayError::SponsorBuild(
+                            "topic exceeds 150 chars".into(),
+                        ));
+                    }
+                }
+                verify_plaintext(state, &self.topic_hash, topic).await?;
+                verify_plaintext(state, &self.name_hash, name).await
+            }
+            async fn cleanup(&self, state: &AppState) {
+                cleanup_content(state, &self.text_hash, &self.media_hashes).await;
+                if let Some(hash) = &self.topic_hash {
+                    let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+                }
+                if let Some(hash) = &self.name_hash {
+                    let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+                }
+            }
+        }
+    };
+}
+
+macro_rules! impl_post_payload {
+    ($t:ty) => {
+        #[async_trait]
+        impl IntentPayload for $t {
+            async fn verify(
+                &self,
+                state: &AppState,
+                text: &Option<MultipartBytes>,
+                _description: Option<&str>,
+                _topic: Option<&str>,
+                _reason: Option<&str>,
+                name: Option<&str>,
+                media_files: &[TempFile],
+                intent: &Intent,
+            ) -> Result<(), error::RelayError> {
+                verify_content(
+                    state,
+                    text,
+                    media_files,
+                    intent.objects[3].id,
+                    &self.text_hash,
+                    &self.media_hashes,
+                )
+                .await?;
+                verify_plaintext(state, &self.name_hash, name).await
+            }
+            async fn cleanup(&self, state: &AppState) {
+                cleanup_content(state, &self.text_hash, &self.media_hashes).await;
+                if let Some(hash) = &self.name_hash {
+                    let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+                }
+            }
+        }
+    };
+}
+
+impl_thread_payload!(NewThreadV2Payload);
+impl_post_payload!(NewPostV2Payload);
+
+#[derive(Deserialize)]
+struct BoardSetPinnedPayload {
+    #[allow(dead_code)]
+    pinned: Vec<Address>,
 }
 
 #[async_trait]
-impl IntentPayload for NewPostPayload {
+impl IntentPayload for BoardSetPinnedPayload {
     async fn verify(
         &self,
-        state: &AppState,
-        text: &Option<MultipartBytes>,
+        _state: &AppState,
+        _text: &Option<MultipartBytes>,
         _description: Option<&str>,
         _topic: Option<&str>,
         _reason: Option<&str>,
-        name: Option<&str>,
-        media_files: &[TempFile],
-        intent: &Intent,
+        _name: Option<&str>,
+        _media_files: &[TempFile],
+        _intent: &Intent,
     ) -> Result<(), error::RelayError> {
-        verify_content(
-            state,
-            text,
-            media_files,
-            intent.objects[3].id,
-            &self.text_hash,
-            &self.media_hashes,
-        )
-        .await?;
-        verify_plaintext(state, &self.name_hash, name).await
+        Ok(())
     }
-    async fn cleanup(&self, state: &AppState) {
-        cleanup_content(state, &self.text_hash, &self.media_hashes).await;
-        if let Some(hash) = &self.name_hash {
-            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
-        }
-    }
+    async fn cleanup(&self, _state: &AppState) {}
 }
 
 #[derive(Deserialize)]
@@ -453,17 +492,20 @@ pub(crate) async fn handle_send(
         ("forum_apply_intent_uid", "new_board") => Some(Box::new(
             bcs::from_bytes::<NewBoardPayload>(event_payload).map_err(payload_err)?,
         )),
-        ("board_apply_intent_uid", "new_thread")
-        | ("board_apply_intent_uid_tripcode", "new_thread")
-        | ("board_apply_intent_uid_geo", "new_thread")
-        | ("board_apply_intent_uid_geo_tripcode", "new_thread") => Some(Box::new(
-            bcs::from_bytes::<NewThreadPayload>(event_payload).map_err(payload_err)?,
+        ("board_apply_intent_uid", "new_thread_v2")
+        | ("board_apply_intent_uid_tripcode", "new_thread_v2")
+        | ("board_apply_intent_uid_geo", "new_thread_v2")
+        | ("board_apply_intent_uid_geo_tripcode", "new_thread_v2") => Some(Box::new(
+            bcs::from_bytes::<NewThreadV2Payload>(event_payload).map_err(payload_err)?,
         )),
-        ("board_apply_thread_intent_uid", "new_post")
-        | ("board_apply_thread_intent_uid_tripcode", "new_post")
-        | ("board_apply_thread_intent_uid_geo", "new_post")
-        | ("board_apply_thread_intent_uid_geo_tripcode", "new_post") => Some(Box::new(
-            bcs::from_bytes::<NewPostPayload>(event_payload).map_err(payload_err)?,
+        ("board_apply_intent_uid", "set_pinned") => Some(Box::new(
+            bcs::from_bytes::<BoardSetPinnedPayload>(event_payload).map_err(payload_err)?,
+        )),
+        ("board_apply_thread_intent_uid", "new_post_v2")
+        | ("board_apply_thread_intent_uid_tripcode", "new_post_v2")
+        | ("board_apply_thread_intent_uid_geo", "new_post_v2")
+        | ("board_apply_thread_intent_uid_geo_tripcode", "new_post_v2") => Some(Box::new(
+            bcs::from_bytes::<NewPostV2Payload>(event_payload).map_err(payload_err)?,
         )),
         ("post_apply_intent_uid", "set_text") => Some(Box::new(
             bcs::from_bytes::<SetTextPayload>(event_payload).map_err(payload_err)?,
@@ -784,7 +826,7 @@ fn hierarchy_indices(
     }
 }
 
-fn seal_responses(
+pub(crate) fn seal_responses(
     sponsor: &crate::sponsor::SponsorService,
     intent_sig: &[u8],
     inner: &[u8],
@@ -847,6 +889,7 @@ fn validate_target(intent: &Intent, event_tag: &str) -> Result<(), error::RelayE
     }
     let allowed: &[&str] = match intent.function.as_str() {
         "forum_apply_intent_uid" => &[
+            "upgrade",
             "add_moderator",
             "del_moderator",
             "new_board",
@@ -854,37 +897,39 @@ fn validate_target(intent: &Intent, event_tag: &str) -> Result<(), error::RelayE
         ],
         "forum_apply_post_intent_uid" => &["ban", "unban"],
         "board_apply_intent_uid" => &[
+            "upgrade",
             "add_moderator",
             "del_moderator",
             "set_max_media",
             "set_bump_limit",
             "set_closed",
             "set_deleted",
-            "new_thread",
+            "new_thread_v2",
             "set_description",
             "set_ignore_forum_bans",
             "set_reactions",
+            "set_pinned",
         ],
-        "board_apply_thread_intent_uid" => &["new_post"],
-        "board_apply_intent_uid_tripcode" => &["new_thread"],
-        "board_apply_intent_uid_geo" => &["new_thread"],
-        "board_apply_intent_uid_geo_tripcode" => &["new_thread"],
-        "board_apply_thread_intent_uid_tripcode" => &["new_post"],
-        "board_apply_thread_intent_uid_geo" => &["new_post"],
-        "board_apply_thread_intent_uid_geo_tripcode" => &["new_post"],
+        "board_apply_thread_intent_uid" => &["new_post_v2", "new_post_migrate_v2"],
+        "board_apply_intent_uid_tripcode" => &["new_thread_v2", "new_thread_migrate_v2"],
+        "board_apply_intent_uid_geo" => &["new_thread_v2", "new_thread_migrate_v2"],
+        "board_apply_intent_uid_geo_tripcode" => &["new_thread_v2", "new_thread_migrate_v2"],
+        "board_apply_thread_intent_uid_tripcode" => &["new_post_v2", "new_post_migrate_v2"],
+        "board_apply_thread_intent_uid_geo" => &["new_post_v2", "new_post_migrate_v2"],
+        "board_apply_thread_intent_uid_geo_tripcode" => &["new_post_v2", "new_post_migrate_v2"],
         "board_apply_post_intent_uid" => &["ban", "unban"],
         "thread_apply_intent_uid" => &[
+            "upgrade",
             "add_moderator",
             "del_moderator",
             "set_closed",
             "set_deleted",
-            "set_pinned",
             "set_topic",
             "set_admin",
         ],
         "thread_apply_post_intent_uid" => &["ban", "unban"],
-        "post_apply_intent_uid" => &["set_deleted", "set_text", "remove_media"],
-        "post_apply_intent_uid_ip32" => &["set_reaction", "vote"],
+        "post_apply_intent_uid" => &["upgrade", "set_deleted", "set_text", "remove_media"],
+        "post_apply_intent_uid_ip32" => &["set_reaction", "vote_v2"],
         _ => {
             return Err(error::RelayError::SponsorBuild(
                 "unsupported intent function".into(),
@@ -899,7 +944,7 @@ fn validate_target(intent: &Intent, event_tag: &str) -> Result<(), error::RelayE
     Ok(())
 }
 
-async fn build_transaction(
+pub(crate) async fn build_transaction(
     state: &AppState,
     intent: &Intent,
     signature_bytes: &[u8],

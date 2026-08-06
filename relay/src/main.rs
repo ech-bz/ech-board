@@ -4,6 +4,7 @@ mod config;
 mod error;
 mod geoip;
 mod handlers;
+mod import;
 mod seaweed;
 mod sponsor;
 mod thumbnail;
@@ -27,6 +28,27 @@ use types::SendForm;
 struct Cli {
     #[arg(short, long)]
     config: PathBuf,
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(clap::Subcommand)]
+enum Command {
+    /// Migrate a board from the old backend dump
+    Import {
+        #[arg(long)]
+        board: String,
+        #[arg(long)]
+        dump: PathBuf,
+        #[arg(long)]
+        admin_key: String,
+        #[arg(long)]
+        file_base: String,
+        #[arg(long)]
+        file_key: String,
+        #[arg(long)]
+        state: PathBuf,
+    },
 }
 
 #[actix_web::main]
@@ -35,7 +57,34 @@ async fn main() -> std::io::Result<()> {
     let cfg = config::load(&cli.config).map_err(std::io::Error::other)?;
     let bind_addr = cfg.server.bind.clone();
     let admin_bind = cfg.server.admin_bind.clone();
-    let state = web::Data::new(AppState::from_config(cfg).await?);
+    let state = AppState::from_config(cfg).await?;
+
+    if let Some(Command::Import {
+        board,
+        dump,
+        admin_key,
+        file_base,
+        file_key,
+        state: state_path,
+    }) = cli.command
+    {
+        import::run(
+            &state,
+            import::ImportOptions {
+                board,
+                dump,
+                admin_key,
+                file_base,
+                file_key,
+                state_path,
+            },
+        )
+        .await
+        .map_err(std::io::Error::other)?;
+        return Ok(());
+    }
+
+    let state = web::Data::new(state);
 
     let public_state = state.clone();
     let public_server = HttpServer::new(move || {

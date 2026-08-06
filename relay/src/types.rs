@@ -135,6 +135,10 @@ pub(crate) enum PostPart {
     Strike(Vec<PostPart>),
     Sup(Vec<PostPart>),
     Sub(Vec<PostPart>),
+    Link {
+        url: String,
+        children: Vec<PostPart>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
