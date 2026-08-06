@@ -11,7 +11,7 @@ use forum::post::{Self, Post};
 use forum::responses;
 use forum::sender::{Self, Sender};
 use forum::thread::{Self, Thread};
-use forum::user_entry::{Self, UserEntry};
+use forum::user_entry::Self;
 use std::ascii::{Self, String};
 use sui::bcs;
 use sui::clock::Clock;
@@ -120,7 +120,7 @@ public(package) fun apply(
             if (reacted_id.is_some()) {
                 let reacted_id = *reacted_id.borrow();
                 let entry = *self.reacted().entry(reacted_id);
-                let entry_hash = entry.hash()[0];
+                let entry_hash = entry.options()[0];
                 assert!(entry.sender() == sender, error::not_authorized());
                 reaction_dec(self, entry_hash);
                 self.reacted_mut().remove(reacted_id);

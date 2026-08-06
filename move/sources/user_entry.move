@@ -4,21 +4,22 @@ use forum::sender::Sender;
 
 public struct UserEntry has copy, drop, store {
     sender: Sender,
-    hash: vector<u256>,
+    hash: u256,
 }
 
-public(package) fun new(sender: Sender, hash: vector<u256>): UserEntry {
-    UserEntry { sender, hash }
+public struct UserEntry2 has drop, store {
+    sender: Sender,
+    options: vector<u256>,
 }
 
-public(package) fun sender(self: &UserEntry): &Sender {
+public(package) fun new(sender: Sender, options: vector<u256>): UserEntry2 {
+    UserEntry2 { sender, options }
+}
+
+public(package) fun sender(self: &UserEntry2): &Sender {
     &self.sender
 }
 
-public(package) fun hash(self: &UserEntry): &vector<u256> {
-    &self.hash
-}
-
-public(package) fun hash_mut(self: &mut UserEntry): &mut vector<u256> {
-    &mut self.hash
+public(package) fun options(self: &UserEntry2): &vector<u256> {
+    &self.options
 }

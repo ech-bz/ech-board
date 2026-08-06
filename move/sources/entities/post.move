@@ -7,7 +7,7 @@ use forum::registry::{Self, Registry};
 use forum::responses::Responses;
 use forum::sender::{Self, Sender};
 use forum::tripcode::Tripcode;
-use forum::user_entry::{Self, UserEntry};
+use forum::user_entry::{Self, UserEntry2};
 use std::ascii::String;
 use sui::bcs;
 use sui::dynamic_field;
@@ -143,11 +143,11 @@ public(package) fun reactions_mut(self: &mut Post): &mut VecMap<u256, u64> {
     dynamic_field::borrow_mut(&mut self.id, DF_REACTIONS)
 }
 
-public(package) fun reacted(self: &Post): &Registry<UserEntry> {
+public(package) fun reacted(self: &Post): &Registry<UserEntry2> {
     dynamic_field::borrow(&self.id, DF_REACTED)
 }
 
-public(package) fun reacted_mut(self: &mut Post): &mut Registry<UserEntry> {
+public(package) fun reacted_mut(self: &mut Post): &mut Registry<UserEntry2> {
     dynamic_field::borrow_mut(&mut self.id, DF_REACTED)
 }
 
@@ -159,11 +159,11 @@ public(package) fun votes_mut(self: &mut Post): &mut VecMap<u256, u64> {
     dynamic_field::borrow_mut(&mut self.id, DF_VOTES)
 }
 
-public(package) fun voted(self: &Post): &Registry<UserEntry> {
+public(package) fun voted(self: &Post): &Registry<UserEntry2> {
     dynamic_field::borrow(&self.id, DF_VOTED)
 }
 
-public(package) fun voted_mut(self: &mut Post): &mut Registry<UserEntry> {
+public(package) fun voted_mut(self: &mut Post): &mut Registry<UserEntry2> {
     dynamic_field::borrow_mut(&mut self.id, DF_VOTED)
 }
 
@@ -231,9 +231,9 @@ fun init_v1(self: &mut Post, ctx: &mut TxContext) {
     dynamic_field::add(&mut self.id, DF_TEXT_HASH, option::none<u256>());
     dynamic_field::add(&mut self.id, DF_MEDIA_HASHES, vector<u256>[]);
     dynamic_field::add(&mut self.id, DF_REACTIONS, vec_map::empty<u256, u64>());
-    dynamic_field::add(&mut self.id, DF_REACTED, registry::new<UserEntry>(ctx));
+    dynamic_field::add(&mut self.id, DF_REACTED, registry::new<UserEntry2>(ctx));
     dynamic_field::add(&mut self.id, DF_VOTES, vec_map::empty<u256, u64>());
-    dynamic_field::add(&mut self.id, DF_VOTED, registry::new<UserEntry>(ctx));
+    dynamic_field::add(&mut self.id, DF_VOTED, registry::new<UserEntry2>(ctx));
     dynamic_field::add(&mut self.id, DF_NAME, option::none<u256>());
     dynamic_field::add(&mut self.id, DF_TRIP, option::none<Tripcode>());
     dynamic_field::add(&mut self.id, DF_GEO, option::none<u32>());
