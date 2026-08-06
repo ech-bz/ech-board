@@ -7,7 +7,7 @@ public struct UserEntry has copy, drop, store {
     hash: u256,
 }
 
-public struct UserEntry2 has drop, store {
+public struct UserEntry2 has copy, drop, store {
     sender: Sender,
     options: vector<u256>,
 }
