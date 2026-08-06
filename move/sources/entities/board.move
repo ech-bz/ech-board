@@ -13,7 +13,7 @@ use sui::dynamic_field;
 use sui::table::{Self, Table};
 use sui::vec_set::{Self, VecSet};
 
-const VERSION: u16 = 1;
+const VERSION: u16 = 2;
 
 public struct Board has key {
     id: UID,
@@ -52,6 +52,7 @@ const DF_MAX_MEDIA: vector<u8> = b"max_media";
 const DF_BUMP_LIMIT: vector<u8> = b"bump_limit";
 const DF_CLOSED: vector<u8> = b"closed";
 const DF_DELETED: vector<u8> = b"deleted";
+const DF_PINNED: vector<u8> = b"pinned";
 const DF_IGNORE_BANS: vector<u8> = b"ignore_forum_bans";
 const DF_MODS: vector<u8> = b"moderators";
 const DF_BANS: vector<u8> = b"bans";
@@ -106,6 +107,14 @@ public(package) fun deleted(self: &Board): &bool {
 
 public(package) fun deleted_mut(self: &mut Board): &mut bool {
     dynamic_field::borrow_mut(&mut self.id, DF_DELETED)
+}
+
+public(package) fun pinned(self: &Board): &vector<address> {
+    dynamic_field::borrow(&self.id, DF_PINNED)
+}
+
+public(package) fun pinned_mut(self: &mut Board): &mut vector<address> {
+    dynamic_field::borrow_mut(&mut self.id, DF_PINNED)
 }
 
 public(package) fun ignore_forum_bans(self: &Board): &bool {
@@ -173,6 +182,7 @@ fun empty(ctx: &mut TxContext): Board {
 
 public(package) fun do_upgrade(self: &mut Board, ctx: &mut TxContext) {
     if (self.entity.version() < 1) self.init_v1(ctx);
+    if (self.entity.version() < 2) self.init_v2(ctx);
 }
 
 fun init_v1(self: &mut Board, ctx: &mut TxContext) {
@@ -191,6 +201,11 @@ fun init_v1(self: &mut Board, ctx: &mut TxContext) {
     dynamic_field::add(&mut self.id, DF_THREADS, table::new<u64, address>(ctx));
     dynamic_field::add(&mut self.id, DF_POSTS, table::new<u64, address>(ctx));
     dynamic_field::add(&mut self.id, DF_BUMPS, feed::new<address>(ctx));
+}
+
+fun init_v2(self: &mut Board, _ctx: &mut TxContext) {
+    self.entity.set_version(2);
+    dynamic_field::add(&mut self.id, DF_PINNED, vector<address>[]);
 }
 
 public(package) fun new(
@@ -249,6 +264,14 @@ public(package) fun set_deleted(responses: Responses, sender: Sender, deleted: b
     event::new("set_deleted", responses, sender).with(&deleted).build()
 }
 
+public(package) fun set_pinned(
+    responses: Responses,
+    sender: Sender,
+    pinned: vector<address>,
+): vector<u8> {
+    event::new("set_pinned", responses, sender).with(&pinned).build()
+}
+
 public(package) fun new_thread(
     responses: Responses,
     sender: Sender,
@@ -264,6 +287,26 @@ public(package) fun new_thread(
         .with(&media_hashes)
         .with(&vote_keys)
         .with(&name_hash)
+        .build()
+}
+
+public(package) fun new_thread_v2(
+    responses: Responses,
+    sender: Sender,
+    topic_hash: Option<u256>,
+    text_hash: Option<u256>,
+    media_hashes: vector<u256>,
+    name_hash: Option<u256>,
+    vote_keys: vector<u256>,
+    multi_vote: bool,
+): vector<u8> {
+    event::new("new_thread_v2", responses, sender)
+        .with(&topic_hash)
+        .with(&text_hash)
+        .with(&media_hashes)
+        .with(&name_hash)
+        .with(&vote_keys)
+        .with(&multi_vote)
         .build()
 }
 
@@ -309,6 +352,26 @@ public(package) fun new_post(
         .build()
 }
 
+public(package) fun new_post_v2(
+    responses: Responses,
+    sender: Sender,
+    thread: address,
+    text_hash: Option<u256>,
+    media_hashes: vector<u256>,
+    name_hash: Option<u256>,
+    vote_keys: vector<u256>,
+    multi_vote: bool,
+): vector<u8> {
+    event::new("new_post_v2", responses, sender)
+        .with(&thread)
+        .with(&text_hash)
+        .with(&media_hashes)
+        .with(&name_hash)
+        .with(&vote_keys)
+        .with(&multi_vote)
+        .build()
+}
+
 public(package) fun new_post_migrate(
     responses: Responses,
     sender: Sender,
@@ -326,6 +389,28 @@ public(package) fun new_post_migrate(
         .with(&media_hashes)
         .with(&vote_keys)
         .with(&name_hash)
+        .build()
+}
+
+public(package) fun new_post_migrate_v2(
+    responses: Responses,
+    sender: Sender,
+    timestamp_ms: u64,
+    thread: address,
+    text_hash: Option<u256>,
+    media_hashes: vector<u256>,
+    name_hash: Option<u256>,
+    vote_keys: vector<u256>,
+    multi_vote: bool,
+): vector<u8> {
+    event::new("new_post_migrate_v2", responses, sender)
+        .with(&timestamp_ms)
+        .with(&thread)
+        .with(&text_hash)
+        .with(&media_hashes)
+        .with(&name_hash)
+        .with(&vote_keys)
+        .with(&multi_vote)
         .build()
 }
 

@@ -7,13 +7,14 @@ use forum::registry::{Self, Registry};
 use forum::responses::Responses;
 use forum::sender::{Self, Sender};
 use forum::tripcode::Tripcode;
-use forum::user_entry::{Self, UserEntry};
+use forum::user_entry::{Self, UserEntry2};
 use std::ascii::String;
 use sui::bcs;
 use sui::dynamic_field;
 use sui::vec_map::{Self, VecMap};
+use sui::vec_set::{Self, VecSet};
 
-const VERSION: u16 = 1;
+const VERSION: u16 = 3;
 
 public struct Post has key {
     id: UID,
@@ -53,10 +54,12 @@ const DF_DELETED: vector<u8> = b"deleted";
 const DF_BANNED: vector<u8> = b"banned";
 const DF_TEXT_HASH: vector<u8> = b"text_hash";
 const DF_MEDIA_HASHES: vector<u8> = b"media_hashes";
+const DF_BANNED_MEDIA: vector<u8> = b"banned_media";
 const DF_REACTIONS: vector<u8> = b"reactions";
 const DF_REACTED: vector<u8> = b"reacted";
 const DF_VOTES: vector<u8> = b"votes";
 const DF_VOTED: vector<u8> = b"voted";
+const DF_MULTI_VOTE: vector<u8> = b"multi_vote";
 const DF_NAME: vector<u8> = b"name";
 const DF_TRIP: vector<u8> = b"trip";
 const DF_GEO: vector<u8> = b"geo";
@@ -134,6 +137,14 @@ public(package) fun media_hashes_mut(self: &mut Post): &mut vector<u256> {
     dynamic_field::borrow_mut(&mut self.id, DF_MEDIA_HASHES)
 }
 
+public(package) fun banned_media(self: &Post): &VecSet<u256> {
+    dynamic_field::borrow(&self.id, DF_BANNED_MEDIA)
+}
+
+public(package) fun banned_media_mut(self: &mut Post): &mut VecSet<u256> {
+    dynamic_field::borrow_mut(&mut self.id, DF_BANNED_MEDIA)
+}
+
 public(package) fun reactions(self: &Post): &VecMap<u256, u64> {
     dynamic_field::borrow(&self.id, DF_REACTIONS)
 }
@@ -142,11 +153,11 @@ public(package) fun reactions_mut(self: &mut Post): &mut VecMap<u256, u64> {
     dynamic_field::borrow_mut(&mut self.id, DF_REACTIONS)
 }
 
-public(package) fun reacted(self: &Post): &Registry<UserEntry> {
+public(package) fun reacted(self: &Post): &Registry<UserEntry2> {
     dynamic_field::borrow(&self.id, DF_REACTED)
 }
 
-public(package) fun reacted_mut(self: &mut Post): &mut Registry<UserEntry> {
+public(package) fun reacted_mut(self: &mut Post): &mut Registry<UserEntry2> {
     dynamic_field::borrow_mut(&mut self.id, DF_REACTED)
 }
 
@@ -158,12 +169,20 @@ public(package) fun votes_mut(self: &mut Post): &mut VecMap<u256, u64> {
     dynamic_field::borrow_mut(&mut self.id, DF_VOTES)
 }
 
-public(package) fun voted(self: &Post): &Registry<UserEntry> {
+public(package) fun voted(self: &Post): &Registry<UserEntry2> {
     dynamic_field::borrow(&self.id, DF_VOTED)
 }
 
-public(package) fun voted_mut(self: &mut Post): &mut Registry<UserEntry> {
+public(package) fun voted_mut(self: &mut Post): &mut Registry<UserEntry2> {
     dynamic_field::borrow_mut(&mut self.id, DF_VOTED)
+}
+
+public(package) fun multi_vote(self: &Post): &bool {
+    dynamic_field::borrow(&self.id, DF_MULTI_VOTE)
+}
+
+public(package) fun multi_vote_mut(self: &mut Post): &mut bool {
+    dynamic_field::borrow_mut(&mut self.id, DF_MULTI_VOTE)
 }
 
 public(package) fun name(self: &Post): &Option<u256> {
@@ -207,6 +226,8 @@ fun empty(ctx: &mut TxContext): Post {
 
 public(package) fun do_upgrade(self: &mut Post, ctx: &mut TxContext) {
     if (self.entity.version() < 1) self.init_v1(ctx);
+    if (self.entity.version() < 2) self.init_v2(ctx);
+    if (self.entity.version() < 3) self.init_v3(ctx);
 }
 
 fun init_v1(self: &mut Post, ctx: &mut TxContext) {
@@ -221,13 +242,23 @@ fun init_v1(self: &mut Post, ctx: &mut TxContext) {
     dynamic_field::add(&mut self.id, DF_TEXT_HASH, option::none<u256>());
     dynamic_field::add(&mut self.id, DF_MEDIA_HASHES, vector<u256>[]);
     dynamic_field::add(&mut self.id, DF_REACTIONS, vec_map::empty<u256, u64>());
-    dynamic_field::add(&mut self.id, DF_REACTED, registry::new<UserEntry>(ctx));
+    dynamic_field::add(&mut self.id, DF_REACTED, registry::new<UserEntry2>(ctx));
     dynamic_field::add(&mut self.id, DF_VOTES, vec_map::empty<u256, u64>());
-    dynamic_field::add(&mut self.id, DF_VOTED, registry::new<UserEntry>(ctx));
+    dynamic_field::add(&mut self.id, DF_VOTED, registry::new<UserEntry2>(ctx));
     dynamic_field::add(&mut self.id, DF_NAME, option::none<u256>());
     dynamic_field::add(&mut self.id, DF_TRIP, option::none<Tripcode>());
     dynamic_field::add(&mut self.id, DF_GEO, option::none<u32>());
     dynamic_field::add(&mut self.id, DF_MOD_NOTE, option::none<u256>());
+}
+
+fun init_v2(self: &mut Post, _ctx: &mut TxContext) {
+    self.entity.set_version(2);
+    dynamic_field::add(&mut self.id, DF_MULTI_VOTE, false);
+}
+
+fun init_v3(self: &mut Post, _ctx: &mut TxContext) {
+    self.entity.set_version(3);
+    dynamic_field::add(&mut self.id, DF_BANNED_MEDIA, vec_set::empty<u256>());
 }
 
 public(package) fun new(
@@ -241,6 +272,7 @@ public(package) fun new(
     text_hash: Option<u256>,
     media_hashes: vector<u256>,
     vote_keys: vector<u256>,
+    multi_vote: bool,
 ): Post {
     let mut self = empty(ctx);
     let mut event = event::new("genesis", copy responses, sender);
@@ -270,6 +302,8 @@ public(package) fun new(
     event = event.with(&vote_keys);
     vote_keys.do!(|key| self.votes_mut().insert(key, 0));
 
+    *self.multi_vote_mut() = multi_vote;
+
     self.push(event.build());
     self
 }
@@ -280,6 +314,22 @@ public(package) fun set_deleted(responses: Responses, sender: Sender, deleted: b
 
 public(package) fun set_text(responses: Responses, sender: Sender, hash: Option<u256>): vector<u8> {
     event::new("set_text", responses, sender).with(&hash).build()
+}
+
+public(package) fun ban_media(
+    responses: Responses,
+    sender: Sender,
+    hashes: vector<u256>,
+): vector<u8> {
+    event::new("ban_media", responses, sender).with(&hashes).build()
+}
+
+public(package) fun unban_media(
+    responses: Responses,
+    sender: Sender,
+    hashes: vector<u256>,
+): vector<u8> {
+    event::new("unban_media", responses, sender).with(&hashes).build()
 }
 
 public(package) fun remove_media(
@@ -300,6 +350,14 @@ public(package) fun set_reaction(
 
 public(package) fun vote(responses: Responses, sender: Sender, option_hash: u256): vector<u8> {
     event::new("vote", responses, sender).with(&option_hash).build()
+}
+
+public(package) fun vote_v2(
+    responses: Responses,
+    sender: Sender,
+    options: vector<u256>,
+): vector<u8> {
+    event::new("vote_v2", responses, sender).with(&options).build()
 }
 
 public(package) fun set_banned(

@@ -11,7 +11,7 @@ use sui::bcs;
 use sui::dynamic_field;
 use sui::table::{Self, Table};
 
-const VERSION: u16 = 1;
+const VERSION: u16 = 2;
 
 public struct Thread has key {
     id: UID,
@@ -104,14 +104,6 @@ public(package) fun deleted_mut(self: &mut Thread): &mut bool {
     dynamic_field::borrow_mut(&mut self.id, DF_DELETED)
 }
 
-public(package) fun pinned(self: &Thread): &bool {
-    dynamic_field::borrow(&self.id, DF_PINNED)
-}
-
-public(package) fun pinned_mut(self: &mut Thread): &mut bool {
-    dynamic_field::borrow_mut(&mut self.id, DF_PINNED)
-}
-
 public(package) fun admin(self: &Thread): &Option<address> {
     dynamic_field::borrow(&self.id, DF_ADMIN)
 }
@@ -161,6 +153,7 @@ fun empty(ctx: &mut TxContext): Thread {
 
 public(package) fun do_upgrade(self: &mut Thread, ctx: &mut TxContext) {
     if (self.entity.version() < 1) self.init_v1(ctx);
+    if (self.entity.version() < 2) self.init_v2(ctx);
 }
 
 fun init_v1(self: &mut Thread, ctx: &mut TxContext) {
@@ -178,6 +171,11 @@ fun init_v1(self: &mut Thread, ctx: &mut TxContext) {
     dynamic_field::add(&mut self.id, DF_BANS, bans::new(ctx, id));
     dynamic_field::add(&mut self.id, DF_POSTS, feed::new<address>(ctx));
     dynamic_field::add(&mut self.id, DF_LAST3, vector<address>[]);
+}
+
+fun init_v2(self: &mut Thread, _ctx: &mut TxContext) {
+    self.entity.set_version(2);
+    let _: bool = dynamic_field::remove(&mut self.id, DF_PINNED);
 }
 
 public(package) fun new(
@@ -226,10 +224,6 @@ public(package) fun set_closed(responses: Responses, sender: Sender, closed: boo
 
 public(package) fun set_deleted(responses: Responses, sender: Sender, deleted: bool): vector<u8> {
     event::new("set_deleted", responses, sender).with(&deleted).build()
-}
-
-public(package) fun set_pinned(responses: Responses, sender: Sender, pinned: bool): vector<u8> {
-    event::new("set_pinned", responses, sender).with(&pinned).build()
 }
 
 public(package) fun set_topic(

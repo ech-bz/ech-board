@@ -89,16 +89,6 @@ public(package) fun apply(
             assert!(*self.closed());
             *self.deleted_mut() = deleted;
         },
-        b"set_pinned" => {
-            let pinned = event.peel_bool();
-            assert!(
-                addr == forum.admin()
-                    || forum.mods().contains(addr)
-                    || board.mods().contains(addr),
-                error::not_authorized(),
-            );
-            *self.pinned_mut() = pinned;
-        },
         b"set_topic" => {
             let topic_hash = event.peel_option!(|b| b.peel_u256());
             assert!(

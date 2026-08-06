@@ -214,6 +214,7 @@ fun forum_post_ban_unban_allowed_events() {
         option::some(7),
         vector[],
         vector[],
+        false,
     );
     let clock = sui::clock::create_for_testing(&mut ctx);
     let key = bans::key(forum.id(), 32, 77);
@@ -277,6 +278,7 @@ fun forum_post_ban_rejects_user() {
         option::some(7),
         vector[],
         vector[],
+        false,
     );
     let clock = sui::clock::create_for_testing(&mut ctx);
     let key = bans::key(forum.id(), 32, 77);

@@ -59,6 +59,40 @@ fun fixture(
         text_hash,
         media_hashes,
         vote_keys,
+        false,
+    );
+    let clock = clock::create_for_testing(ctx);
+    (forum, board, thread, post, clock)
+}
+
+fun fixture_multi(
+    ctx: &mut TxContext,
+    vote_keys: vector<u256>,
+): (Forum, Board, Thread, Post, Clock) {
+    let admin = actor(ADMIN_PK);
+    let mut forum = forum::new(ctx, uid(b"forum"), admin, admin.addr());
+    let board = board::new(ctx, uid(b"board"), admin, ascii::string(b"test"));
+    forum.boards_mut().add(ascii::string(b"test"), board.id());
+    let thread = thread::new(
+        ctx,
+        uid(b"thread"),
+        admin,
+        board.id(),
+        1,
+        option::none(),
+    );
+    let post = post::new(
+        ctx,
+        uid(b"post"),
+        actor(AUTHOR_PK),
+        thread.id(),
+        1,
+        0,
+        option::none(),
+        option::some(1),
+        vector[],
+        vote_keys,
+        true,
     );
     let clock = clock::create_for_testing(ctx);
     (forum, board, thread, post, clock)
@@ -99,9 +133,10 @@ fun post_uid_allowed_events_for_author() {
         &forum,
         &board,
         &thread,
-        post::remove_media(uid(b"2"), author, vector[10]),
+        post::ban_media(uid(b"2"), author, vector[10]),
     );
-    assert!(post.media_hashes() == &vector[11]);
+    assert!(post.banned_media().contains(&10));
+    assert!(post.media_hashes() == &vector[10, 11]);
 
     post.apply(
         &mut ctx,
@@ -139,7 +174,48 @@ fun post_set_text_none_auto_deletes_empty_post() {
 }
 
 #[test]
-fun post_remove_last_media_auto_deletes_empty_post() {
+fun post_moderator_ban_then_unban_media() {
+    let mut ctx = tx_context::dummy();
+    let (forum, mut board, thread, mut post, mut clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[10, 11],
+        vector[],
+    );
+    let board_mod = actor(BOARD_MOD_PK);
+    board.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        board::add_moderator(uid(b"1"), actor(ADMIN_PK), board_mod.addr()),
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::ban_media(uid(b"2"), board_mod, vector[10]),
+    );
+    assert!(post.banned_media().contains(&10));
+    assert!(post.banned_media().length() == 1);
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::unban_media(uid(b"3"), board_mod, vector[10]),
+    );
+    assert!(!post.banned_media().contains(&10));
+    assert!(post.banned_media().length() == 0);
+    assert!(post.media_hashes() == &vector[10, 11]);
+    finish(forum, board, thread, post, clock);
+}
+
+#[test]
+#[expected_failure(abort_code = 14)]
+fun post_author_cannot_unban_media() {
     let mut ctx = tx_context::dummy();
     let (forum, board, thread, mut post, clock) = fixture(
         &mut ctx,
@@ -153,11 +229,87 @@ fun post_remove_last_media_auto_deletes_empty_post() {
         &forum,
         &board,
         &thread,
-        post::remove_media(uid(b"1"), actor(AUTHOR_PK), vector[10]),
+        post::unban_media(uid(b"1"), actor(AUTHOR_PK), vector[10]),
     );
-    assert!(post.media_hashes().is_empty());
-    assert!(*post.deleted());
-    finish(forum, board, thread, post, clock);
+    abort
+}
+
+#[test]
+#[expected_failure(abort_code = 22)]
+fun post_ban_media_rejects_hash_not_in_post() {
+    let mut ctx = tx_context::dummy();
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::none(),
+        vector[10],
+        vector[],
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::ban_media(uid(b"1"), actor(AUTHOR_PK), vector[999]),
+    );
+    abort
+}
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun post_ban_media_rejects_already_banned() {
+    let mut ctx = tx_context::dummy();
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::none(),
+        vector[10],
+        vector[],
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::ban_media(uid(b"1"), actor(AUTHOR_PK), vector[10]),
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::ban_media(uid(b"2"), actor(AUTHOR_PK), vector[10]),
+    );
+    abort
+}
+
+#[test]
+#[expected_failure(abort_code = 1)]
+fun post_unban_media_rejects_not_banned() {
+    let mut ctx = tx_context::dummy();
+    let (forum, mut board, thread, mut post, mut clock) = fixture(
+        &mut ctx,
+        option::none(),
+        vector[10],
+        vector[],
+    );
+    let board_mod = actor(BOARD_MOD_PK);
+    board.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        board::add_moderator(uid(b"1"), actor(ADMIN_PK), board_mod.addr()),
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::unban_media(uid(b"2"), board_mod, vector[10]),
+    );
+    abort
 }
 
 #[test]
@@ -314,7 +466,7 @@ fun post_vote_allowed_event() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"1", 500), actor(USER_PK), 200),
+        post::vote_v2(uid_ip(b"1", 500), actor(USER_PK), vector[200]),
     );
     assert!(post.votes()[&200] == 1);
     finish(forum, board, thread, post, clock);
@@ -385,7 +537,7 @@ fun post_rejects_unconfigured_reaction() {
 }
 
 #[test]
-#[expected_failure(abort_code = 16)]
+#[expected_failure(abort_code = 20)]
 fun post_rejects_unknown_vote_option() {
     let mut ctx = tx_context::dummy();
     let (forum, board, thread, mut post, clock) = fixture(
@@ -400,7 +552,7 @@ fun post_rejects_unknown_vote_option() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"1", 500), actor(USER_PK), 201),
+        post::vote_v2(uid_ip(b"1", 500), actor(USER_PK), vector[201]),
     );
     abort
 }
@@ -422,7 +574,7 @@ fun post_rejects_duplicate_vote_by_ip() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"1", 500), user, 200),
+        post::vote_v2(uid_ip(b"1", 500), user, vector[200]),
     );
     post.apply(
         &mut ctx,
@@ -430,7 +582,7 @@ fun post_rejects_duplicate_vote_by_ip() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"2", 500), user, 200),
+        post::vote_v2(uid_ip(b"2", 500), user, vector[200]),
     );
     abort
 }
@@ -487,7 +639,7 @@ fun post_rejects_duplicate_vote_by_sender_on_different_ip() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"1", 500), user, 200),
+        post::vote_v2(uid_ip(b"1", 500), user, vector[200]),
     );
     post.apply(
         &mut ctx,
@@ -495,7 +647,54 @@ fun post_rejects_duplicate_vote_by_sender_on_different_ip() {
         &forum,
         &board,
         &thread,
-        post::vote(uid_ip(b"2", 501), user, 200),
+        post::vote_v2(uid_ip(b"2", 501), user, vector[200]),
+    );
+    abort
+}
+
+#[test]
+fun post_multi_vote_single_tx_multiple_options() {
+    let mut ctx = tx_context::dummy();
+    let (forum, board, thread, mut post, clock) = fixture_multi(
+        &mut ctx,
+        vector[200, 201],
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::vote_v2(uid_ip(b"1", 500), actor(USER_PK), vector[200, 201]),
+    );
+    assert!(post.votes()[&200] == 1);
+    assert!(post.votes()[&201] == 1);
+    finish(forum, board, thread, post, clock);
+}
+
+#[test]
+#[expected_failure(abort_code = 17)]
+fun post_multi_vote_rejects_second_tx() {
+    let mut ctx = tx_context::dummy();
+    let (forum, board, thread, mut post, clock) = fixture_multi(
+        &mut ctx,
+        vector[200, 201],
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::vote_v2(uid_ip(b"1", 500), actor(USER_PK), vector[200]),
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::vote_v2(uid_ip(b"1", 500), actor(USER_PK), vector[201]),
     );
     abort
 }

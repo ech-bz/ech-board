@@ -103,10 +103,12 @@ public fun board_apply_intent_uid(
             "set_bump_limit",
             "set_closed",
             "set_deleted",
-            "new_thread",
+            "new_thread_v2",
+            "new_thread_migrate_v2",
             "set_description",
             "set_ignore_forum_bans",
             "set_reactions",
+            "set_pinned",
         ],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
@@ -131,7 +133,7 @@ public fun board_apply_intent_uid_geo(
         vector[intent::request_uid(), intent::request_geo()],
         responses,
         vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
-        vector["new_thread", "new_thread_migrate"],
+        vector["new_thread_v2", "new_thread_migrate_v2"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply(ctx, clock, forum, intent.into_event());
@@ -155,7 +157,7 @@ public fun board_apply_intent_uid_tripcode(
         vector[intent::request_uid(), intent::request_tripcode()],
         responses,
         vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
-        vector["new_thread", "new_thread_migrate"],
+        vector["new_thread_v2", "new_thread_migrate_v2"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply(ctx, clock, forum, intent.into_event());
@@ -179,7 +181,7 @@ public fun board_apply_intent_uid_geo_tripcode(
         vector[intent::request_uid(), intent::request_geo(), intent::request_tripcode()],
         responses,
         vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
-        vector["new_thread", "new_thread_migrate"],
+        vector["new_thread_v2", "new_thread_migrate_v2"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply(ctx, clock, forum, intent.into_event());
@@ -210,7 +212,7 @@ public fun board_apply_thread_intent_uid(
             object::id(board),
             object::id(thread),
         ],
-        vector["new_post", "new_post_migrate"],
+        vector["new_post_v2", "new_post_migrate_v2"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply_thread(ctx, clock, forum, thread, intent.into_event());
@@ -241,7 +243,7 @@ public fun board_apply_thread_intent_uid_geo(
             object::id(board),
             object::id(thread),
         ],
-        vector["new_post", "new_post_migrate"],
+        vector["new_post_v2", "new_post_migrate_v2"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply_thread(ctx, clock, forum, thread, intent.into_event());
@@ -272,7 +274,7 @@ public fun board_apply_thread_intent_uid_tripcode(
             object::id(board),
             object::id(thread),
         ],
-        vector["new_post", "new_post_migrate"],
+        vector["new_post_v2", "new_post_migrate_v2"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply_thread(ctx, clock, forum, thread, intent.into_event());
@@ -303,7 +305,7 @@ public fun board_apply_thread_intent_uid_geo_tripcode(
             object::id(board),
             object::id(thread),
         ],
-        vector["new_post", "new_post_migrate"],
+        vector["new_post_v2", "new_post_migrate_v2"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply_thread(ctx, clock, forum, thread, intent.into_event());
@@ -366,7 +368,6 @@ public fun thread_apply_intent_uid(
             "del_moderator",
             "set_closed",
             "set_deleted",
-            "set_pinned",
             "set_topic",
             "set_admin",
         ],
@@ -435,7 +436,7 @@ public fun post_apply_intent_uid(
             object::id(thread),
             object::id(post),
         ],
-        vector["upgrade", "set_deleted", "set_text", "remove_media"],
+        vector["upgrade", "set_deleted", "set_text", "ban_media", "unban_media"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     post.apply(ctx, clock, forum, board, thread, intent.into_event());
@@ -468,7 +469,7 @@ public fun post_apply_intent_uid_ip32(
             object::id(thread),
             object::id(post),
         ],
-        vector["set_reaction", "vote"],
+        vector["set_reaction", "vote_v2"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     post.apply(ctx, clock, forum, board, thread, intent.into_event());

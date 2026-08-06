@@ -91,14 +91,15 @@ fun board_allowed_events() {
         &mut ctx,
         &clock,
         &forum,
-        board::new_thread(
+        board::new_thread_v2(
             uid(b"8"),
             actor(USER_PK),
             option::some(300),
             option::some(301),
             vector[302],
-            vector[303],
             option::none(),
+            vector[303],
+            false,
         ),
     );
 
@@ -240,14 +241,15 @@ fun board_apply_thread_creates_posts_and_bumps_within_limit() {
         &clock,
         &forum,
         &mut thread,
-        board::new_post(
+        board::new_post_v2(
             uid(b"2"),
             actor(USER_PK),
             thread_id,
             option::some(10),
             vector[],
-            vector[],
             option::none(),
+            vector[],
+            false,
         ),
     );
     let op = *thread.op();
@@ -264,14 +266,15 @@ fun board_apply_thread_creates_posts_and_bumps_within_limit() {
         &clock,
         &forum,
         &mut thread,
-        board::new_post(
+        board::new_post_v2(
             uid(b"3"),
             actor(USER_PK),
             thread_id,
             option::some(11),
             vector[],
-            vector[],
             option::none(),
+            vector[],
+            false,
         ),
     );
 
@@ -326,14 +329,15 @@ fun board_apply_thread_allows_forum_moderator_on_closed_board_and_thread() {
         &clock,
         &forum,
         &mut thread,
-        board::new_post(
+        board::new_post_v2(
             uid(b"4"),
             moderator,
             thread_id,
             option::some(10),
             vector[],
-            vector[],
             option::none(),
+            vector[],
+            false,
         ),
     );
 
@@ -370,6 +374,7 @@ fun board_post_ban_unban_allowed_events() {
         option::some(1),
         vector[],
         vector[],
+        false,
     );
     let key = bans::key(board.id(), 32, 100);
 
@@ -465,14 +470,15 @@ fun board_new_thread_requires_media_when_enabled() {
         &mut ctx,
         &clock,
         &forum,
-        board::new_thread(
+        board::new_thread_v2(
             uid(b"2"),
             actor(USER_PK),
             option::none(),
             option::some(1),
             vector[],
-            vector[],
             option::none(),
+            vector[],
+            false,
         ),
     );
     abort
@@ -504,14 +510,48 @@ fun board_new_post_rejects_media_over_limit() {
         &clock,
         &forum,
         &mut thread,
-        board::new_post(
+        board::new_post_v2(
             uid(b"2"),
             actor(USER_PK),
             thread_id,
             option::none(),
             vector[1, 2],
+            option::none(),
+            vector[],
+            false,
+        ),
+    );
+    abort
+}
+
+#[test]
+#[expected_failure(abort_code = 21)]
+fun board_new_post_rejects_too_many_vote_options() {
+    let mut ctx = tx_context::dummy();
+    let (forum, mut board, clock) = fixture(&mut ctx);
+    let mut thread = thread::new(
+        &mut ctx,
+        uid(b"thread"),
+        actor(ADMIN_PK),
+        board.id(),
+        1,
+        option::none(),
+    );
+    let thread_id = thread.id();
+    board.apply_thread(
+        &mut ctx,
+        &clock,
+        &forum,
+        &mut thread,
+        board::new_post_v2(
+            uid(b"1"),
+            actor(USER_PK),
+            thread_id,
+            option::some(1),
             vector[],
             option::none(),
+            vector[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+            false,
         ),
     );
     abort
@@ -536,14 +576,15 @@ fun board_new_post_rejects_empty_post() {
         &clock,
         &forum,
         &mut thread,
-        board::new_post(
+        board::new_post_v2(
             uid(b"1"),
             actor(USER_PK),
             thread_id,
             option::none(),
             vector[],
-            vector[],
             option::none(),
+            vector[],
+            false,
         ),
     );
     abort
@@ -575,14 +616,15 @@ fun board_new_post_rejects_user_when_board_closed() {
         &clock,
         &forum,
         &mut thread,
-        board::new_post(
+        board::new_post_v2(
             uid(b"2"),
             actor(USER_PK),
             thread_id,
             option::some(1),
             vector[],
-            vector[],
             option::none(),
+            vector[],
+            false,
         ),
     );
     abort
@@ -614,14 +656,15 @@ fun board_new_post_rejects_user_when_thread_closed() {
         &clock,
         &forum,
         &mut thread,
-        board::new_post(
+        board::new_post_v2(
             uid(b"2"),
             actor(USER_PK),
             thread_id,
             option::some(1),
             vector[],
-            vector[],
             option::none(),
+            vector[],
+            false,
         ),
     );
     abort
@@ -645,14 +688,15 @@ fun board_new_post_rejects_event_thread_mismatch() {
         &clock,
         &forum,
         &mut thread,
-        board::new_post(
+        board::new_post_v2(
             uid(b"1"),
             actor(USER_PK),
             @0xdead,
             option::some(1),
             vector[],
-            vector[],
             option::none(),
+            vector[],
+            false,
         ),
     );
     abort
@@ -683,6 +727,7 @@ fun board_post_ban_rejects_user() {
         option::some(1),
         vector[],
         vector[],
+        false,
     );
     let key = bans::key(board.id(), 32, 100);
     board.apply_post(
