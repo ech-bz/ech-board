@@ -104,6 +104,7 @@ public fun board_apply_intent_uid(
             "set_closed",
             "set_deleted",
             "new_thread_v2",
+            "new_thread_migrate_v2",
             "set_description",
             "set_ignore_forum_bans",
             "set_reactions",

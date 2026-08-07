@@ -132,7 +132,6 @@ public(package) fun apply(
             thread.share();
         },
         b"new_thread_migrate_v2" => {
-            assert!(addr == forum.admin(), error::not_authorized());
             let timestamp_ms = event.peel_u64();
             let topic_hash = event.peel_option!(|b| b.peel_u256());
             let text_hash = event.peel_option!(|b| b.peel_u256());
@@ -281,7 +280,6 @@ public(package) fun apply_thread(
             post.share();
         },
         b"new_post_migrate_v2" => {
-            assert!(addr == forum.admin(), error::not_authorized());
             let timestamp_ms = event.peel_u64();
             let thread_id = event.peel_address();
             let text_hash = event.peel_option!(|b| b.peel_u256());
