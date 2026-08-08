@@ -489,19 +489,39 @@ pub(super) async fn fetch_media_meta(
 ) -> HashMap<Address, MediaMeta> {
     let mut out = HashMap::new();
     let mut missing = Vec::new();
-    for h in hashes {
-        match seaweed.get(ContentKind::MediaMeta, &h).await {
-            Ok(Some(data)) => match bcs::from_bytes::<MediaMeta>(&data) {
-                Ok(meta) => {
-                    out.insert(h, meta);
-                }
-                Err(_) => missing.push(h),
-            },
-            _ => missing.push(h),
+    let fetched: Vec<(Address, Option<MediaMeta>)> = futures::stream::iter(
+        hashes.into_iter().map(|h| async move {
+            match seaweed.get(ContentKind::MediaMeta, &h).await {
+                Ok(Some(data)) => match bcs::from_bytes::<MediaMeta>(&data) {
+                    Ok(meta) => (h, Some(meta)),
+                    Err(_) => (h, None),
+                },
+                _ => (h, None),
+            }
+        }),
+    )
+    .buffer_unordered(32)
+    .collect()
+    .await;
+    for (h, meta) in fetched {
+        match meta {
+            Some(meta) => {
+                out.insert(h, meta);
+            }
+            None => missing.push(h),
         }
     }
-    for h in missing {
-        if let Some(meta) = lazy_media_meta(seaweed, h).await {
+
+    let lazy: Vec<(Address, Option<MediaMeta>)> = futures::stream::iter(
+        missing.into_iter().map(|h| async move {
+            (h, lazy_media_meta(seaweed, h).await)
+        }),
+    )
+    .buffer_unordered(8)
+    .collect()
+    .await;
+    for (h, meta) in lazy {
+        if let Some(meta) = meta {
             out.insert(h, meta);
         }
     }
