@@ -1,5 +1,6 @@
 use crate::error::{RelayError, UpstreamFailure, UpstreamFailureKind};
 use crate::types::{RelayEvent, SendResponse};
+use futures::future::join_all;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
@@ -348,12 +349,26 @@ impl UpstreamSender {
         &self,
         object_ids: impl IntoIterator<Item = impl Borrow<Address>>,
     ) -> Result<Vec<Option<sui_rpc::proto::sui::rpc::v2::Object>>, RelayError> {
+        const BATCH_LIMIT: usize = 500;
+        let ids: Vec<Address> = object_ids.into_iter().map(|id| *id.borrow()).collect();
+        let chunks: Vec<&[Address]> = ids.chunks(BATCH_LIMIT).collect();
+        let results = join_all(chunks.iter().map(|chunk| self.fetch_objects_chunk(chunk)))
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(results.into_iter().flatten().collect())
+    }
+
+    async fn fetch_objects_chunk(
+        &self,
+        object_ids: &[Address],
+    ) -> Result<Vec<Option<sui_rpc::proto::sui::rpc::v2::Object>>, RelayError> {
         let mut client = self.client.clone();
         let mut request = BatchGetObjectsRequest::default();
         request.read_mask = Some(FieldMask::from_str("owner,version,digest,contents"));
         request.requests = object_ids
-            .into_iter()
-            .map(|object_id| GetObjectRequest::new(object_id.borrow()))
+            .iter()
+            .map(|object_id| GetObjectRequest::new(object_id))
             .collect();
         let response = tokio::time::timeout(
             Duration::from_millis(self.timeout_ms),
