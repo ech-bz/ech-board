@@ -41,8 +41,6 @@ enum Command {
         #[arg(long)]
         dump: PathBuf,
         #[arg(long)]
-        admin_key: String,
-        #[arg(long)]
         file_base: String,
         #[arg(long)]
         file_key: String,
@@ -57,17 +55,18 @@ async fn main() -> std::io::Result<()> {
     let cfg = config::load(&cli.config).map_err(std::io::Error::other)?;
     let bind_addr = cfg.server.bind.clone();
     let admin_bind = cfg.server.admin_bind.clone();
+    let admin_key_config = cfg.sponsor.private_key_base64.clone();
     let state = AppState::from_config(cfg).await?;
 
     if let Some(Command::Import {
         board,
         dump,
-        admin_key,
         file_base,
         file_key,
         state: state_path,
     }) = cli.command
     {
+        let admin_key = admin_key_config;
         import::run(
             &state,
             import::ImportOptions {
@@ -98,6 +97,7 @@ async fn main() -> std::io::Result<()> {
             .service(forum_handler)
             .service(board_handler)
             .service(resolve_post_handler)
+            .service(resolve_thread_handler)
             .service(thread_handler)
             .service(post_handler)
             .service(content_handler)
@@ -174,6 +174,17 @@ async fn resolve_post_handler(
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
         .body(handlers::board::resolve_post(&state, uid, number).await?))
+}
+
+#[get("/board/{uid}/thread/{number}")]
+async fn resolve_thread_handler(
+    state: web::Data<AppState>,
+    path: web::Path<(Address, u64)>,
+) -> Result<HttpResponse, error::RelayError> {
+    let (uid, number) = path.into_inner();
+    Ok(HttpResponse::Ok()
+        .content_type("application/octet-stream")
+        .body(handlers::board::resolve_thread(&state, uid, number).await?))
 }
 
 #[get("/thread/{uid}")]

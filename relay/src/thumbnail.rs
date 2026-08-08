@@ -1,5 +1,5 @@
 use crate::error::RelayError;
-use crate::types::FileType;
+use crate::types::{FileType, MediaMeta};
 use image::GenericImageView;
 use std::io::Cursor;
 use std::path::Path;
@@ -71,4 +71,54 @@ pub(crate) fn generate(data: &[u8], path: &Path) -> Result<Vec<u8>, RelayError> 
         .write_to(&mut Cursor::new(&mut buf), image::ImageFormat::Jpeg)
         .map_err(|e| RelayError::SponsorBuild(format!("jpeg encode: {e}")))?;
     Ok(buf)
+}
+
+fn probe_duration(path: &Path) -> Option<u64> {
+    let output = Command::new("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            path.to_str()?,
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let secs: f64 = String::from_utf8_lossy(&output.stdout).trim().parse().ok()?;
+    Some((secs * 1000.0).round() as u64)
+}
+
+pub(crate) fn compute_meta(data: &[u8], path: &Path) -> Result<MediaMeta, RelayError> {
+    let ft = validate(data)?;
+    let size = data.len() as u64;
+    match ft {
+        FileType::Jpeg | FileType::Png | FileType::WebP => {
+            let img = image::load_from_memory(data)
+                .map_err(|e| RelayError::SponsorBuild(format!("image decode: {e}")))?;
+            let (w, h) = img.dimensions();
+            Ok(MediaMeta {
+                mime: ft.mime().to_string(),
+                width: w,
+                height: h,
+                duration_ms: None,
+                size,
+            })
+        }
+        FileType::Mp4 | FileType::WebM => {
+            let img = extract_frame(path)?;
+            let (w, h) = img.dimensions();
+            Ok(MediaMeta {
+                mime: ft.mime().to_string(),
+                width: w,
+                height: h,
+                duration_ms: probe_duration(path),
+                size,
+            })
+        }
+    }
 }

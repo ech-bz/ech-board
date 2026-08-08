@@ -10,6 +10,7 @@ use base64::Engine;
 use blake2::Digest;
 use blake2::digest::consts::U32;
 use ed25519_dalek::Signer;
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -51,19 +52,17 @@ struct DumpBoard {
 struct DumpPost {
     num: u64,
     parent: u64,
+    #[serde(default)]
+    op: bool,
     timestamp_ms: u64,
     #[serde(default)]
     subject: Option<String>,
-    #[serde(default)]
-    name: Option<String>,
     #[serde(default)]
     comment: Option<String>,
     #[serde(default)]
     menu: Option<String>,
     #[serde(default)]
     answers: Vec<String>,
-    #[serde(default)]
-    trip: Option<String>,
     #[serde(default)]
     trip_plain: Option<String>,
     #[serde(default)]
@@ -111,12 +110,16 @@ struct DumpPollVote {
 struct State {
     boards: HashMap<String, BoardState>,
     mapping: HashMap<u64, Mapping>,
+    #[serde(default)]
+    keys: HashMap<u64, [u8; 32]>,
 }
 
 #[derive(Serialize, Deserialize)]
 struct BoardState {
     board_id: Address,
     post_count: u64,
+    #[serde(default)]
+    cursor: u64,
     done: bool,
 }
 
@@ -128,21 +131,133 @@ struct Mapping {
     num: u64,
 }
 
-#[derive(Deserialize)]
-struct TableEntry {
-    #[allow(dead_code)]
-    id: Address,
-    #[allow(dead_code)]
-    name: u64,
-    value: Address,
+fn load_dump(path: &Path) -> Result<Dump, RelayError> {
+    let raw = std::fs::read(path)
+        .map_err(|e| RelayError::Internal(format!("read dump: {e}")))?;
+    if path.extension().and_then(|e| e.to_str()) == Some("json") {
+        return serde_json::from_slice(&raw)
+            .map_err(|e| RelayError::Internal(format!("parse dump: {e}")));
+    }
+    let mut rdr = csv::ReaderBuilder::new()
+        .flexible(true)
+        .from_reader(&raw[..]);
+    let headers: Vec<String> = rdr
+        .headers()
+        .map_err(|e| RelayError::Internal(format!("csv headers: {e}")))?
+        .iter()
+        .map(|h| h.trim().to_string())
+        .collect();
+    let mut boards: Vec<DumpBoard> = Vec::new();
+    let mut index: HashMap<String, usize> = HashMap::new();
+    for record in rdr.records() {
+        let rec = record.map_err(|e| RelayError::Internal(format!("csv record: {e}")))?;
+        let slug = csv_get(&headers, &rec, "board").unwrap_or("").trim().to_string();
+        if slug.is_empty() {
+            continue;
+        }
+        let bi = match index.get(&slug) {
+            Some(&i) => i,
+            None => {
+                let i = boards.len();
+                boards.push(DumpBoard {
+                    slug: slug.clone(),
+                    max_media: 0,
+                    bump_limit: 0,
+                    description: None,
+                    posts: Vec::new(),
+                });
+                index.insert(slug.clone(), i);
+                i
+            }
+        };
+        let post = DumpPost {
+            num: csv_num(csv_get(&headers, &rec, "num")),
+            parent: csv_num(csv_get(&headers, &rec, "parent")),
+            op: csv_bool(csv_get(&headers, &rec, "op")),
+            timestamp_ms: csv_num(csv_get(&headers, &rec, "timestamp"))
+                .saturating_mul(1000),
+            subject: csv_opt(csv_get(&headers, &rec, "subject")),
+            comment: csv_opt(csv_get(&headers, &rec, "comment")),
+            menu: csv_opt(csv_get(&headers, &rec, "menu")),
+            answers: csv_json_strings(csv_get(&headers, &rec, "answers")),
+            trip_plain: csv_opt(csv_get(&headers, &rec, "trip_plain")),
+            ip: csv_opt(csv_get(&headers, &rec, "ip")),
+            ip_country_code: csv_opt(csv_get(&headers, &rec, "ip_country_code")),
+            force_geo: csv_bool(csv_get(&headers, &rec, "force_geo")),
+            sticky: csv_bool(csv_get(&headers, &rec, "sticky")),
+            closed: csv_bool(csv_get(&headers, &rec, "closed")),
+            deleted: csv_bool(csv_get(&headers, &rec, "deleted"))
+                || csv_bool(csv_get(&headers, &rec, "deleted_by_thread_deletion"))
+                || csv_bool(csv_get(&headers, &rec, "deleted_by_board_deletion"))
+                || csv_bool(csv_get(&headers, &rec, "deleted_by_endless_excess"))
+                || csv_bool(csv_get(&headers, &rec, "deleted_by_delall"))
+                || csv_bool(csv_get(&headers, &rec, "deleted_by_owner"))
+                || csv_bool(csv_get(&headers, &rec, "deleted_by_op"))
+                || csv_bool(csv_get(&headers, &rec, "deleted_by_autodeletion")),
+            enable_multiple_votes: csv_bool(csv_get(&headers, &rec, "enable_multiple_votes")),
+            files: csv_json_files(csv_get(&headers, &rec, "files")),
+            reactions: Vec::new(),
+            poll_votes: Vec::new(),
+        };
+        boards[bi].posts.push(post);
+    }
+    Ok(Dump { boards })
+}
+
+fn csv_get<'a>(headers: &[String], rec: &'a csv::StringRecord, name: &str) -> Option<&'a str> {
+    headers.iter().position(|h| h == name).and_then(|i| rec.get(i))
+}
+
+fn csv_num(v: Option<&str>) -> u64 {
+    v.and_then(|s| s.trim().parse().ok()).unwrap_or(0)
+}
+
+fn csv_bool(v: Option<&str>) -> bool {
+    matches!(
+        v,
+        Some("1") | Some("true") | Some("True") | Some("TRUE") | Some("yes") | Some("YES")
+    )
+}
+
+fn csv_opt(v: Option<&str>) -> Option<String> {
+    let s = v.unwrap_or("").trim();
+    if s.is_empty() {
+        None
+    } else {
+        Some(s.to_string())
+    }
+}
+
+fn csv_json_strings(v: Option<&str>) -> Vec<String> {
+    let s = v.unwrap_or("").trim();
+    if s.is_empty() || s == "null" {
+        return Vec::new();
+    }
+    serde_json::from_str::<Vec<String>>(s).unwrap_or_default()
+}
+
+fn csv_json_files(v: Option<&str>) -> Vec<DumpFile> {
+    let s = v.unwrap_or("").trim();
+    if s.is_empty() || s == "null" {
+        return Vec::new();
+    }
+    let Ok(arr) = serde_json::from_str::<Vec<serde_json::Value>>(s) else {
+        return Vec::new();
+    };
+    arr.iter()
+        .filter_map(|el| {
+            let md5 = el
+                .get("md5")
+                .and_then(|m| m.as_str())
+                .or_else(|| el.as_str());
+            md5.map(|m| DumpFile { md5: m.to_string() })
+        })
+        .collect()
 }
 
 pub(crate) async fn run(state: &AppState, opts: ImportOptions) -> Result<(), RelayError> {
     let admin = parse_admin_key(&opts.admin_key)?;
-    let dump: Dump = serde_json::from_slice(&std::fs::read(&opts.dump).map_err(|e| {
-        RelayError::Internal(format!("read dump: {e}"))
-    })?)
-    .map_err(|e| RelayError::Internal(format!("parse dump: {e}")))?;
+    let dump: Dump = load_dump(&opts.dump)?;
 
     let mut state_file = load_state(&opts.state_path);
     let board = dump
@@ -201,27 +316,6 @@ fn shard_id(nonce_shards: &Address, sender: &Address) -> Address {
     nonce_shards.derive_object_id(&TypeTag::U64, &index.to_le_bytes())
 }
 
-async fn table_value(
-    state: &AppState,
-    table_id: Address,
-    key: u64,
-) -> Result<Address, RelayError> {
-    let child_id = table_id.derive_dynamic_child_id(&TypeTag::U64, &key.to_le_bytes());
-    let object = state
-        .upstream
-        .fetch_objects([child_id])
-        .await?
-        .into_iter()
-        .next()
-        .flatten()
-        .ok_or_else(|| RelayError::Internal(format!("table entry {key} not found")))?;
-    let entry: TableEntry = object
-        .contents()
-        .deserialize()
-        .map_err(|e| RelayError::Internal(format!("table entry decode: {e}")))?;
-    Ok(entry.value)
-}
-
 async fn find_board(state: &AppState, slug: &str) -> Result<Option<Address>, RelayError> {
     let boards_table_id = state.forum.projection.boards.id;
     let fields = state.upstream.list_dynamic_fields(boards_table_id).await?;
@@ -246,8 +340,14 @@ fn clock() -> Address {
     Address::from_hex("0x6").expect("clock id")
 }
 
+fn random_seed() -> [u8; 32] {
+    let mut seed = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut seed);
+    seed
+}
+
 fn intent_for(
-    admin_pk: &Address,
+    sender: &Address,
     function: &str,
     requests: Vec<Request>,
     objects: Vec<IntentObject>,
@@ -261,17 +361,17 @@ fn intent_for(
         objects,
         requests,
         payload,
-        public_key: *admin_pk,
+        public_key: *sender,
         tweak: Address::ZERO,
     }
 }
 
-fn board_objects(state: &AppState, admin_pk: &Address, rest: Vec<Address>) -> Vec<IntentObject> {
+fn board_objects(state: &AppState, sender: &Address, rest: Vec<Address>) -> Vec<IntentObject> {
     let mut objs = vec![IntentObject {
         id: clock(),
         mutable: false,
     }];
-    let nonce_shard = shard_id(&state.forum.projection.nonce_shards, admin_pk);
+    let nonce_shard = shard_id(&state.forum.projection.nonce_shards, sender);
     objs.push(IntentObject {
         id: nonce_shard,
         mutable: true,
@@ -317,7 +417,7 @@ async fn broadcast(
     intent: &Intent,
     signature: Vec<u8>,
     responses: &[u8],
-) -> Result<(), RelayError> {
+) -> Result<Vec<Address>, RelayError> {
     let sealed = send::seal_responses(&state.sponsor, &signature, responses)?;
     let tx = send::build_transaction(state, intent, &signature, sealed).await?;
     let signed = state.sponsor.sign_as_sender(tx);
@@ -325,7 +425,7 @@ async fn broadcast(
     loop {
         attempt += 1;
         match state.upstream.broadcast_signed(&signed).await {
-            Ok(_) => return Ok(()),
+            Ok(response) => return Ok(response.created),
             Err(err) => {
                 eprintln!("import tx attempt={attempt} error={err}");
                 if attempt >= 3 || !err.is_retryable_upstream() {
@@ -334,6 +434,28 @@ async fn broadcast(
             }
         }
     }
+}
+
+async fn find_created(
+    state: &AppState,
+    created: &[Address],
+) -> Result<(Option<Address>, Option<u64>, Option<Address>, Option<u64>), RelayError> {
+    let mut thread = None;
+    let mut post = None;
+    for &id in created {
+        if let Ok(t) = handlers::load_thread(&state.upstream, id).await {
+            thread = Some((id, t.projection.number));
+        }
+        if let Ok(p) = handlers::load_post(&state.upstream, id).await {
+            post = Some((id, p.projection.number));
+        }
+    }
+    Ok((
+        thread.map(|x| x.0),
+        thread.map(|x| x.1),
+        post.map(|x| x.0),
+        post.map(|x| x.1),
+    ))
 }
 
 fn blake2b(data: &[u8]) -> Address {
@@ -499,6 +621,11 @@ async fn upload_media(
         if let Ok(thumb) = thumbnail::generate(&data, &tmp) {
             let _ = state.seaweed.put(ContentKind::Thumbnail, &hash, &thumb).await;
         }
+        if let Ok(meta) = thumbnail::compute_meta(&data, &tmp) {
+            if let Ok(meta_bcs) = bcs::to_bytes(&meta) {
+                let _ = state.seaweed.put(ContentKind::MediaMeta, &hash, &meta_bcs).await;
+            }
+        }
         let _ = std::fs::remove_file(&tmp);
     }
     state.seaweed.put(ContentKind::Media, &hash, &data).await?;
@@ -533,38 +660,91 @@ async fn vote_keys(state: &AppState, post: &DumpPost) -> Result<Vec<Address>, Re
     Ok(keys)
 }
 
+fn parse_name_and_trip(input: &str) -> (Option<String>, Option<String>) {
+    match input.find('#') {
+        Some(idx) => {
+            let name = input[..idx].trim();
+            let trip = input[idx..].to_string();
+            (
+                if name.is_empty() {
+                    None
+                } else {
+                    Some(name.to_string())
+                },
+                Some(trip),
+            )
+        }
+        None => {
+            let name = input.trim();
+            (
+                if name.is_empty() {
+                    None
+                } else {
+                    Some(name.to_string())
+                },
+                None,
+            )
+        }
+    }
+}
+
+fn compute_trip(raw: &str, key: &str) -> Result<Option<(bool, String)>, RelayError> {
+    if let Some(seed) = raw.strip_prefix("##") {
+        Ok(Some((true, crate::tripcode::secure_tripcode(seed, key)?)))
+    } else if let Some(seed) = raw.strip_prefix('#') {
+        Ok(Some((false, crate::tripcode::tripcode(seed)?)))
+    } else {
+        Ok(None)
+    }
+}
+
+fn name_and_trip(
+    state: &AppState,
+    post: &DumpPost,
+) -> Result<(Option<String>, Option<(bool, String)>), RelayError> {
+    let plain = post.trip_plain.as_deref().unwrap_or("");
+    let (name, trip_part) = parse_name_and_trip(plain);
+    let trip = match trip_part {
+        Some(t) => compute_trip(&t, &state.secure_tripcode_key)?,
+        None => None,
+    };
+    Ok((name, trip))
+}
+
 async fn migrate_requests(
     state: &AppState,
     post: &DumpPost,
+    thread: bool,
+    trip: &Option<(bool, String)>,
 ) -> Result<(String, Vec<Request>, Vec<u8>), RelayError> {
     let uid = uid_response(state, old_ip(post)).await?;
     let geo = post.force_geo.then(|| geo_response(&post.ip_country_code));
-    let trip = post
-        .trip
-        .as_ref()
-        .or(post.trip_plain.as_ref())
-        .map(|t| (post.trip.is_some(), t.as_str()));
+    let base = if thread {
+        "board_apply_intent_uid"
+    } else {
+        "board_apply_thread_intent_uid"
+    };
     let (function, requests) = match (geo, trip) {
         (Some(_), Some(_)) => (
-            "board_apply_thread_intent_uid_geo_tripcode",
+            format!("{base}_geo_tripcode"),
             vec![Request::Uid, Request::Geo, Request::Tripcode],
         ),
         (Some(_), None) => (
-            "board_apply_thread_intent_uid_geo",
+            format!("{base}_geo"),
             vec![Request::Uid, Request::Geo],
         ),
         (None, Some(_)) => (
-            "board_apply_thread_intent_uid_tripcode",
+            format!("{base}_tripcode"),
             vec![Request::Uid, Request::Tripcode],
         ),
-        (None, None) => ("board_apply_thread_intent_uid", vec![Request::Uid]),
+        (None, None) => (base.to_string(), vec![Request::Uid]),
     };
     let mut inner = uid;
     if let Some(code) = geo {
         inner.extend_from_slice(&code.to_le_bytes());
     }
     if let Some((secured, t)) = trip {
-        inner.extend_from_slice(&trip_response(secured, t)?);
+        inner.extend_from_slice(&trip_response(*secured, t)?);
     }
     Ok((function.to_string(), requests, inner))
 }
@@ -584,6 +764,7 @@ async fn import_board(
         .or_insert_with(|| BoardState {
             board_id: Address::ZERO,
             post_count: 0,
+            cursor: 0,
             done: false,
         });
     let mut board_id = state_file.boards[&slug].board_id;
@@ -597,34 +778,45 @@ async fn import_board(
         })?;
         state_file.boards.get_mut(&slug).unwrap().board_id = board_id;
     }
-    let loaded = load_board(&state.upstream, board_id).await?;
-    let posts_table = loaded.projection.posts.id;
-    let threads_table = loaded.projection.threads.id;
-
     let client = reqwest::Client::new();
     let mut posts: Vec<&DumpPost> = board.posts.iter().collect();
     posts.sort_by_key(|p| p.num);
 
     let mut post_count = state_file.boards[&slug].post_count;
+    let mut cursor = state_file.boards[&slug].cursor;
     for post in posts.into_iter() {
-        if post.num <= post_count {
+        if post.num <= cursor {
             continue;
         }
-        let number = post_count + 1;
+        let seed = if post.op && post.parent != 0 {
+            let op_seed = *state_file.keys.get(&post.parent).ok_or_else(|| {
+                RelayError::Internal(format!("thread OP key {} not found", post.parent))
+            })?;
+            *state_file.keys.entry(post.num).or_insert(op_seed)
+        } else {
+            *state_file.keys.entry(post.num).or_insert_with(random_seed)
+        };
+        let signer = ed25519_dalek::SigningKey::from_bytes(&seed);
+        let sender = Address::new(signer.verifying_key().to_bytes());
         if post.parent == 0 {
-            migrate_thread(
-                state, admin, &admin_pk, &client, opts, board_id, post, number,
+            let (thread_addr, op_addr, op_num) = migrate_thread(
+                state,
+                &signer,
+                &sender,
+                &client,
+                opts,
+                board_id,
+                &state_file.mapping,
+                post,
             )
             .await?;
-            let op_addr = table_value(state, posts_table, number).await?;
-            let thread_addr = table_value(state, threads_table, number).await?;
             state_file.mapping.insert(
                 post.num,
                 Mapping {
                     board: board_id,
                     thread: thread_addr,
                     post: op_addr,
-                    num: number,
+                    num: op_num,
                 },
             );
         } else {
@@ -632,25 +824,36 @@ async fn import_board(
                 RelayError::Internal(format!("parent {} not migrated", post.parent))
             })?;
             let thread_addr = parent_mapping.thread;
-            migrate_post(
-                state, admin, &admin_pk, &client, opts, board_id, post, thread_addr, number,
+            let (post_addr, post_num) = migrate_post(
+                state,
+                &signer,
+                &sender,
+                &client,
+                opts,
+                board_id,
+                &state_file.mapping,
+                post,
+                thread_addr,
             )
             .await?;
-            let post_addr = table_value(state, posts_table, number).await?;
             state_file.mapping.insert(
                 post.num,
                 Mapping {
                     board: board_id,
                     thread: thread_addr,
                     post: post_addr,
-                    num: number,
+                    num: post_num,
                 },
             );
         }
-        post_count = number;
-        state_file.boards.get_mut(&slug).unwrap().post_count = post_count;
+        post_count += 1;
+        cursor = post.num;
+        let bs = state_file.boards.get_mut(&slug).unwrap();
+        bs.post_count = post_count;
+        bs.cursor = cursor;
         save_state(&opts.state_path, state_file);
-        eprintln!("imported old#{} -> new #{}", post.num, number);
+        let new_num = state_file.mapping.get(&post.num).map(|m| m.num).unwrap_or(post_count);
+        eprintln!("imported old#{} -> new #{}", post.num, new_num);
     }
 
     if !state_file.boards[&slug].done {
@@ -663,22 +866,27 @@ async fn import_board(
 
 async fn migrate_thread(
     state: &AppState,
-    admin: &ed25519_dalek::SigningKey,
-    admin_pk: &Address,
+    signer: &ed25519_dalek::SigningKey,
+    sender: &Address,
     client: &reqwest::Client,
     opts: &ImportOptions,
     board_id: Address,
+    mapping: &HashMap<u64, Mapping>,
     post: &DumpPost,
-    number: u64,
-) -> Result<(), RelayError> {
-    let (function, requests, responses) = migrate_requests(state, post).await?;
+) -> Result<(Address, Address, u64), RelayError> {
+    let (name, trip) = name_and_trip(state, post)?;
+    let (function, requests, responses) = migrate_requests(state, post, true, &trip).await?;
     let media_hashes = upload_files(state, client, opts, post).await?;
-    let text_hash = upload_text(state, &post_parts(post).await).await?;
+    let text_hash = upload_text(
+        state,
+        &post_parts(state.forum.id, board_id, &opts.board, mapping, post),
+    )
+    .await?;
     let topic_hash = upload_plaintext(state, post.subject.as_deref().unwrap_or("")).await?;
-    let name_hash = upload_plaintext(state, post.name.as_deref().unwrap_or("")).await?;
+    let name_hash = upload_plaintext(state, name.as_deref().unwrap_or("")).await?;
     let keys = vote_keys(state, post).await?;
 
-    let nonce = next_nonce(state, admin_pk).await?;
+    let nonce = next_nonce(state, sender).await?;
     let mut payload = event("new_thread_migrate_v2");
     push_bytes(&mut payload, &post.timestamp_ms);
     push_bytes(&mut payload, &topic_hash);
@@ -689,37 +897,52 @@ async fn migrate_thread(
     push_bytes(&mut payload, &post.enable_multiple_votes);
 
     let intent = intent_for(
-        admin_pk,
+        sender,
         &function,
         requests,
-        board_objects(state, admin_pk, vec![board_id]),
+        board_objects(state, sender, vec![board_id]),
         payload,
         nonce,
     );
-    let sig = sign_intent(admin, &intent);
-    broadcast(state, &intent, sig, &responses).await?;
-    let _ = number;
-    Ok(())
+    let sig = sign_intent(signer, &intent);
+    let created = broadcast(state, &intent, sig, &responses).await?;
+    let (thread_addr, _thread_num, post_addr, post_num) = find_created(state, &created).await?;
+    Ok((
+        thread_addr.ok_or_else(|| {
+            RelayError::Internal(format!("created thread not found for old#{}", post.num))
+        })?,
+        post_addr.ok_or_else(|| {
+            RelayError::Internal(format!("created post not found for old#{}", post.num))
+        })?,
+        post_num.ok_or_else(|| {
+            RelayError::Internal(format!("created post number not found for old#{}", post.num))
+        })?,
+    ))
 }
 
 async fn migrate_post(
     state: &AppState,
-    admin: &ed25519_dalek::SigningKey,
-    admin_pk: &Address,
+    signer: &ed25519_dalek::SigningKey,
+    sender: &Address,
     client: &reqwest::Client,
     opts: &ImportOptions,
     board_id: Address,
+    mapping: &HashMap<u64, Mapping>,
     post: &DumpPost,
     thread_addr: Address,
-    number: u64,
-) -> Result<(), RelayError> {
-    let (function, requests, responses) = migrate_requests(state, post).await?;
+) -> Result<(Address, u64), RelayError> {
+    let (name, trip) = name_and_trip(state, post)?;
+    let (function, requests, responses) = migrate_requests(state, post, false, &trip).await?;
     let media_hashes = upload_files(state, client, opts, post).await?;
-    let text_hash = upload_text(state, &post_parts(post).await).await?;
-    let name_hash = upload_plaintext(state, post.name.as_deref().unwrap_or("")).await?;
+    let text_hash = upload_text(
+        state,
+        &post_parts(state.forum.id, board_id, &opts.board, mapping, post),
+    )
+    .await?;
+    let name_hash = upload_plaintext(state, name.as_deref().unwrap_or("")).await?;
     let keys = vote_keys(state, post).await?;
 
-    let nonce = next_nonce(state, admin_pk).await?;
+    let nonce = next_nonce(state, sender).await?;
     let mut payload = event("new_post_migrate_v2");
     push_bytes(&mut payload, &post.timestamp_ms);
     push_bytes(&mut payload, &thread_addr);
@@ -730,50 +953,141 @@ async fn migrate_post(
     push_bytes(&mut payload, &post.enable_multiple_votes);
 
     let intent = intent_for(
-        admin_pk,
+        sender,
         &function,
         requests,
-        board_objects(state, admin_pk, vec![board_id, thread_addr]),
+        board_objects(state, sender, vec![board_id, thread_addr]),
         payload,
         nonce,
     );
-    let sig = sign_intent(admin, &intent);
-    broadcast(state, &intent, sig, &responses).await?;
-    let _ = number;
-    Ok(())
+    let sig = sign_intent(signer, &intent);
+    let created = broadcast(state, &intent, sig, &responses).await?;
+    let (_thread_addr, _thread_num, post_addr, post_num) = find_created(state, &created).await?;
+    Ok((
+        post_addr.ok_or_else(|| {
+            RelayError::Internal(format!("created post not found for old#{}", post.num))
+        })?,
+        post_num.ok_or_else(|| {
+            RelayError::Internal(format!("created post number not found for old#{}", post.num))
+        })?,
+    ))
 }
 
-async fn post_parts(post: &DumpPost) -> Vec<PostPart> {
-    let mut text = post.comment.clone().unwrap_or_default();
-    if let Some(menu) = &post.menu {
-        if !menu.trim().is_empty() {
-            text.push('\n');
-            text.push_str(menu);
+fn menu_to_bbcode(menu: &str) -> Option<String> {
+    let menu = menu.trim();
+    if menu.is_empty() || menu == "null" || menu == "[]" {
+        return None;
+    }
+    let arr: Vec<serde_json::Value> = serde_json::from_str(menu).ok()?;
+    let mut out = String::new();
+    for section in arr {
+        let name = section
+            .get("sectionName")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        if !name.is_empty() {
+            out.push_str(&format!("[b]{name}[/b]\n"));
+        }
+        if let Some(links) = section.get("links").and_then(|v| v.as_array()) {
+            for link in links {
+                let label = link.get("label").and_then(|v| v.as_str()).unwrap_or("");
+                let url = link.get("url").and_then(|v| v.as_str()).unwrap_or("");
+                if !label.is_empty() && !url.is_empty() {
+                    out.push_str(&format!("[link url={url}]{label}[/link]\n"));
+                }
+            }
         }
     }
-    bbcode_to_parts(&text)
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
 }
 
-fn bbcode_to_parts(text: &str) -> Vec<PostPart> {
+fn post_parts(
+    forum: Address,
+    board_id: Address,
+    slug: &str,
+    mapping: &HashMap<u64, Mapping>,
+    post: &DumpPost,
+) -> Vec<PostPart> {
+    let mut text = post.comment.clone().unwrap_or_default();
+    if post.parent == 0 {
+        if let Some(menu) = post.menu.as_deref() {
+            if let Some(bb) = menu_to_bbcode(menu) {
+                if !text.is_empty() {
+                    text.push('\n');
+                }
+                text.push_str(&bb);
+            }
+        }
+    }
+    let text = text.replace("\r\n", "\n").replace('\r', "\n");
+    bbcode_to_parts(&text, forum, board_id, slug, mapping)
+}
+
+fn bbcode_to_parts(
+    text: &str,
+    forum: Address,
+    board_id: Address,
+    slug: &str,
+    mapping: &HashMap<u64, Mapping>,
+) -> Vec<PostPart> {
     let mut out = Vec::new();
     let mut i = 0;
+    let mut plain = String::new();
     let chars: Vec<char> = text.chars().collect();
     while i < chars.len() {
+        if chars[i] == '>' && i + 1 < chars.len() && chars[i + 1] == '>' {
+            let mut j = i + 2;
+            let start = j;
+            while j < chars.len() && chars[j].is_ascii_digit() {
+                j += 1;
+            }
+            if j > start {
+                let num: u64 = chars[start..j].iter().collect::<String>().parse().unwrap_or(0);
+                if let Some(m) = mapping.get(&num) {
+                    if m.board == board_id {
+                        if !plain.is_empty() {
+                            out.push(PostPart::Plain(std::mem::take(&mut plain)));
+                        }
+                        out.push(PostPart::ReplyTo(
+                            forum,
+                            m.board,
+                            m.post,
+                            format!("{slug}/{}", m.num),
+                        ));
+                        i = j;
+                        continue;
+                    }
+                }
+            }
+            plain.push_str(">>");
+            i += 2;
+            continue;
+        }
         if chars[i] == '[' {
             if let Some(end) = find_close(&chars, i) {
                 let tag: String = chars[i + 1..end].iter().collect();
                 if let Some((variant, close)) = simple_tag(&tag) {
                     if let Some(close_idx) = find_str(&chars, close, end + 1) {
+                        if !plain.is_empty() {
+                            out.push(PostPart::Plain(std::mem::take(&mut plain)));
+                        }
                         let inner: String = chars[end + 1..close_idx].iter().collect();
-                        let children = bbcode_to_parts(&inner);
+                        let children = bbcode_to_parts(&inner, forum, board_id, slug, mapping);
                         out.push(make_variant(variant, children));
                         i = close_idx + close.len();
                         continue;
                     }
                 } else if let Some(url) = tag.strip_prefix("url=") {
                     if let Some(close_idx) = find_str(&chars, "[/url]", end + 1) {
+                        if !plain.is_empty() {
+                            out.push(PostPart::Plain(std::mem::take(&mut plain)));
+                        }
                         let inner: String = chars[end + 1..close_idx].iter().collect();
-                        let children = bbcode_to_parts(&inner);
+                        let children = bbcode_to_parts(&inner, forum, board_id, slug, mapping);
                         out.push(PostPart::Link {
                             url: url.to_string(),
                             children,
@@ -781,11 +1095,28 @@ fn bbcode_to_parts(text: &str) -> Vec<PostPart> {
                         i = close_idx + "[/url]".len();
                         continue;
                     }
+                } else if let Some(url) = tag.strip_prefix("link url=") {
+                    if let Some(close_idx) = find_str(&chars, "[/link]", end + 1) {
+                        if !plain.is_empty() {
+                            out.push(PostPart::Plain(std::mem::take(&mut plain)));
+                        }
+                        let inner: String = chars[end + 1..close_idx].iter().collect();
+                        let children = bbcode_to_parts(&inner, forum, board_id, slug, mapping);
+                        out.push(PostPart::Link {
+                            url: url.to_string(),
+                            children,
+                        });
+                        i = close_idx + "[/link]".len();
+                        continue;
+                    }
                 }
             }
         }
-        out.push(PostPart::Plain(chars[i].to_string()));
+        plain.push(chars[i]);
         i += 1;
+    }
+    if !plain.is_empty() {
+        out.push(PostPart::Plain(plain));
     }
     out
 }

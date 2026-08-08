@@ -180,30 +180,6 @@ impl_thread_payload!(NewThreadV2Payload);
 impl_post_payload!(NewPostV2Payload);
 
 #[derive(Deserialize)]
-struct BoardSetPinnedPayload {
-    #[allow(dead_code)]
-    pinned: Vec<Address>,
-}
-
-#[async_trait]
-impl IntentPayload for BoardSetPinnedPayload {
-    async fn verify(
-        &self,
-        _state: &AppState,
-        _text: &Option<MultipartBytes>,
-        _description: Option<&str>,
-        _topic: Option<&str>,
-        _reason: Option<&str>,
-        _name: Option<&str>,
-        _media_files: &[TempFile],
-        _intent: &Intent,
-    ) -> Result<(), error::RelayError> {
-        Ok(())
-    }
-    async fn cleanup(&self, _state: &AppState) {}
-}
-
-#[derive(Deserialize)]
 struct SetTextPayload {
     text_hash: Option<Address>,
 }
@@ -409,10 +385,17 @@ async fn verify_content(
             .await
             .map_err(|e| error::RelayError::SponsorBuild(format!("failed to read media: {e}")))?;
         let thumb = crate::thumbnail::generate(&data, file.file.path())?;
+        let meta = crate::thumbnail::compute_meta(&data, file.file.path())?;
+        let meta_bcs = bcs::to_bytes(&meta)
+            .map_err(|e| error::RelayError::Internal(format!("bcs encode media meta: {e}")))?;
         state.seaweed.put(ContentKind::Media, hash, &data).await?;
         state
             .seaweed
             .put(ContentKind::Thumbnail, hash, &thumb)
+            .await?;
+        state
+            .seaweed
+            .put(ContentKind::MediaMeta, hash, &meta_bcs)
             .await?;
     }
 
@@ -497,9 +480,6 @@ pub(crate) async fn handle_send(
         | ("board_apply_intent_uid_geo", "new_thread_v2")
         | ("board_apply_intent_uid_geo_tripcode", "new_thread_v2") => Some(Box::new(
             bcs::from_bytes::<NewThreadV2Payload>(event_payload).map_err(payload_err)?,
-        )),
-        ("board_apply_intent_uid", "set_pinned") => Some(Box::new(
-            bcs::from_bytes::<BoardSetPinnedPayload>(event_payload).map_err(payload_err)?,
         )),
         ("board_apply_thread_intent_uid", "new_post_v2")
         | ("board_apply_thread_intent_uid_tripcode", "new_post_v2")
@@ -928,7 +908,7 @@ fn validate_target(intent: &Intent, event_tag: &str) -> Result<(), error::RelayE
             "set_admin",
         ],
         "thread_apply_post_intent_uid" => &["ban", "unban"],
-        "post_apply_intent_uid" => &["upgrade", "set_deleted", "set_text", "remove_media"],
+        "post_apply_intent_uid" => &["upgrade", "set_deleted", "set_text", "ban_media", "unban_media"],
         "post_apply_intent_uid_ip32" => &["set_reaction", "vote_v2"],
         _ => {
             return Err(error::RelayError::SponsorBuild(

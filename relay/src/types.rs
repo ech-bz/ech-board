@@ -25,6 +25,7 @@ pub(crate) enum ContentKind {
     Media,
     Thumbnail,
     PlainText,
+    MediaMeta,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +60,15 @@ impl FileType {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) struct MediaMeta {
+    pub(crate) mime: String,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) duration_ms: Option<u64>,
+    pub(crate) size: u64,
+}
+
 #[derive(Debug, MultipartForm)]
 pub(crate) struct SendForm {
     pub(crate) intent: MultipartBytes,
@@ -78,6 +88,7 @@ pub(crate) struct SendResponse {
     pub(crate) accepted_by: Vec<String>,
     pub(crate) digest: String,
     pub(crate) events: Vec<RelayEvent>,
+    pub(crate) created: Vec<Address>,
 }
 
 #[derive(Serialize, Clone, Debug)]

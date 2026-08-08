@@ -8,6 +8,7 @@ use std::time::Duration;
 use sui_rpc::client::ExecuteAndWaitError;
 use sui_rpc::field::{FieldMask, FieldMaskUtil};
 use sui_rpc::proto::sui::rpc::v2::owner::OwnerKind;
+use sui_rpc::proto::sui::rpc::v2::changed_object::IdOperation;
 use sui_rpc::proto::sui::rpc::v2::{
     BatchGetObjectsRequest, DynamicField, ExecuteTransactionRequest, ListDynamicFieldsRequest,
     ListOwnedObjectsRequest,
@@ -58,7 +59,7 @@ impl UpstreamSender {
 
         let mut request = ExecuteTransactionRequest::new(signed.transaction.clone().into());
         request.signatures = signed.signatures.iter().cloned().map(Into::into).collect();
-        request.read_mask = Some(FieldMask::from_str("effects.status,events"));
+        request.read_mask = Some(FieldMask::from_str("effects.status,events,effects.changed_objects"));
 
         let result = client
             .execute_transaction_and_wait_for_checkpoint(request, Duration::from_secs(5))
@@ -75,6 +76,21 @@ impl UpstreamSender {
                 let success = status.as_ref().and_then(|s| s.success).unwrap_or(false);
 
                 if success {
+                    let created = response
+                        .transaction
+                        .as_ref()
+                        .and_then(|tx| tx.effects.as_ref())
+                        .map(|effects| {
+                            effects
+                                .changed_objects
+                                .iter()
+                                .filter(|co| co.id_operation == Some(IdOperation::Created as i32))
+                                .filter_map(|co| {
+                                    co.object_id.as_deref().and_then(|s| Address::from_str(s).ok())
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
                     let events = response
                         .transaction
                         .as_ref()
@@ -107,6 +123,7 @@ impl UpstreamSender {
                         accepted_by: vec![url],
                         digest,
                         events,
+                        created,
                     })
                 } else {
                     let (kind, details) = status

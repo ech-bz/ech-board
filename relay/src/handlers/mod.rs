@@ -11,7 +11,7 @@ pub(crate) mod send;
 pub(crate) mod thread;
 
 use crate::seaweed::SeaweedClient;
-use crate::types::{ContentKind, Tripcode};
+use crate::types::{ContentKind, MediaMeta, Tripcode};
 use actix_web::HttpRequest;
 use futures::StreamExt;
 use serde::de::DeserializeOwned;
@@ -479,6 +479,47 @@ pub(super) async fn fetch_content(
     .into_iter()
     .flatten()
     .collect()
+}
+
+pub(super) async fn fetch_media_meta(
+    seaweed: &SeaweedClient,
+    hashes: HashSet<Address>,
+) -> HashMap<Address, MediaMeta> {
+    let mut out = HashMap::new();
+    let mut missing = Vec::new();
+    for h in hashes {
+        match seaweed.get(ContentKind::MediaMeta, &h).await {
+            Ok(Some(data)) => match bcs::from_bytes::<MediaMeta>(&data) {
+                Ok(meta) => {
+                    out.insert(h, meta);
+                }
+                Err(_) => missing.push(h),
+            },
+            _ => missing.push(h),
+        }
+    }
+    for h in missing {
+        if let Some(meta) = lazy_media_meta(seaweed, h).await {
+            out.insert(h, meta);
+        }
+    }
+    out
+}
+
+async fn lazy_media_meta(seaweed: &SeaweedClient, hash: Address) -> Option<MediaMeta> {
+    let data = seaweed.get(ContentKind::Media, &hash).await.ok()??;
+    let tmp = std::env::temp_dir().join(format!("ech-meta-{}.bin", hex::encode(hash.as_bytes())));
+    if std::fs::write(&tmp, &data).is_err() {
+        return None;
+    }
+    let meta = crate::thumbnail::compute_meta(&data, &tmp).ok();
+    let _ = std::fs::remove_file(&tmp);
+    if let Some(m) = &meta {
+        if let Ok(meta_bcs) = bcs::to_bytes(m) {
+            let _ = seaweed.put(ContentKind::MediaMeta, &hash, &meta_bcs).await;
+        }
+    }
+    meta
 }
 
 pub(super) fn client_ip(req: &HttpRequest) -> Option<String> {

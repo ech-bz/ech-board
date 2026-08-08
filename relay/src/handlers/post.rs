@@ -6,8 +6,9 @@ use serde::Serialize;
 use sui_sdk_types::Address;
 
 use super::fetch_content;
+use super::fetch_media_meta;
 use super::{BoardObject, Moderators, PostObject, ThreadObject, list_mods, load_board, load_post, load_thread};
-use crate::types::ContentKind;
+use crate::types::{ContentKind, MediaMeta};
 
 #[derive(Serialize)]
 pub(crate) struct PostView {
@@ -15,6 +16,7 @@ pub(crate) struct PostView {
     pub(crate) thread: ThreadObject,
     pub(crate) board: BoardObject,
     pub(crate) text: HashMap<Address, Vec<u8>>,
+    pub(crate) media_meta: HashMap<Address, MediaMeta>,
     pub(crate) moderators: Moderators,
 }
 
@@ -38,6 +40,9 @@ pub(crate) async fn fetch(state: &AppState, post_uid: Address) -> Result<Vec<u8>
     }
     let text = fetch_content(&state.seaweed, ContentKind::Text, text_hashes).await;
 
+    let media_hashes: HashSet<Address> = post.projection.media_hashes.iter().copied().collect();
+    let media_meta = fetch_media_meta(&state.seaweed, media_hashes).await;
+
     let moderators = Moderators {
         forum_mods: list_mods(&state.upstream, state.forum.projection.mods.id).await?,
         board_mods: list_mods(&state.upstream, board.projection.mods.id).await?,
@@ -51,6 +56,7 @@ pub(crate) async fn fetch(state: &AppState, post_uid: Address) -> Result<Vec<u8>
         thread,
         board,
         text,
+        media_meta,
         moderators,
     };
 

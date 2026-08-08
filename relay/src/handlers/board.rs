@@ -6,10 +6,11 @@ use serde::{Deserialize, Serialize};
 use sui_sdk_types::{Address, TypeTag};
 
 use super::fetch_content;
+use super::fetch_media_meta;
 use super::{BoardObject, Moderators, PostObject, ThreadObject, list_mods, load_board, load_post, load_thread};
-use crate::types::ContentKind;
+use crate::types::{ContentKind, MediaMeta};
 
-const LIMIT: u64 = 20;
+const LIMIT: u64 = 100;
 
 pub(crate) async fn resolve_post(
     state: &AppState,
@@ -39,6 +40,34 @@ pub(crate) async fn resolve_post(
     Ok(entry.value.as_bytes().to_vec())
 }
 
+pub(crate) async fn resolve_thread(
+    state: &AppState,
+    board_uid: Address,
+    number: u64,
+) -> Result<Vec<u8>, RelayError> {
+    let board = load_board(&state.upstream, board_uid).await?;
+    if board.projection.deleted {
+        return Err(RelayError::NotFound("board deleted".into()));
+    }
+    let child_id = board
+        .projection
+        .threads
+        .id
+        .derive_dynamic_child_id(&TypeTag::U64, &number.to_le_bytes());
+    let object = state
+        .upstream
+        .fetch_objects([child_id])
+        .await?
+        .into_iter()
+        .next()
+        .flatten()
+        .ok_or_else(|| RelayError::NotFound(format!("thread {number} not found")))?;
+    let entry: PostEntry = object.contents().deserialize().map_err(|e| {
+        RelayError::Internal(format!("thread table entry decode: {e}"))
+    })?;
+    Ok(entry.value.as_bytes().to_vec())
+}
+
 #[derive(Deserialize)]
 struct PostEntry {
     #[allow(dead_code)]
@@ -55,6 +84,7 @@ pub(crate) struct BoardView {
     pub(crate) last_3: HashMap<Address, Vec<PostObject>>,
     pub(crate) text: HashMap<Address, Vec<u8>>,
     pub(crate) plain_text: HashMap<Address, Vec<u8>>,
+    pub(crate) media_meta: HashMap<Address, MediaMeta>,
     pub(crate) next_cursor: Option<u64>,
     pub(crate) moderators: Moderators,
 }
@@ -164,6 +194,15 @@ pub(crate) async fn fetch(
     }
     let plain_text = fetch_content(&state.seaweed, ContentKind::PlainText, plain_text_hashes).await;
 
+    let media_hashes: HashSet<Address> = last_3
+        .iter()
+        .filter(|(tid, _)| !deleted_threads.contains(tid))
+        .flat_map(|(_, posts)| posts.iter())
+        .filter(|p| !p.projection.deleted)
+        .flat_map(|p| p.projection.media_hashes.iter().copied())
+        .collect();
+    let media_meta = fetch_media_meta(&state.seaweed, media_hashes).await;
+
     let next_cursor = if start > 1 { Some(start) } else { None };
 
     let moderators = Moderators {
@@ -180,6 +219,7 @@ pub(crate) async fn fetch(
         last_3,
         text,
         plain_text,
+        media_meta,
         next_cursor,
         moderators,
     };
