@@ -7,10 +7,11 @@ use sui_sdk_types::{Address, TypeTag};
 
 use super::fetch_content;
 use super::fetch_media_meta;
-use super::{BoardObject, Moderators, PostObject, ThreadObject, list_mods, load_board, load_post, load_thread};
+use super::{BoardObject, Moderators, PostObject, ThreadObject, list_mods, load_board, load_posts, load_threads};
 use crate::types::{ContentKind, MediaMeta};
 
-const LIMIT: u64 = 100;
+const PAGE_THREADS: usize = 20;
+const BUMP_CHUNK: u64 = 500;
 
 pub(crate) async fn resolve_post(
     state: &AppState,
@@ -100,13 +101,11 @@ pub(crate) async fn fetch(
         return Err(RelayError::NotFound("board deleted".into()));
     }
 
-    let end = cursor.unwrap_or(board.projection.bumps.counter + 1);
-    let start = if end > LIMIT { end - LIMIT } else { 1 };
-
-    let bump_addrs = state
-        .upstream
-        .fetch_feed(board.projection.bumps.id, start, end)
-        .await?;
+    let counter = board.projection.bumps.counter;
+    let mut end = cursor.unwrap_or(counter + 1);
+    if end > counter + 1 {
+        end = counter + 1;
+    }
 
     let mut seen = HashSet::new();
     let mut thread_addrs: Vec<Address> = Vec::new();
@@ -115,18 +114,34 @@ pub(crate) async fn fetch(
             thread_addrs.push(*addr);
         }
     }
-    for addr in bump_addrs.into_iter().rev() {
-        if seen.insert(addr) {
-            thread_addrs.push(addr);
+
+    let mut i = end;
+    while thread_addrs.len() < PAGE_THREADS && i > 1 {
+        let chunk_start = if i > BUMP_CHUNK { i - BUMP_CHUNK } else { 1 };
+        let bump_addrs = state
+            .upstream
+            .fetch_feed(board.projection.bumps.id, chunk_start, i)
+            .await?;
+        let mut stop_at = None;
+        for (off, addr) in bump_addrs.into_iter().enumerate().rev() {
+            if seen.insert(addr) {
+                thread_addrs.push(addr);
+                if thread_addrs.len() >= PAGE_THREADS {
+                    stop_at = Some(chunk_start + off as u64);
+                    break;
+                }
+            }
         }
+        i = stop_at.unwrap_or(chunk_start);
     }
 
+    let thread_results = load_threads(&state.upstream, &thread_addrs).await?;
     let mut threads = Vec::with_capacity(thread_addrs.len());
     let mut post_addrs_by_thread: Vec<(Address, Vec<Address>)> =
         Vec::with_capacity(thread_addrs.len());
 
-    for thread_id in thread_addrs {
-        let Ok(thread) = load_thread(&state.upstream, thread_id).await else {
+    for (thread_id, thread) in thread_addrs.into_iter().zip(thread_results.into_iter()) {
+        let Some(thread) = thread else {
             eprintln!("relay: skipping invalid thread entry {thread_id} on board {board_uid}");
             continue;
         };
@@ -142,10 +157,7 @@ pub(crate) async fn fetch(
         .flat_map(|(_, addrs)| addrs.iter().copied())
         .collect();
 
-    let mut post_objects = Vec::with_capacity(all_post_ids.len());
-    for id in all_post_ids {
-        post_objects.push(load_post(&state.upstream, id).await.ok());
-    }
+    let post_objects = load_posts(&state.upstream, &all_post_ids).await?;
 
     let mut pi = 0;
     let mut last_3 = HashMap::with_capacity(post_addrs_by_thread.len());
@@ -203,7 +215,7 @@ pub(crate) async fn fetch(
         .collect();
     let media_meta = fetch_media_meta(&state.seaweed, media_hashes).await;
 
-    let next_cursor = if start > 1 { Some(start) } else { None };
+    let next_cursor = if i > 1 { Some(i) } else { None };
 
     let moderators = Moderators {
         forum_mods: list_mods(&state.upstream, state.forum.projection.mods.id).await?,

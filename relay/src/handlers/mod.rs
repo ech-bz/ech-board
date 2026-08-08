@@ -368,16 +368,11 @@ pub(super) async fn load_posts_and_board(
     Ok((posts, board))
 }
 
-pub(super) async fn load_thread(
-    upstream: &crate::upstream::UpstreamSender,
+fn decode_thread(
     id: Address,
+    root: EntityRoot,
+    fields: DynamicFields,
 ) -> Result<ThreadObject, crate::error::RelayError> {
-    let (root, fields) = tokio::join!(
-        load_root(upstream, id),
-        DynamicFields::load(upstream, id),
-    );
-    let root = root?;
-    let fields = fields?;
     Ok(ThreadObject {
         id,
         entity: Entity { feed: root.entity.feed, version: root.entity.version },
@@ -396,6 +391,33 @@ pub(super) async fn load_thread(
         },
         genesis: root.genesis,
     })
+}
+
+pub(super) async fn load_thread(
+    upstream: &crate::upstream::UpstreamSender,
+    id: Address,
+) -> Result<ThreadObject, crate::error::RelayError> {
+    let (root, fields) = tokio::join!(
+        load_root(upstream, id),
+        DynamicFields::load(upstream, id),
+    );
+    decode_thread(id, root?, fields?)
+}
+
+pub(super) async fn load_threads(
+    upstream: &crate::upstream::UpstreamSender,
+    ids: &[Address],
+) -> Result<Vec<Option<ThreadObject>>, crate::error::RelayError> {
+    let objects = upstream.fetch_objects(ids.iter().copied()).await?;
+    let threads = futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
+        let root = object.as_ref()?.contents().deserialize::<EntityRoot>().ok()?;
+        let fields = DynamicFields::load(upstream, *id).await.ok()?;
+        decode_thread(*id, root, fields).ok()
+    }))
+    .buffer_unordered(16)
+    .collect::<Vec<_>>()
+    .await;
+    Ok(threads)
 }
 
 fn decode_post(
@@ -439,6 +461,22 @@ pub(super) async fn load_post(
         DynamicFields::load(upstream, id),
     );
     decode_post(id, root?, fields?)
+}
+
+pub(super) async fn load_posts(
+    upstream: &crate::upstream::UpstreamSender,
+    ids: &[Address],
+) -> Result<Vec<Option<PostObject>>, crate::error::RelayError> {
+    let objects = upstream.fetch_objects(ids.iter().copied()).await?;
+    let posts = futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
+        let root = object.as_ref()?.contents().deserialize::<EntityRoot>().ok()?;
+        let fields = DynamicFields::load(upstream, *id).await.ok()?;
+        decode_post(*id, root, fields).ok()
+    }))
+    .buffer_unordered(16)
+    .collect::<Vec<_>>()
+    .await;
+    Ok(posts)
 }
 
 pub(super) async fn list_mods(
