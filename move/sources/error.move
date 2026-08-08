@@ -41,3 +41,5 @@ public(package) fun entity_version_unsupported(): u64 { 19 }
 public(package) fun vote_options_mismatch(): u64 { 20 }
 
 public(package) fun vote_options_limit(): u64 { 21 }
+
+public(package) fun media_not_found(): u64 { 22 }

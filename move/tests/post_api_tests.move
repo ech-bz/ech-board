@@ -133,9 +133,10 @@ fun post_uid_allowed_events_for_author() {
         &forum,
         &board,
         &thread,
-        post::remove_media(uid(b"2"), author, vector[10]),
+        post::ban_media(uid(b"2"), author, vector[10]),
     );
-    assert!(post.media_hashes() == &vector[11]);
+    assert!(post.banned_media().contains(&10));
+    assert!(post.media_hashes() == &vector[10, 11]);
 
     post.apply(
         &mut ctx,
@@ -173,7 +174,48 @@ fun post_set_text_none_auto_deletes_empty_post() {
 }
 
 #[test]
-fun post_remove_last_media_auto_deletes_empty_post() {
+fun post_moderator_ban_then_unban_media() {
+    let mut ctx = tx_context::dummy();
+    let (forum, mut board, thread, mut post, mut clock) = fixture(
+        &mut ctx,
+        option::some(1),
+        vector[10, 11],
+        vector[],
+    );
+    let board_mod = actor(BOARD_MOD_PK);
+    board.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        board::add_moderator(uid(b"1"), actor(ADMIN_PK), board_mod.addr()),
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::ban_media(uid(b"2"), board_mod, vector[10]),
+    );
+    assert!(post.banned_media().contains(&10));
+    assert!(post.banned_media().length() == 1);
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::unban_media(uid(b"3"), board_mod, vector[10]),
+    );
+    assert!(!post.banned_media().contains(&10));
+    assert!(post.banned_media().length() == 0);
+    assert!(post.media_hashes() == &vector[10, 11]);
+    finish(forum, board, thread, post, clock);
+}
+
+#[test]
+#[expected_failure(abort_code = 14)]
+fun post_author_cannot_unban_media() {
     let mut ctx = tx_context::dummy();
     let (forum, board, thread, mut post, clock) = fixture(
         &mut ctx,
@@ -187,11 +229,87 @@ fun post_remove_last_media_auto_deletes_empty_post() {
         &forum,
         &board,
         &thread,
-        post::remove_media(uid(b"1"), actor(AUTHOR_PK), vector[10]),
+        post::unban_media(uid(b"1"), actor(AUTHOR_PK), vector[10]),
     );
-    assert!(post.media_hashes().is_empty());
-    assert!(*post.deleted());
-    finish(forum, board, thread, post, clock);
+    abort
+}
+
+#[test]
+#[expected_failure(abort_code = 22)]
+fun post_ban_media_rejects_hash_not_in_post() {
+    let mut ctx = tx_context::dummy();
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::none(),
+        vector[10],
+        vector[],
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::ban_media(uid(b"1"), actor(AUTHOR_PK), vector[999]),
+    );
+    abort
+}
+
+#[test]
+#[expected_failure(abort_code = 0)]
+fun post_ban_media_rejects_already_banned() {
+    let mut ctx = tx_context::dummy();
+    let (forum, board, thread, mut post, clock) = fixture(
+        &mut ctx,
+        option::none(),
+        vector[10],
+        vector[],
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::ban_media(uid(b"1"), actor(AUTHOR_PK), vector[10]),
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::ban_media(uid(b"2"), actor(AUTHOR_PK), vector[10]),
+    );
+    abort
+}
+
+#[test]
+#[expected_failure(abort_code = 1)]
+fun post_unban_media_rejects_not_banned() {
+    let mut ctx = tx_context::dummy();
+    let (forum, mut board, thread, mut post, mut clock) = fixture(
+        &mut ctx,
+        option::none(),
+        vector[10],
+        vector[],
+    );
+    let board_mod = actor(BOARD_MOD_PK);
+    board.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        board::add_moderator(uid(b"1"), actor(ADMIN_PK), board_mod.addr()),
+    );
+    post.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &thread,
+        post::unban_media(uid(b"2"), board_mod, vector[10]),
+    );
+    abort
 }
 
 #[test]

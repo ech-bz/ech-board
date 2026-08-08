@@ -88,6 +88,36 @@ public(package) fun apply(
                 );
             };
         },
+        b"ban_media" => {
+            let hashes = event.peel_vec!(|b| b.peel_u256());
+            assert!(
+                addr == forum.admin()
+                    || forum.mods().contains(addr)
+                    || board.mods().contains(addr)
+                    || thread.admin().is_some_and!(|a| addr == a)
+                    || thread.mods().contains(addr)
+                    || can_self_moderate,
+                error::not_authorized(),
+            );
+            hashes.do!(|hash| {
+                assert!(self.media_hashes().contains(&hash), error::media_not_found());
+                self.banned_media_mut().insert(hash);
+            });
+        },
+        b"unban_media" => {
+            let hashes = event.peel_vec!(|b| b.peel_u256());
+            assert!(
+                addr == forum.admin()
+                    || forum.mods().contains(addr)
+                    || board.mods().contains(addr)
+                    || thread.admin().is_some_and!(|a| addr == a)
+                    || thread.mods().contains(addr),
+                error::not_authorized(),
+            );
+            hashes.do!(|hash| {
+                self.banned_media_mut().remove(&hash);
+            });
+        },
         b"remove_media" => {
             let hashes = event.peel_vec!(|b| b.peel_u256());
             assert!(

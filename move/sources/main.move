@@ -436,7 +436,7 @@ public fun post_apply_intent_uid(
             object::id(thread),
             object::id(post),
         ],
-        vector["upgrade", "set_deleted", "set_text", "remove_media"],
+        vector["upgrade", "set_deleted", "set_text", "ban_media", "unban_media"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     post.apply(ctx, clock, forum, board, thread, intent.into_event());

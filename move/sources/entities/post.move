@@ -12,8 +12,9 @@ use std::ascii::String;
 use sui::bcs;
 use sui::dynamic_field;
 use sui::vec_map::{Self, VecMap};
+use sui::vec_set::{Self, VecSet};
 
-const VERSION: u16 = 2;
+const VERSION: u16 = 3;
 
 public struct Post has key {
     id: UID,
@@ -53,6 +54,7 @@ const DF_DELETED: vector<u8> = b"deleted";
 const DF_BANNED: vector<u8> = b"banned";
 const DF_TEXT_HASH: vector<u8> = b"text_hash";
 const DF_MEDIA_HASHES: vector<u8> = b"media_hashes";
+const DF_BANNED_MEDIA: vector<u8> = b"banned_media";
 const DF_REACTIONS: vector<u8> = b"reactions";
 const DF_REACTED: vector<u8> = b"reacted";
 const DF_VOTES: vector<u8> = b"votes";
@@ -133,6 +135,14 @@ public(package) fun media_hashes(self: &Post): &vector<u256> {
 
 public(package) fun media_hashes_mut(self: &mut Post): &mut vector<u256> {
     dynamic_field::borrow_mut(&mut self.id, DF_MEDIA_HASHES)
+}
+
+public(package) fun banned_media(self: &Post): &VecSet<u256> {
+    dynamic_field::borrow(&self.id, DF_BANNED_MEDIA)
+}
+
+public(package) fun banned_media_mut(self: &mut Post): &mut VecSet<u256> {
+    dynamic_field::borrow_mut(&mut self.id, DF_BANNED_MEDIA)
 }
 
 public(package) fun reactions(self: &Post): &VecMap<u256, u64> {
@@ -217,6 +227,7 @@ fun empty(ctx: &mut TxContext): Post {
 public(package) fun do_upgrade(self: &mut Post, ctx: &mut TxContext) {
     if (self.entity.version() < 1) self.init_v1(ctx);
     if (self.entity.version() < 2) self.init_v2(ctx);
+    if (self.entity.version() < 3) self.init_v3(ctx);
 }
 
 fun init_v1(self: &mut Post, ctx: &mut TxContext) {
@@ -243,6 +254,11 @@ fun init_v1(self: &mut Post, ctx: &mut TxContext) {
 fun init_v2(self: &mut Post, _ctx: &mut TxContext) {
     self.entity.set_version(2);
     dynamic_field::add(&mut self.id, DF_MULTI_VOTE, false);
+}
+
+fun init_v3(self: &mut Post, _ctx: &mut TxContext) {
+    self.entity.set_version(3);
+    dynamic_field::add(&mut self.id, DF_BANNED_MEDIA, vec_set::empty<u256>());
 }
 
 public(package) fun new(
@@ -298,6 +314,22 @@ public(package) fun set_deleted(responses: Responses, sender: Sender, deleted: b
 
 public(package) fun set_text(responses: Responses, sender: Sender, hash: Option<u256>): vector<u8> {
     event::new("set_text", responses, sender).with(&hash).build()
+}
+
+public(package) fun ban_media(
+    responses: Responses,
+    sender: Sender,
+    hashes: vector<u256>,
+): vector<u8> {
+    event::new("ban_media", responses, sender).with(&hashes).build()
+}
+
+public(package) fun unban_media(
+    responses: Responses,
+    sender: Sender,
+    hashes: vector<u256>,
+): vector<u8> {
+    event::new("unban_media", responses, sender).with(&hashes).build()
 }
 
 public(package) fun remove_media(
