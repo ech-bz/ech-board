@@ -414,7 +414,7 @@ pub(super) async fn load_threads(
         let fields = DynamicFields::load(upstream, *id).await.ok()?;
         decode_thread(*id, root, fields).ok()
     }))
-    .buffer_unordered(16)
+    .buffered(16)
     .collect::<Vec<_>>()
     .await;
     Ok(threads)
@@ -473,7 +473,7 @@ pub(super) async fn load_posts(
         let fields = DynamicFields::load(upstream, *id).await.ok()?;
         decode_post(*id, root, fields).ok()
     }))
-    .buffer_unordered(16)
+    .buffered(16)
     .collect::<Vec<_>>()
     .await;
     Ok(posts)
