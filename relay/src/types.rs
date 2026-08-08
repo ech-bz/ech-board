@@ -26,6 +26,7 @@ pub(crate) enum ContentKind {
     Thumbnail,
     PlainText,
     MediaMeta,
+    Reaction,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

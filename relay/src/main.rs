@@ -15,7 +15,7 @@ mod upstream;
 use actix_cors::Cors;
 use actix_multipart::form::MultipartForm;
 use actix_web::web::PayloadConfig;
-use actix_web::{App, HttpRequest, HttpResponse, HttpServer, get, post, web};
+use actix_web::{App, HttpRequest, HttpResponse, HttpServer, get, post, put, web};
 use app_state::AppState;
 use clap::Parser;
 use std::path::PathBuf;
@@ -101,6 +101,10 @@ async fn main() -> std::io::Result<()> {
             .service(thread_handler)
             .service(post_handler)
             .service(content_handler)
+            .service(reaction_content_handler)
+            .service(reaction_put_handler)
+            .service(post_reactions_handler)
+            .service(thread_reactions_handler)
             .service(feed_handler)
             .service(bans_handler)
             .service(healthz)
@@ -145,6 +149,25 @@ async fn content_handler(
 ) -> Result<HttpResponse, actix_web::Error> {
     let (board_uid, thread_uid, post_uid, kind, hash) = path.into_inner();
     handlers::content::fetch(state, board_uid, thread_uid, post_uid, kind, hash).await
+}
+
+#[get("/content/{board_uid}/reaction/{hash}")]
+async fn reaction_content_handler(
+    state: web::Data<AppState>,
+    path: web::Path<(Address, Address)>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let (board_uid, hash) = path.into_inner();
+    handlers::content::reaction_fetch(state, board_uid, hash).await
+}
+
+#[put("/content/{board_uid}/reaction/{hash}")]
+async fn reaction_put_handler(
+    state: web::Data<AppState>,
+    path: web::Path<(Address, Address)>,
+    body: web::Bytes,
+) -> Result<HttpResponse, actix_web::Error> {
+    let (_, hash) = path.into_inner();
+    handlers::content::reaction_put(state, hash, body.to_vec()).await
 }
 
 #[get("/forum")]
@@ -205,6 +228,30 @@ async fn post_handler(
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
         .body(handlers::post::fetch(&state, path.into_inner()).await?))
+}
+
+#[get("/post/{uid}/reactions")]
+async fn post_reactions_handler(
+    state: web::Data<AppState>,
+    path: web::Path<Address>,
+    query: web::Query<handlers::reactions::ReactionsQuery>,
+) -> Result<HttpResponse, error::RelayError> {
+    Ok(HttpResponse::Ok()
+        .content_type("application/octet-stream")
+        .body(handlers::reactions::fetch(&state, path.into_inner(), query.pk).await?))
+}
+
+#[post("/thread/{uid}/reactions")]
+async fn thread_reactions_handler(
+    state: web::Data<AppState>,
+    _path: web::Path<Address>,
+    body: web::Bytes,
+) -> Result<HttpResponse, error::RelayError> {
+    let queries: Vec<(Address, Address)> = bcs::from_bytes(&body)
+        .map_err(|e| error::RelayError::Internal(format!("bcs decode reactions query: {e}")))?;
+    Ok(HttpResponse::Ok()
+        .content_type("application/octet-stream")
+        .body(handlers::reactions::fetch_thread(&state, queries).await?))
 }
 
 #[get("/feed/{uid}")]

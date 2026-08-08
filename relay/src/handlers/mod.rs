@@ -7,6 +7,7 @@ pub(crate) mod feed;
 pub(crate) mod forum;
 pub(crate) mod nonce;
 pub(crate) mod post;
+pub(crate) mod reactions;
 pub(crate) mod send;
 pub(crate) mod thread;
 

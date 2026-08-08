@@ -55,6 +55,7 @@ impl SeaweedClient {
             ContentKind::Thumbnail => "thumb",
             ContentKind::PlainText => "plaintext",
             ContentKind::MediaMeta => "media_meta",
+            ContentKind::Reaction => "reaction",
         };
         let hex = hex::encode(hash.as_bytes());
         format!("{}/{}/{}/{}", kind_str, &hex[0..2], &hex[2..4], hex)
