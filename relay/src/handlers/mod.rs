@@ -407,16 +407,20 @@ pub(super) async fn load_thread(
 pub(super) async fn load_threads(
     upstream: &crate::upstream::UpstreamSender,
     ids: &[Address],
-) -> Result<Vec<Option<ThreadObject>>, crate::error::RelayError> {
+) -> Result<HashMap<Address, ThreadObject>, crate::error::RelayError> {
     let objects = upstream.fetch_objects(ids.iter().copied()).await?;
-    let threads = futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
-        let root = object.as_ref()?.contents().deserialize::<EntityRoot>().ok()?;
-        let fields = DynamicFields::load(upstream, *id).await.ok()?;
-        decode_thread(*id, root, fields).ok()
-    }))
-    .buffered(16)
-    .collect::<Vec<_>>()
-    .await;
+    let threads: HashMap<Address, ThreadObject> =
+        futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
+            let root = object.as_ref()?.contents().deserialize::<EntityRoot>().ok()?;
+            let fields = DynamicFields::load(upstream, *id).await.ok()?;
+            decode_thread(*id, root, fields).ok()
+        }))
+        .buffer_unordered(16)
+        .filter_map(|t| async move { t.map(|t| (t.id, t)) })
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect();
     Ok(threads)
 }
 
@@ -466,16 +470,20 @@ pub(super) async fn load_post(
 pub(super) async fn load_posts(
     upstream: &crate::upstream::UpstreamSender,
     ids: &[Address],
-) -> Result<Vec<Option<PostObject>>, crate::error::RelayError> {
+) -> Result<HashMap<Address, PostObject>, crate::error::RelayError> {
     let objects = upstream.fetch_objects(ids.iter().copied()).await?;
-    let posts = futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
-        let root = object.as_ref()?.contents().deserialize::<EntityRoot>().ok()?;
-        let fields = DynamicFields::load(upstream, *id).await.ok()?;
-        decode_post(*id, root, fields).ok()
-    }))
-    .buffered(16)
-    .collect::<Vec<_>>()
-    .await;
+    let posts: HashMap<Address, PostObject> =
+        futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
+            let root = object.as_ref()?.contents().deserialize::<EntityRoot>().ok()?;
+            let fields = DynamicFields::load(upstream, *id).await.ok()?;
+            decode_post(*id, root, fields).ok()
+        }))
+        .buffer_unordered(16)
+        .filter_map(|p| async move { p.map(|p| (p.id, p)) })
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect();
     Ok(posts)
 }
 

@@ -135,13 +135,13 @@ pub(crate) async fn fetch(
         i = stop_at.unwrap_or(chunk_start);
     }
 
-    let thread_results = load_threads(&state.upstream, &thread_addrs).await?;
+    let thread_map = load_threads(&state.upstream, &thread_addrs).await?;
     let mut threads = Vec::with_capacity(thread_addrs.len());
     let mut post_addrs_by_thread: Vec<(Address, Vec<Address>)> =
         Vec::with_capacity(thread_addrs.len());
 
-    for (thread_id, thread) in thread_addrs.into_iter().zip(thread_results.into_iter()) {
-        let Some(thread) = thread else {
+    for thread_id in thread_addrs {
+        let Some(thread) = thread_map.get(&thread_id) else {
             eprintln!("relay: skipping invalid thread entry {thread_id} on board {board_uid}");
             continue;
         };
@@ -149,7 +149,7 @@ pub(crate) async fn fetch(
         let mut post_addrs = vec![thread.projection.op];
         post_addrs.extend_from_slice(&thread.projection.last_3);
         post_addrs_by_thread.push((thread_uid, post_addrs));
-        threads.push(thread);
+        threads.push(thread.clone());
     }
 
     let all_post_ids: Vec<_> = post_addrs_by_thread
@@ -157,18 +157,17 @@ pub(crate) async fn fetch(
         .flat_map(|(_, addrs)| addrs.iter().copied())
         .collect();
 
-    let post_objects = load_posts(&state.upstream, &all_post_ids).await?;
+    let post_map = load_posts(&state.upstream, &all_post_ids).await?;
 
-    let mut pi = 0;
     let mut last_3 = HashMap::with_capacity(post_addrs_by_thread.len());
     for (thread_uid, addrs) in &post_addrs_by_thread {
-        let take = addrs.len();
-        let mut posts = Vec::with_capacity(take);
-        for post in post_objects[pi..pi + take].iter().flatten() {
-            posts.push(post.clone());
+        let mut posts = Vec::with_capacity(addrs.len());
+        for id in addrs {
+            if let Some(post) = post_map.get(id) {
+                posts.push(post.clone());
+            }
         }
         last_3.insert(*thread_uid, posts);
-        pi += take;
     }
 
     let deleted_threads: HashSet<Address> =
