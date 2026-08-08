@@ -36,6 +36,9 @@ pub(crate) async fn fetch(
     if !post.projection.media_hashes.contains(&hash) {
         return Ok(HttpResponse::NotFound().finish());
     }
+    if post.projection.banned_media.contains(&hash) {
+        return Ok(HttpResponse::NotFound().finish());
+    }
 
     match state.seaweed.get(kind, &hash).await {
         Ok(Some(data)) => Ok(HttpResponse::Ok()
