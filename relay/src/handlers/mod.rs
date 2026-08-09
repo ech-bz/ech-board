@@ -360,7 +360,7 @@ pub(super) async fn load_posts_and_board(
         let fields = DynamicFields::load(upstream, id).await?;
         decode_post(id, root, fields)
     }))
-    .buffer_unordered(16)
+    .buffer_unordered(64)
     .collect::<Vec<_>>()
     .await
     .into_iter()
@@ -415,7 +415,7 @@ pub(super) async fn load_threads(
             let fields = DynamicFields::load(upstream, *id).await.ok()?;
             decode_thread(*id, root, fields).ok()
         }))
-        .buffer_unordered(16)
+        .buffer_unordered(64)
         .filter_map(|t| async move { t.map(|t| (t.id, t)) })
         .collect::<Vec<_>>()
         .await
@@ -478,7 +478,7 @@ pub(super) async fn load_posts(
             let fields = DynamicFields::load(upstream, *id).await.ok()?;
             decode_post(*id, root, fields).ok()
         }))
-        .buffer_unordered(16)
+        .buffer_unordered(64)
         .filter_map(|p| async move { p.map(|p| (p.id, p)) })
         .collect::<Vec<_>>()
         .await

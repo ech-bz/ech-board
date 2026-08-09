@@ -44,7 +44,6 @@ pub(crate) async fn fetch(state: &AppState, thread_uid: Address) -> Result<Vec<u
         .filter(|p| !p.projection.deleted)
         .filter_map(|p| p.projection.text_hash)
         .collect();
-    let text = fetch_content(&state.seaweed, ContentKind::Text, text_hashes).await;
 
     let mut plain_text_hashes = HashSet::new();
     if let Some(h) = thread.projection.topic_hash {
@@ -55,19 +54,28 @@ pub(crate) async fn fetch(state: &AppState, thread_uid: Address) -> Result<Vec<u
             plain_text_hashes.insert(h);
         }
     }
-    let plain_text = fetch_content(&state.seaweed, ContentKind::PlainText, plain_text_hashes).await;
 
     let media_hashes: HashSet<Address> = posts
         .iter()
         .filter(|p| !p.projection.deleted)
         .flat_map(|p| p.projection.media_hashes.iter().copied())
         .collect();
-    let media_meta = fetch_media_meta(&state.seaweed, media_hashes).await;
 
+    let (text, plain_text, media_meta) = tokio::join!(
+        fetch_content(&state.seaweed, ContentKind::Text, text_hashes),
+        fetch_content(&state.seaweed, ContentKind::PlainText, plain_text_hashes),
+        fetch_media_meta(&state.seaweed, media_hashes),
+    );
+
+    let (forum_mods, board_mods, thread_mods) = tokio::join!(
+        list_mods(&state.upstream, state.forum.projection.mods.id),
+        list_mods(&state.upstream, board.projection.mods.id),
+        list_mods(&state.upstream, thread.projection.mods.id),
+    );
     let moderators = Moderators {
-        forum_mods: list_mods(&state.upstream, state.forum.projection.mods.id).await?,
-        board_mods: list_mods(&state.upstream, board.projection.mods.id).await?,
-        thread_mods: list_mods(&state.upstream, thread.projection.mods.id).await?,
+        forum_mods: forum_mods?,
+        board_mods: board_mods?,
+        thread_mods: thread_mods?,
         forum_admin: Some(state.forum.projection.admin),
         thread_admin: thread.projection.admin,
     };
