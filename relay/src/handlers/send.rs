@@ -956,7 +956,7 @@ fn validate_target(intent: &IntentV2, event_tag: &str) -> Result<(), error::Rela
             "set_admin",
         ],
         "thread_apply_post_intent_uid" => &["ban", "unban", "post_set_deleted", "post_set_text"],
-        "post_apply_intent_uid" => &["upgrade", "ban_media", "unban_media", "set_deleted"],
+        "post_apply_intent_uid" => &["upgrade", "ban_media", "unban_media"],
         "post_apply_intent_uid_ip32" => &["set_reaction", "vote_v2"],
         _ => {
             return Err(error::RelayError::SponsorBuild(

@@ -13,7 +13,7 @@ mod types;
 mod upstream;
 
 use actix_cors::Cors;
-use actix_multipart::form::MultipartForm;
+use actix_multipart::form::{MultipartForm, MultipartFormConfig};
 use actix_web::web::PayloadConfig;
 use actix_web::{App, HttpRequest, HttpResponse, HttpServer, get, post, put, web};
 use app_state::AppState;
@@ -91,6 +91,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(cors)
             .app_data(PayloadConfig::new(200 * 1024 * 1024))
+            .app_data(MultipartFormConfig::default().total_limit(200 * 1024 * 1024))
             .app_data(public_state.clone())
             .service(send)
             .service(nonce_handler)
