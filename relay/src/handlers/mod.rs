@@ -15,6 +15,7 @@ use crate::seaweed::SeaweedClient;
 use crate::types::{ContentKind, MediaMeta, Tripcode};
 use actix_web::HttpRequest;
 use futures::StreamExt;
+use futures::TryStreamExt;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -40,10 +41,10 @@ pub(super) struct Feed {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub(super) struct Moderators {
+    pub(super) forum_admin: Option<Address>,
     pub(super) forum_mods: Vec<Address>,
     pub(super) board_mods: Vec<Address>,
     pub(super) thread_mods: Vec<Address>,
-    pub(super) forum_admin: Option<Address>,
     pub(super) thread_admin: Option<Address>,
 }
 
@@ -52,17 +53,57 @@ pub(super) struct ForumObject {
     pub(super) id: Address,
     pub(super) entity: Entity,
     pub(super) projection: ForumProjection,
-    pub(super) genesis: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub(super) struct ForumProjection {
-    pub(super) nonce_shards: Address,
-    pub(super) admin: Address,
-    pub(super) mods: Table,
-    pub(super) bans: Bans,
-    pub(super) boards: Table,
-    pub(super) timestamp_precision_ms: u64,
+pub(super) enum ForumProjection {
+    V1 {
+        nonce_shards: Address,
+        admin: Address,
+        mods: Table,
+        bans: Bans,
+        boards: Table,
+        timestamp_precision_ms: u64,
+    },
+}
+
+impl ForumProjection {
+    pub fn nonce_shards(&self) -> Address {
+        match self {
+            ForumProjection::V1 { nonce_shards, .. } => *nonce_shards,
+        }
+    }
+
+    pub fn admin(&self) -> Address {
+        match self {
+            ForumProjection::V1 { admin, .. } => *admin,
+        }
+    }
+
+    pub fn mods(&self) -> &Table {
+        match self {
+            ForumProjection::V1 { mods, .. } => mods,
+        }
+    }
+
+    pub fn bans(&self) -> &Bans {
+        match self {
+            ForumProjection::V1 { bans, .. } => bans,
+        }
+    }
+
+    pub fn boards(&self) -> &Table {
+        match self {
+            ForumProjection::V1 { boards, .. } => boards,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn timestamp_precision_ms(&self) -> u64 {
+        match self {
+            ForumProjection::V1 { timestamp_precision_ms, .. } => *timestamp_precision_ms,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -70,25 +111,127 @@ pub(super) struct BoardObject {
     pub(super) id: Address,
     pub(super) entity: Entity,
     pub(super) projection: BoardProjection,
-    pub(super) genesis: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub(super) struct BoardProjection {
-    pub(super) slug: String,
-    pub(super) description_hash: Option<Address>,
-    pub(super) max_media: u64,
-    pub(super) bump_limit: u64,
-    pub(super) closed: bool,
-    pub(super) deleted: bool,
-    pub(super) ignore_forum_bans: bool,
-    pub(super) mods: Table,
-    pub(super) bans: Bans,
-    pub(super) reactions: Vec<Address>,
-    pub(super) pinned: Vec<Address>,
-    pub(super) threads: Table,
-    pub(super) posts: Table,
-    pub(super) bumps: Feed,
+pub(super) enum BoardProjection {
+    V1 {
+        slug: String,
+        description_hash: Option<Address>,
+        max_media: u64,
+        bump_limit: u64,
+        closed: bool,
+        deleted: bool,
+        ignore_forum_bans: bool,
+        mods: Table,
+        bans: Bans,
+        reactions: Vec<Address>,
+        threads: Table,
+        posts: Table,
+        bumps: Feed,
+    },
+    V2 {
+        slug: String,
+        description_hash: Option<Address>,
+        max_media: u64,
+        bump_limit: u64,
+        closed: bool,
+        deleted: bool,
+        pinned: Vec<Address>,
+        ignore_forum_bans: bool,
+        mods: Table,
+        bans: Bans,
+        reactions: Vec<Address>,
+        threads: Table,
+        posts: Table,
+        bumps: Feed,
+    },
+}
+
+impl BoardProjection {
+    pub fn slug(&self) -> &str {
+        match self {
+            BoardProjection::V1 { slug, .. } => slug,
+            BoardProjection::V2 { slug, .. } => slug,
+        }
+    }
+
+    pub fn description_hash(&self) -> Option<Address> {
+        match self {
+            BoardProjection::V1 { description_hash, .. } => *description_hash,
+            BoardProjection::V2 { description_hash, .. } => *description_hash,
+        }
+    }
+
+    pub fn max_media(&self) -> u64 {
+        match self {
+            BoardProjection::V1 { max_media, .. } => *max_media,
+            BoardProjection::V2 { max_media, .. } => *max_media,
+        }
+    }
+
+    pub fn deleted(&self) -> bool {
+        match self {
+            BoardProjection::V1 { deleted, .. } => *deleted,
+            BoardProjection::V2 { deleted, .. } => *deleted,
+        }
+    }
+
+    pub fn ignore_forum_bans(&self) -> bool {
+        match self {
+            BoardProjection::V1 { ignore_forum_bans, .. } => *ignore_forum_bans,
+            BoardProjection::V2 { ignore_forum_bans, .. } => *ignore_forum_bans,
+        }
+    }
+
+    pub fn mods(&self) -> &Table {
+        match self {
+            BoardProjection::V1 { mods, .. } => mods,
+            BoardProjection::V2 { mods, .. } => mods,
+        }
+    }
+
+    pub fn bans(&self) -> &Bans {
+        match self {
+            BoardProjection::V1 { bans, .. } => bans,
+            BoardProjection::V2 { bans, .. } => bans,
+        }
+    }
+
+    pub fn reactions(&self) -> &[Address] {
+        match self {
+            BoardProjection::V1 { reactions, .. } => reactions,
+            BoardProjection::V2 { reactions, .. } => reactions,
+        }
+    }
+
+    pub fn threads(&self) -> &Table {
+        match self {
+            BoardProjection::V1 { threads, .. } => threads,
+            BoardProjection::V2 { threads, .. } => threads,
+        }
+    }
+
+    pub fn posts(&self) -> &Table {
+        match self {
+            BoardProjection::V1 { posts, .. } => posts,
+            BoardProjection::V2 { posts, .. } => posts,
+        }
+    }
+
+    pub fn bumps(&self) -> &Feed {
+        match self {
+            BoardProjection::V1 { bumps, .. } => bumps,
+            BoardProjection::V2 { bumps, .. } => bumps,
+        }
+    }
+
+    pub fn pinned(&self) -> &[Address] {
+        match self {
+            BoardProjection::V1 { .. } => &[],
+            BoardProjection::V2 { pinned, .. } => pinned,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -96,22 +239,133 @@ pub(super) struct ThreadObject {
     pub(super) id: Address,
     pub(super) entity: Entity,
     pub(super) projection: ThreadProjection,
-    pub(super) genesis: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub(super) struct ThreadProjection {
-    pub(super) board: Address,
-    pub(super) number: u64,
-    pub(super) topic_hash: Option<Address>,
-    pub(super) op: Address,
-    pub(super) closed: bool,
-    pub(super) deleted: bool,
-    pub(super) admin: Option<Address>,
-    pub(super) mods: Table,
-    pub(super) bans: Bans,
-    pub(super) posts: Feed,
-    pub(super) last_3: Vec<Address>,
+pub(super) enum ThreadProjection {
+    V1 {
+        board: Address,
+        number: u64,
+        topic_hash: Option<Address>,
+        op: Address,
+        closed: bool,
+        deleted: bool,
+        pinned: bool,
+        admin: Option<Address>,
+        mods: Table,
+        bans: Bans,
+        posts: Feed,
+        last_3: Vec<Address>,
+    },
+    V2 {
+        board: Address,
+        number: u64,
+        topic_hash: Option<Address>,
+        op: Address,
+        closed: bool,
+        deleted: bool,
+        admin: Option<Address>,
+        mods: Table,
+        bans: Bans,
+        posts: Feed,
+        last_3: Vec<Address>,
+    },
+    V3 {
+        board: Address,
+        number: u64,
+        topic_hash: Option<Address>,
+        op: Address,
+        closed: bool,
+        deleted: bool,
+        admin: Option<Address>,
+        mods: Table,
+        bans: Bans,
+        posts: Feed,
+        posts_deleted: u64,
+        last_3: Vec<Address>,
+    },
+}
+
+impl ThreadProjection {
+    pub fn board(&self) -> Address {
+        match self {
+            ThreadProjection::V1 { board, .. } => *board,
+            ThreadProjection::V2 { board, .. } => *board,
+            ThreadProjection::V3 { board, .. } => *board,
+        }
+    }
+
+    pub fn number(&self) -> u64 {
+        match self {
+            ThreadProjection::V1 { number, .. } => *number,
+            ThreadProjection::V2 { number, .. } => *number,
+            ThreadProjection::V3 { number, .. } => *number,
+        }
+    }
+
+    pub fn topic_hash(&self) -> Option<Address> {
+        match self {
+            ThreadProjection::V1 { topic_hash, .. } => *topic_hash,
+            ThreadProjection::V2 { topic_hash, .. } => *topic_hash,
+            ThreadProjection::V3 { topic_hash, .. } => *topic_hash,
+        }
+    }
+
+    pub fn op(&self) -> Address {
+        match self {
+            ThreadProjection::V1 { op, .. } => *op,
+            ThreadProjection::V2 { op, .. } => *op,
+            ThreadProjection::V3 { op, .. } => *op,
+        }
+    }
+
+    pub fn deleted(&self) -> bool {
+        match self {
+            ThreadProjection::V1 { deleted, .. } => *deleted,
+            ThreadProjection::V2 { deleted, .. } => *deleted,
+            ThreadProjection::V3 { deleted, .. } => *deleted,
+        }
+    }
+
+    pub fn admin(&self) -> &Option<Address> {
+        match self {
+            ThreadProjection::V1 { admin, .. } => admin,
+            ThreadProjection::V2 { admin, .. } => admin,
+            ThreadProjection::V3 { admin, .. } => admin,
+        }
+    }
+
+    pub fn mods(&self) -> &Table {
+        match self {
+            ThreadProjection::V1 { mods, .. } => mods,
+            ThreadProjection::V2 { mods, .. } => mods,
+            ThreadProjection::V3 { mods, .. } => mods,
+        }
+    }
+
+    pub fn bans(&self) -> &Bans {
+        match self {
+            ThreadProjection::V1 { bans, .. } => bans,
+            ThreadProjection::V2 { bans, .. } => bans,
+            ThreadProjection::V3 { bans, .. } => bans,
+        }
+    }
+
+    pub fn posts(&self) -> &Feed {
+        match self {
+            ThreadProjection::V1 { posts, .. } => posts,
+            ThreadProjection::V2 { posts, .. } => posts,
+            ThreadProjection::V3 { posts, .. } => posts,
+        }
+    }
+
+    pub fn last_3(&self) -> &[Address] {
+        match self {
+            ThreadProjection::V1 { last_3, .. } => last_3,
+            ThreadProjection::V2 { last_3, .. } => last_3,
+            ThreadProjection::V3 { last_3, .. } => last_3,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -119,7 +373,6 @@ pub(super) struct PostObject {
     pub(super) id: Address,
     pub(super) entity: Entity,
     pub(super) projection: PostProjection,
-    pub(super) genesis: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -136,24 +389,118 @@ pub(super) struct BanKey {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub(super) struct PostProjection {
-    pub(super) thread: Address,
-    pub(super) number: u64,
-    pub(super) sender: Sender,
-    pub(super) uid: Vec<u8>,
-    pub(super) timestamp_ms: u64,
-    pub(super) deleted: bool,
-    pub(super) banned: Option<BanKey>,
-    pub(super) text_hash: Option<Address>,
-    pub(super) media_hashes: Vec<Address>,
-    pub(super) banned_media: Vec<Address>,
-    pub(super) name_hash: Option<Address>,
-    pub(super) trip: Option<Tripcode>,
-    pub(super) geo: Option<u32>,
-    pub(super) mod_note: Option<Address>,
-    pub(super) multi_vote: bool,
-    pub(super) reactions: Vec<(Address, u64)>,
-    pub(super) votes: Vec<(Address, u64)>,
+pub(super) enum PostProjection {
+    V1 {
+        sender: Sender,
+        thread: Address,
+        number: u64,
+        uid: Vec<u8>,
+        timestamp_ms: u64,
+        deleted: bool,
+        banned: Option<BanKey>,
+        text_hash: Option<Address>,
+        media_hashes: Vec<Address>,
+        reactions: Vec<(Address, u64)>,
+        votes: Vec<(Address, u64)>,
+        name_hash: Option<Address>,
+        trip: Option<Tripcode>,
+        geo: Option<u32>,
+        mod_note: Option<Address>,
+    },
+    V2 {
+        sender: Sender,
+        thread: Address,
+        number: u64,
+        uid: Vec<u8>,
+        timestamp_ms: u64,
+        deleted: bool,
+        banned: Option<BanKey>,
+        text_hash: Option<Address>,
+        media_hashes: Vec<Address>,
+        reactions: Vec<(Address, u64)>,
+        votes: Vec<(Address, u64)>,
+        multi_vote: bool,
+        name_hash: Option<Address>,
+        trip: Option<Tripcode>,
+        geo: Option<u32>,
+        mod_note: Option<Address>,
+    },
+    V3 {
+        sender: Sender,
+        thread: Address,
+        number: u64,
+        uid: Vec<u8>,
+        timestamp_ms: u64,
+        deleted: bool,
+        banned: Option<BanKey>,
+        text_hash: Option<Address>,
+        media_hashes: Vec<Address>,
+        banned_media: Vec<Address>,
+        reactions: Vec<(Address, u64)>,
+        votes: Vec<(Address, u64)>,
+        multi_vote: bool,
+        name_hash: Option<Address>,
+        trip: Option<Tripcode>,
+        geo: Option<u32>,
+        mod_note: Option<Address>,
+    },
+}
+
+impl PostProjection {
+    pub fn thread(&self) -> Address {
+        match self {
+            PostProjection::V1 { thread, .. } => *thread,
+            PostProjection::V2 { thread, .. } => *thread,
+            PostProjection::V3 { thread, .. } => *thread,
+        }
+    }
+
+    pub fn number(&self) -> u64 {
+        match self {
+            PostProjection::V1 { number, .. } => *number,
+            PostProjection::V2 { number, .. } => *number,
+            PostProjection::V3 { number, .. } => *number,
+        }
+    }
+
+    pub fn deleted(&self) -> bool {
+        match self {
+            PostProjection::V1 { deleted, .. } => *deleted,
+            PostProjection::V2 { deleted, .. } => *deleted,
+            PostProjection::V3 { deleted, .. } => *deleted,
+        }
+    }
+
+    pub fn text_hash(&self) -> Option<Address> {
+        match self {
+            PostProjection::V1 { text_hash, .. } => *text_hash,
+            PostProjection::V2 { text_hash, .. } => *text_hash,
+            PostProjection::V3 { text_hash, .. } => *text_hash,
+        }
+    }
+
+    pub fn media_hashes(&self) -> &[Address] {
+        match self {
+            PostProjection::V1 { media_hashes, .. } => media_hashes,
+            PostProjection::V2 { media_hashes, .. } => media_hashes,
+            PostProjection::V3 { media_hashes, .. } => media_hashes,
+        }
+    }
+
+    pub fn name_hash(&self) -> Option<Address> {
+        match self {
+            PostProjection::V1 { name_hash, .. } => *name_hash,
+            PostProjection::V2 { name_hash, .. } => *name_hash,
+            PostProjection::V3 { name_hash, .. } => *name_hash,
+        }
+    }
+
+    pub fn banned_media(&self) -> &[Address] {
+        match self {
+            PostProjection::V3 { banned_media, .. } => banned_media,
+            _ => &[],
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -192,6 +539,7 @@ struct EntityRoot {
     #[allow(dead_code)]
     id: Address,
     entity: Entity,
+    #[allow(dead_code)]
     genesis: bool,
 }
 
@@ -229,12 +577,6 @@ impl DynamicFields {
         })
     }
 
-    fn get_or<T: DeserializeOwned>(&self, name: &[u8], default: T) -> T {
-        self.values
-            .get(name)
-            .and_then(|value| bcs::from_bytes(value).ok())
-            .unwrap_or(default)
-    }
 }
 
 async fn load_root(
@@ -281,10 +623,9 @@ pub(super) async fn load_forum(
     );
     let root = root?;
     let fields = fields?;
-    Ok(ForumObject {
-        id,
-        entity: Entity { feed: root.entity.feed, version: root.entity.version },
-        projection: ForumProjection {
+    let version = root.entity.version;
+    let projection = match version {
+        1 => ForumProjection::V1 {
             nonce_shards: fields.get(b"nonce_shards")?,
             admin: fields.get(b"admin")?,
             mods: fields.get(b"moderators")?,
@@ -292,7 +633,14 @@ pub(super) async fn load_forum(
             boards: fields.get(b"boards")?,
             timestamp_precision_ms: fields.get(b"timestamp_precision")?,
         },
-        genesis: root.genesis,
+        _ => return Err(crate::error::RelayError::Internal(format!(
+            "forum version {version} not supported"
+        ))),
+    };
+    Ok(ForumObject {
+        id,
+        entity: Entity { feed: root.entity.feed, version },
+        projection,
     })
 }
 
@@ -301,10 +649,9 @@ fn decode_board(
     root: EntityRoot,
     fields: DynamicFields,
 ) -> Result<BoardObject, crate::error::RelayError> {
-    Ok(BoardObject {
-        id,
-        entity: Entity { feed: root.entity.feed, version: root.entity.version },
-        projection: BoardProjection {
+    let version = root.entity.version;
+    let projection = match version {
+        1 => BoardProjection::V1 {
             slug: fields.get(b"slug")?,
             description_hash: fields.get(b"description_hash")?,
             max_media: fields.get(b"max_media")?,
@@ -315,12 +662,34 @@ fn decode_board(
             mods: fields.get(b"moderators")?,
             bans: fields.get(b"bans")?,
             reactions: fields.get(b"reactions")?,
-            pinned: fields.get_or(b"pinned", vec![]),
             threads: fields.get(b"threads")?,
             posts: fields.get(b"posts")?,
             bumps: fields.get(b"bumps")?,
         },
-        genesis: root.genesis,
+        2 => BoardProjection::V2 {
+            slug: fields.get(b"slug")?,
+            description_hash: fields.get(b"description_hash")?,
+            max_media: fields.get(b"max_media")?,
+            bump_limit: fields.get(b"bump_limit")?,
+            closed: fields.get(b"closed")?,
+            deleted: fields.get(b"deleted")?,
+            pinned: fields.get(b"pinned")?,
+            ignore_forum_bans: fields.get(b"ignore_forum_bans")?,
+            mods: fields.get(b"moderators")?,
+            bans: fields.get(b"bans")?,
+            reactions: fields.get(b"reactions")?,
+            threads: fields.get(b"threads")?,
+            posts: fields.get(b"posts")?,
+            bumps: fields.get(b"bumps")?,
+        },
+        _ => return Err(crate::error::RelayError::Internal(format!(
+            "board version {version} not supported"
+        ))),
+    };
+    Ok(BoardObject {
+        id,
+        entity: Entity { feed: root.entity.feed, version },
+        projection,
     })
 }
 
@@ -373,10 +742,23 @@ fn decode_thread(
     root: EntityRoot,
     fields: DynamicFields,
 ) -> Result<ThreadObject, crate::error::RelayError> {
-    Ok(ThreadObject {
-        id,
-        entity: Entity { feed: root.entity.feed, version: root.entity.version },
-        projection: ThreadProjection {
+    let version = root.entity.version;
+    let projection = match version {
+        1 => ThreadProjection::V1 {
+            board: fields.get(b"board")?,
+            number: fields.get(b"number")?,
+            topic_hash: fields.get(b"topic_hash")?,
+            op: fields.get(b"op")?,
+            closed: fields.get(b"closed")?,
+            deleted: fields.get(b"deleted")?,
+            pinned: fields.get(b"pinned")?,
+            admin: fields.get(b"admin")?,
+            mods: fields.get(b"moderators")?,
+            bans: fields.get(b"bans")?,
+            posts: fields.get(b"posts")?,
+            last_3: fields.get(b"last_posts")?,
+        },
+        2 => ThreadProjection::V2 {
             board: fields.get(b"board")?,
             number: fields.get(b"number")?,
             topic_hash: fields.get(b"topic_hash")?,
@@ -389,7 +771,28 @@ fn decode_thread(
             posts: fields.get(b"posts")?,
             last_3: fields.get(b"last_posts")?,
         },
-        genesis: root.genesis,
+        3 => ThreadProjection::V3 {
+            board: fields.get(b"board")?,
+            number: fields.get(b"number")?,
+            topic_hash: fields.get(b"topic_hash")?,
+            op: fields.get(b"op")?,
+            closed: fields.get(b"closed")?,
+            deleted: fields.get(b"deleted")?,
+            admin: fields.get(b"admin")?,
+            mods: fields.get(b"moderators")?,
+            bans: fields.get(b"bans")?,
+            posts: fields.get(b"posts")?,
+            posts_deleted: fields.get(b"posts_deleted")?,
+            last_3: fields.get(b"last_posts")?,
+        },
+        _ => return Err(crate::error::RelayError::Internal(format!(
+            "thread version {version} not supported"
+        ))),
+    };
+    Ok(ThreadObject {
+        id,
+        entity: Entity { feed: root.entity.feed, version },
+        projection,
     })
 }
 
@@ -409,19 +812,24 @@ pub(super) async fn load_threads(
     ids: &[Address],
 ) -> Result<HashMap<Address, ThreadObject>, crate::error::RelayError> {
     let objects = upstream.fetch_objects(ids.iter().copied()).await?;
-    let threads: HashMap<Address, ThreadObject> =
-        futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
-            let root = object.as_ref()?.contents().deserialize::<EntityRoot>().ok()?;
-            let fields = DynamicFields::load(upstream, *id).await.ok()?;
-            decode_thread(*id, root, fields).ok()
-        }))
-        .buffer_unordered(64)
-        .filter_map(|t| async move { t.map(|t| (t.id, t)) })
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .collect();
-    Ok(threads)
+    let threads = futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
+        let root = object
+            .as_ref()
+            .ok_or_else(|| {
+                crate::error::RelayError::Internal(format!("thread object {id} not found"))
+            })?
+            .contents()
+            .deserialize::<EntityRoot>()
+            .map_err(|e| {
+                crate::error::RelayError::Internal(format!("thread root {id} decode: {e}"))
+            })?;
+        let fields = DynamicFields::load(upstream, *id).await?;
+        decode_thread(*id, root, fields)
+    }))
+    .buffer_unordered(64)
+    .try_collect::<Vec<_>>()
+    .await?;
+    Ok(threads.into_iter().map(|t| (t.id, t)).collect())
 }
 
 fn decode_post(
@@ -429,30 +837,71 @@ fn decode_post(
     root: EntityRoot,
     fields: DynamicFields,
 ) -> Result<PostObject, crate::error::RelayError> {
+    let version = root.entity.version;
     let sender: Sender = fields.get(b"sender")?;
-    Ok(PostObject {
-        id,
-        entity: Entity { feed: root.entity.feed, version: root.entity.version },
-        projection: PostProjection {
+    let projection = match version {
+        1 => PostProjection::V1 {
+            sender: sender.clone(),
             thread: fields.get(b"thread")?,
             number: fields.get(b"number")?,
-            sender,
             uid: fields.get(b"uid")?,
             timestamp_ms: fields.get(b"timestamp_ms")?,
             deleted: fields.get(b"deleted")?,
             banned: fields.get(b"banned")?,
             text_hash: fields.get(b"text_hash")?,
             media_hashes: fields.get(b"media_hashes")?,
-            banned_media: fields.get_or(b"banned_media", vec![]),
+            reactions: fields.get(b"reactions")?,
+            votes: fields.get(b"votes")?,
             name_hash: fields.get(b"name")?,
             trip: fields.get(b"trip")?,
             geo: fields.get(b"geo")?,
             mod_note: fields.get(b"mod_note")?,
-            multi_vote: fields.get_or(b"multi_vote", false),
+        },
+        2 => PostProjection::V2 {
+            sender: sender.clone(),
+            thread: fields.get(b"thread")?,
+            number: fields.get(b"number")?,
+            uid: fields.get(b"uid")?,
+            timestamp_ms: fields.get(b"timestamp_ms")?,
+            deleted: fields.get(b"deleted")?,
+            banned: fields.get(b"banned")?,
+            text_hash: fields.get(b"text_hash")?,
+            media_hashes: fields.get(b"media_hashes")?,
             reactions: fields.get(b"reactions")?,
             votes: fields.get(b"votes")?,
+            multi_vote: fields.get(b"multi_vote")?,
+            name_hash: fields.get(b"name")?,
+            trip: fields.get(b"trip")?,
+            geo: fields.get(b"geo")?,
+            mod_note: fields.get(b"mod_note")?,
         },
-        genesis: root.genesis,
+        3 => PostProjection::V3 {
+            sender: sender.clone(),
+            thread: fields.get(b"thread")?,
+            number: fields.get(b"number")?,
+            uid: fields.get(b"uid")?,
+            timestamp_ms: fields.get(b"timestamp_ms")?,
+            deleted: fields.get(b"deleted")?,
+            banned: fields.get(b"banned")?,
+            text_hash: fields.get(b"text_hash")?,
+            media_hashes: fields.get(b"media_hashes")?,
+            banned_media: fields.get(b"banned_media")?,
+            reactions: fields.get(b"reactions")?,
+            votes: fields.get(b"votes")?,
+            multi_vote: fields.get(b"multi_vote")?,
+            name_hash: fields.get(b"name")?,
+            trip: fields.get(b"trip")?,
+            geo: fields.get(b"geo")?,
+            mod_note: fields.get(b"mod_note")?,
+        },
+        _ => return Err(crate::error::RelayError::Internal(format!(
+            "post version {version} not supported"
+        ))),
+    };
+    Ok(PostObject {
+        id,
+        entity: Entity { feed: root.entity.feed, version },
+        projection,
     })
 }
 
@@ -472,19 +921,24 @@ pub(super) async fn load_posts(
     ids: &[Address],
 ) -> Result<HashMap<Address, PostObject>, crate::error::RelayError> {
     let objects = upstream.fetch_objects(ids.iter().copied()).await?;
-    let posts: HashMap<Address, PostObject> =
-        futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
-            let root = object.as_ref()?.contents().deserialize::<EntityRoot>().ok()?;
-            let fields = DynamicFields::load(upstream, *id).await.ok()?;
-            decode_post(*id, root, fields).ok()
-        }))
-        .buffer_unordered(64)
-        .filter_map(|p| async move { p.map(|p| (p.id, p)) })
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .collect();
-    Ok(posts)
+    let posts = futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
+        let root = object
+            .as_ref()
+            .ok_or_else(|| {
+                crate::error::RelayError::Internal(format!("post object {id} not found"))
+            })?
+            .contents()
+            .deserialize::<EntityRoot>()
+            .map_err(|e| {
+                crate::error::RelayError::Internal(format!("post root {id} decode: {e}"))
+            })?;
+        let fields = DynamicFields::load(upstream, *id).await?;
+        decode_post(*id, root, fields)
+    }))
+    .buffer_unordered(64)
+    .try_collect::<Vec<_>>()
+    .await?;
+    Ok(posts.into_iter().map(|p| (p.id, p)).collect())
 }
 
 pub(super) async fn list_mods(

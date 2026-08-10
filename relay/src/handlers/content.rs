@@ -20,27 +20,27 @@ pub(crate) async fn fetch(
     let board = load_board(&state.upstream, board_uid)
         .await
         .map_err(actix_web::Error::from)?;
-    if board.projection.deleted {
+    if board.projection.deleted() {
         return Ok(HttpResponse::NotFound().finish());
     }
 
     let thread = load_thread(&state.upstream, thread_uid)
         .await
         .map_err(actix_web::Error::from)?;
-    if thread.projection.deleted {
+    if thread.projection.deleted() {
         return Ok(HttpResponse::NotFound().finish());
     }
 
     let post = load_post(&state.upstream, post_uid)
         .await
         .map_err(actix_web::Error::from)?;
-    if post.projection.deleted {
+    if post.projection.deleted() {
         return Ok(HttpResponse::NotFound().finish());
     }
-    if !post.projection.media_hashes.contains(&hash) {
+    if !post.projection.media_hashes().contains(&hash) {
         return Ok(HttpResponse::NotFound().finish());
     }
-    if post.projection.banned_media.contains(&hash) {
+    if post.projection.banned_media().contains(&hash) {
         return Ok(HttpResponse::NotFound().finish());
     }
 
@@ -65,10 +65,10 @@ pub(crate) async fn reaction_fetch(
     let board = load_board(&state.upstream, board_uid)
         .await
         .map_err(actix_web::Error::from)?;
-    if board.projection.deleted {
+    if board.projection.deleted() {
         return Ok(HttpResponse::NotFound().finish());
     }
-    if !board.projection.reactions.contains(&hash) {
+    if !board.projection.reactions().contains(&hash) {
         return Ok(HttpResponse::NotFound().finish());
     }
 

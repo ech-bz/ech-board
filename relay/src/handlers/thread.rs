@@ -25,40 +25,40 @@ pub(crate) async fn fetch(state: &AppState, thread_uid: Address) -> Result<Vec<u
     let post_ids = state
         .upstream
         .fetch_feed(
-            thread.projection.posts.id,
+            thread.projection.posts().id,
             1,
-            thread.projection.posts.counter + 1,
+            thread.projection.posts().counter + 1,
         )
         .await?;
     let (mut posts, board) =
-        load_posts_and_board(&state.upstream, post_ids, thread.projection.board).await?;
+        load_posts_and_board(&state.upstream, post_ids, thread.projection.board()).await?;
 
-    if thread.projection.deleted || board.projection.deleted {
+    if thread.projection.deleted() || board.projection.deleted() {
         return Err(RelayError::NotFound("thread or board deleted".into()));
     }
 
-    posts.sort_by_key(|p| p.projection.number);
+    posts.sort_by_key(|p| p.projection.number());
 
     let text_hashes: HashSet<Address> = posts
         .iter()
-        .filter(|p| !p.projection.deleted)
-        .filter_map(|p| p.projection.text_hash)
+        .filter(|p| !p.projection.deleted())
+        .filter_map(|p| p.projection.text_hash())
         .collect();
 
     let mut plain_text_hashes = HashSet::new();
-    if let Some(h) = thread.projection.topic_hash {
+    if let Some(h) = thread.projection.topic_hash() {
         plain_text_hashes.insert(h);
     }
-    for post in posts.iter().filter(|p| !p.projection.deleted) {
-        if let Some(h) = post.projection.name_hash {
+    for post in posts.iter().filter(|p| !p.projection.deleted()) {
+        if let Some(h) = post.projection.name_hash() {
             plain_text_hashes.insert(h);
         }
     }
 
     let media_hashes: HashSet<Address> = posts
         .iter()
-        .filter(|p| !p.projection.deleted)
-        .flat_map(|p| p.projection.media_hashes.iter().copied())
+        .filter(|p| !p.projection.deleted())
+        .flat_map(|p| p.projection.media_hashes().iter().copied())
         .collect();
 
     let (text, plain_text, media_meta) = tokio::join!(
@@ -68,16 +68,16 @@ pub(crate) async fn fetch(state: &AppState, thread_uid: Address) -> Result<Vec<u
     );
 
     let (forum_mods, board_mods, thread_mods) = tokio::join!(
-        list_mods(&state.upstream, state.forum.projection.mods.id),
-        list_mods(&state.upstream, board.projection.mods.id),
-        list_mods(&state.upstream, thread.projection.mods.id),
+        list_mods(&state.upstream, state.forum.projection.mods().id),
+        list_mods(&state.upstream, board.projection.mods().id),
+        list_mods(&state.upstream, thread.projection.mods().id),
     );
     let moderators = Moderators {
+        forum_admin: Some(state.forum.projection.admin()),
         forum_mods: forum_mods?,
         board_mods: board_mods?,
         thread_mods: thread_mods?,
-        forum_admin: Some(state.forum.projection.admin),
-        thread_admin: thread.projection.admin,
+        thread_admin: *thread.projection.admin(),
     };
 
     let response = ThreadView {

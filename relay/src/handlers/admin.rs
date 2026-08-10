@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::error::RelayError;
-use crate::types::{Intent, IntentObject, Request};
+use crate::types::{IntentObject, IntentV2, RequestV2};
 use actix_web::{HttpResponse, web};
 use blake2::Digest;
 use blake2::digest::consts::U32;
@@ -26,13 +26,13 @@ async fn build_intent(
     state: &AppState,
     event: &str,
     moderator: Address,
-) -> Result<Intent, RelayError> {
+) -> Result<IntentV2, RelayError> {
     let sponsor_pk = state.sponsor.sponsor_public_key();
     let nonce_bytes = nonce::fetch(state, &sponsor_pk).await?;
     let nonce: NonceInfo = bcs::from_bytes(&nonce_bytes)
         .map_err(|e| RelayError::SponsorBuild(format!("nonce decode: {e}")))?;
 
-    let nonce_shard_id = shard_id(&state.forum.projection.nonce_shards, &sponsor_pk);
+    let nonce_shard_id = shard_id(&state.forum.projection.nonce_shards(), &sponsor_pk);
     let forum_id = state.forum.id;
 
     let mut payload = Vec::new();
@@ -41,7 +41,7 @@ async fn build_intent(
     bcs::serialize_into(&mut payload, &moderator)
         .map_err(|e| RelayError::SponsorBuild(format!("moderator encode: {e}")))?;
 
-    Ok(Intent {
+    Ok(IntentV2 {
         module: "main".into(),
         function: "forum_apply_intent_uid".into(),
         nonce: nonce.nonce,
@@ -60,7 +60,7 @@ async fn build_intent(
             },
         ],
         payload,
-        requests: vec![Request::Uid],
+        requests: vec![RequestV2::Uid],
         public_key: sponsor_pk,
         tweak: Address::ZERO,
     })
@@ -81,9 +81,9 @@ async fn moderator_action(
         .body(
             send::handle_send(
                 &state,
-                intent,
-                signature,
+                vec![(intent, signature)],
                 "0.0.0.0",
+                None,
                 None,
                 None,
                 None,

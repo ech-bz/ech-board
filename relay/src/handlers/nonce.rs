@@ -38,7 +38,7 @@ pub(crate) async fn fetch(state: &AppState, sender: &Address) -> Result<Vec<u8>,
     let shard_id = state
         .forum
         .projection
-        .nonce_shards
+        .nonce_shards()
         .derive_object_id(&TypeTag::U64, &shard_index.to_le_bytes());
 
     let shard = state.upstream.fetch_objects([shard_id]).await?[0]

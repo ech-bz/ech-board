@@ -75,24 +75,24 @@ pub(crate) async fn handle(
         None
     };
 
-    let mut mods_table_ids = vec![forum.projection.mods.id];
-    let mut bans_registry = &forum.projection.bans;
+    let mut mods_table_ids = vec![forum.projection.mods().id];
+    let mut bans_registry = forum.projection.bans();
 
     if let Some(ref b) = board {
-        mods_table_ids.push(b.projection.mods.id);
-        bans_registry = &b.projection.bans;
+        mods_table_ids.push(b.projection.mods().id);
+        bans_registry = b.projection.bans();
     }
     if let Some(ref t) = thread {
-        mods_table_ids.push(t.projection.mods.id);
-        bans_registry = &t.projection.bans;
+        mods_table_ids.push(t.projection.mods().id);
+        bans_registry = t.projection.bans();
     }
 
     let authorized = check_authorization(
         state,
         &mods_table_ids,
         &sender_address(&req.pk),
-        &forum.projection.admin,
-        thread.as_ref().and_then(|t| t.projection.admin.as_ref()),
+        &forum.projection.admin(),
+        thread.as_ref().and_then(|t| t.projection.admin().as_ref()),
     )
     .await?;
 

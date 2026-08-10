@@ -1,13 +1,15 @@
 use crate::app_state::AppState;
 use crate::error;
 use crate::handlers::{Bans, BoardObject, Registry, load_board, load_forum, load_thread};
-use crate::types::{ContentKind, Intent, MAX_TEXT_SIZE, PostPart, Request};
+use crate::types::{ContentKind, IntentV2, MAX_TEXT_SIZE, PostPart, RequestV2};
 use async_trait::async_trait;
 use aws_sdk_kms::primitives::Blob;
 use blake2::Digest;
 use blake2::digest::consts::U32;
+use futures::StreamExt;
 use rand::seq::SliceRandom;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::UNIX_EPOCH;
 use sui_sdk_types::{
@@ -16,6 +18,8 @@ use sui_sdk_types::{
 };
 
 type Blake2b = blake2::Blake2b<U32>;
+
+const MAX_TX_SIZE: usize = 131072;
 
 use actix_multipart::form::{bytes::Bytes as MultipartBytes, tempfile::TempFile};
 
@@ -30,7 +34,7 @@ trait IntentPayload: Send + Sync {
         reason: Option<&str>,
         name: Option<&str>,
         media_files: &[TempFile],
-        intent: &Intent,
+        intent: &IntentV2,
     ) -> Result<(), error::RelayError>;
     async fn cleanup(&self, state: &AppState);
 }
@@ -57,7 +61,7 @@ impl IntentPayload for NewBoardPayload {
         _reason: Option<&str>,
         _name: Option<&str>,
         _media_files: &[TempFile],
-        _intent: &Intent,
+        _intent: &IntentV2,
     ) -> Result<(), error::RelayError> {
         verify_plaintext(state, &self.description_hash, description).await
     }
@@ -106,7 +110,7 @@ macro_rules! impl_thread_payload {
                 _reason: Option<&str>,
                 name: Option<&str>,
                 media_files: &[TempFile],
-                intent: &Intent,
+                intent: &IntentV2,
             ) -> Result<(), error::RelayError> {
                 verify_content(
                     state,
@@ -153,7 +157,7 @@ macro_rules! impl_post_payload {
                 _reason: Option<&str>,
                 name: Option<&str>,
                 media_files: &[TempFile],
-                intent: &Intent,
+                intent: &IntentV2,
             ) -> Result<(), error::RelayError> {
                 verify_content(
                     state,
@@ -195,7 +199,7 @@ impl IntentPayload for SetTextPayload {
         _reason: Option<&str>,
         _name: Option<&str>,
         _media_files: &[TempFile],
-        intent: &Intent,
+        intent: &IntentV2,
     ) -> Result<(), error::RelayError> {
         verify_content(
             state,
@@ -230,7 +234,7 @@ impl IntentPayload for SetTopicPayload {
         _reason: Option<&str>,
         _name: Option<&str>,
         _media_files: &[TempFile],
-        _intent: &Intent,
+        _intent: &IntentV2,
     ) -> Result<(), error::RelayError> {
         if let Some(t) = topic {
             if t.len() > 150 {
@@ -264,7 +268,7 @@ impl IntentPayload for SetDescriptionPayload {
         _reason: Option<&str>,
         _name: Option<&str>,
         _media_files: &[TempFile],
-        _intent: &Intent,
+        _intent: &IntentV2,
     ) -> Result<(), error::RelayError> {
         verify_plaintext(state, &self.description_hash, description).await
     }
@@ -299,7 +303,7 @@ impl IntentPayload for BanPayload {
         reason: Option<&str>,
         _name: Option<&str>,
         _media_files: &[TempFile],
-        _intent: &Intent,
+        _intent: &IntentV2,
     ) -> Result<(), error::RelayError> {
         if let Some(reason) = reason {
             verify_plaintext(state, &Some(self.reason_hash), Some(reason)).await?;
@@ -321,11 +325,11 @@ async fn verify_content(
 ) -> Result<(), error::RelayError> {
     let board = fetch_board(state, board_id).await?;
 
-    if media_hashes.len() > board.projection.max_media as usize {
+    if media_hashes.len() > board.projection.max_media() as usize {
         return Err(error::RelayError::SponsorBuild(format!(
             "media count {} exceeds board max_media {}",
             media_hashes.len(),
-            board.projection.max_media
+            board.projection.max_media()
         )));
     }
 
@@ -457,9 +461,9 @@ async fn fetch_board(
 
 pub(crate) async fn handle_send(
     state: &AppState,
-    intent: Intent,
-    signature_bytes: Vec<u8>,
+    intents: Vec<(IntentV2, Vec<u8>)>,
     remote_ip: &str,
+    captcha: Option<&str>,
     text: Option<MultipartBytes>,
     description: Option<String>,
     topic: Option<String>,
@@ -468,67 +472,87 @@ pub(crate) async fn handle_send(
     tripcode: Option<String>,
     media_files: Vec<TempFile>,
 ) -> Result<Vec<u8>, error::RelayError> {
-    let (event_tag, event_payload) = split_event(&intent.payload)?;
-    validate_target(&intent, event_tag)?;
     let payload_err = |e| error::RelayError::SponsorBuild(format!("failed to decode payload: {e}"));
-    let payload: Option<Box<dyn IntentPayload>> = match (intent.function.as_str(), event_tag) {
-        ("forum_apply_intent_uid", "new_board") => Some(Box::new(
-            bcs::from_bytes::<NewBoardPayload>(event_payload).map_err(payload_err)?,
-        )),
-        ("board_apply_intent_uid", "new_thread_v2")
-        | ("board_apply_intent_uid_tripcode", "new_thread_v2")
-        | ("board_apply_intent_uid_geo", "new_thread_v2")
-        | ("board_apply_intent_uid_geo_tripcode", "new_thread_v2") => Some(Box::new(
-            bcs::from_bytes::<NewThreadV2Payload>(event_payload).map_err(payload_err)?,
-        )),
-        ("board_apply_thread_intent_uid", "new_post_v2")
-        | ("board_apply_thread_intent_uid_tripcode", "new_post_v2")
-        | ("board_apply_thread_intent_uid_geo", "new_post_v2")
-        | ("board_apply_thread_intent_uid_geo_tripcode", "new_post_v2") => Some(Box::new(
-            bcs::from_bytes::<NewPostV2Payload>(event_payload).map_err(payload_err)?,
-        )),
-        ("post_apply_intent_uid", "set_text") => Some(Box::new(
-            bcs::from_bytes::<SetTextPayload>(event_payload).map_err(payload_err)?,
-        )),
-        ("thread_apply_intent_uid", "set_topic") => Some(Box::new(
-            bcs::from_bytes::<SetTopicPayload>(event_payload).map_err(payload_err)?,
-        )),
-        ("board_apply_intent_uid", "set_description") => Some(Box::new(
-            bcs::from_bytes::<SetDescriptionPayload>(event_payload).map_err(payload_err)?,
-        )),
-        ("forum_apply_post_intent_uid", "ban")
-        | ("board_apply_post_intent_uid", "ban")
-        | ("thread_apply_post_intent_uid", "ban") => Some(Box::new(
-            bcs::from_bytes::<BanPayload>(event_payload).map_err(payload_err)?,
-        )),
-        _ => None,
-    };
-
-    if let Some(ref p) = payload {
-        p.verify(
-            state,
-            &text,
-            description.as_deref(),
-            topic.as_deref(),
-            reason.as_deref(),
-            name.as_deref(),
-            &media_files,
-            &intent,
-        )
-        .await?;
+    let mut payloads: Vec<Box<dyn IntentPayload>> = Vec::new();
+    for (intent, _signature_bytes) in &intents {
+        let (event_tag, event_payload) = split_event(&intent.payload)?;
+        validate_target(intent, event_tag)?;
+        let payload: Option<Box<dyn IntentPayload>> = match (intent.function.as_str(), event_tag) {
+            ("forum_apply_intent_uid", "new_board") => Some(Box::new(
+                bcs::from_bytes::<NewBoardPayload>(event_payload).map_err(payload_err)?,
+            )),
+            ("board_apply_intent_uid_captcha", "new_thread_v2")
+            | ("board_apply_intent_uid_tripcode_captcha", "new_thread_v2")
+            | ("board_apply_intent_uid_geo_captcha", "new_thread_v2")
+            | ("board_apply_intent_uid_geo_tripcode_captcha", "new_thread_v2") => Some(Box::new(
+                bcs::from_bytes::<NewThreadV2Payload>(event_payload).map_err(payload_err)?,
+            )),
+            ("board_apply_thread_intent_uid_captcha", "new_post_v2")
+            | ("board_apply_thread_intent_uid_tripcode_captcha", "new_post_v2")
+            | ("board_apply_thread_intent_uid_geo_captcha", "new_post_v2")
+            | ("board_apply_thread_intent_uid_geo_tripcode_captcha", "new_post_v2") => Some(Box::new(
+                bcs::from_bytes::<NewPostV2Payload>(event_payload).map_err(payload_err)?,
+            )),
+            ("thread_apply_post_intent_uid", "post_set_text") => Some(Box::new(
+                bcs::from_bytes::<SetTextPayload>(event_payload).map_err(payload_err)?,
+            )),
+            ("thread_apply_intent_uid", "set_topic") => Some(Box::new(
+                bcs::from_bytes::<SetTopicPayload>(event_payload).map_err(payload_err)?,
+            )),
+            ("board_apply_intent_uid", "set_description") => Some(Box::new(
+                bcs::from_bytes::<SetDescriptionPayload>(event_payload).map_err(payload_err)?,
+            )),
+            ("forum_apply_post_intent_uid", "ban")
+            | ("board_apply_post_intent_uid", "ban")
+            | ("thread_apply_post_intent_uid", "ban") => Some(Box::new(
+                bcs::from_bytes::<BanPayload>(event_payload).map_err(payload_err)?,
+            )),
+            _ => None,
+        };
+        if let Some(p) = payload {
+            p.verify(
+                state,
+                &text,
+                description.as_deref(),
+                topic.as_deref(),
+                reason.as_deref(),
+                name.as_deref(),
+                &media_files,
+                intent,
+            )
+            .await?;
+            payloads.push(p);
+        }
     }
 
-    let responses = resolve_requests(state, &intent, remote_ip, tripcode.as_deref()).await?;
-    let sealed = seal_responses(&state.sponsor, &signature_bytes, &responses)?;
+    let resolved: Vec<Result<Vec<u8>, error::RelayError>> = futures::stream::iter(intents.iter())
+        .map(|(intent, _)| resolve_requests(state, intent, remote_ip, tripcode.as_deref(), captcha))
+        .buffered(32)
+        .collect()
+        .await;
+
+    let mut sealed_items: Vec<(IntentV2, Vec<u8>, Vec<u8>)> = Vec::new();
+    for ((intent, signature_bytes), responses) in intents.iter().zip(resolved) {
+        let responses = responses?;
+        let sealed = seal_responses(&state.sponsor, signature_bytes, &responses)?;
+        sealed_items.push((intent.clone(), signature_bytes.clone(), sealed));
+    }
 
     let mut attempt = 0u64;
     let result = loop {
         attempt += 1;
+        let tx = build_transaction_many(state, &sealed_items).await?;
+        let tx_size = bcs::to_bytes(&tx)
+            .map_err(|e| error::RelayError::SponsorBuild(format!("failed to encode transaction: {e}")))?
+            .len();
+        if tx_size > MAX_TX_SIZE {
+            return Err(error::RelayError::SponsorBuild(format!(
+                "batch too large: {tx_size} bytes > {MAX_TX_SIZE}, reduce chunk size"
+            )));
+        }
         match state
             .upstream
-            .broadcast_signed(&state.sponsor.sign_as_sender(
-                build_transaction(state, &intent, &signature_bytes, sealed.clone()).await?,
-            ))
+            .broadcast_signed(&state.sponsor.sign_as_sender(tx))
             .await
         {
             Ok(result) => {
@@ -545,10 +569,10 @@ pub(crate) async fn handle_send(
         }
     };
 
-    if let Some(p) = payload
-        && result.is_err()
-    {
-        p.cleanup(state).await;
+    if result.is_err() {
+        for p in &payloads {
+            p.cleanup(state).await;
+        }
     }
 
     bcs::to_bytes(&result?)
@@ -557,14 +581,15 @@ pub(crate) async fn handle_send(
 
 async fn resolve_requests(
     state: &AppState,
-    intent: &Intent,
+    intent: &IntentV2,
     remote_ip: &str,
     tripcode: Option<&str>,
+    captcha: Option<&str>,
 ) -> Result<Vec<u8>, error::RelayError> {
     let mut results = Vec::new();
     for req in &intent.requests {
         match req {
-            Request::Uid => {
+            RequestV2::Uid => {
                 let ip32 = remote_ip
                     .parse::<std::net::Ipv4Addr>()
                     .map_err(|e| error::RelayError::SponsorBuild(format!("invalid ipv4: {e}")))?
@@ -620,7 +645,7 @@ async fn resolve_requests(
                     error::RelayError::SponsorBuild(format!("bcs encode uid: {e}"))
                 })?);
             }
-            Request::Ip32(domain) => {
+            RequestV2::Ip32(domain) => {
                 let ip32 = remote_ip
                     .parse::<std::net::Ipv4Addr>()
                     .map_err(|e| error::RelayError::SponsorBuild(format!("invalid ipv4: {e}")))?
@@ -643,7 +668,7 @@ async fn resolve_requests(
                     .map_err(|_| error::RelayError::SponsorBuild("hmac not 32 bytes".into()))?;
                 results.extend_from_slice(&mac);
             }
-            Request::Tripcode => {
+            RequestV2::Tripcode => {
                 let raw = tripcode.ok_or_else(|| {
                     error::RelayError::SponsorBuild(
                         "tripcode requested but not provided".into(),
@@ -669,13 +694,20 @@ async fn resolve_requests(
                     })?,
                 );
             }
-            Request::Geo => {
+            RequestV2::Geo => {
                 let ip = remote_ip
                     .parse::<std::net::Ipv4Addr>()
                     .map_err(|e| error::RelayError::SponsorBuild(format!("invalid ipv4: {e}")))?
                     .into();
                 let code = state.geoip.country_code(ip).unwrap_or(0);
                 results.extend_from_slice(&code.to_le_bytes());
+            }
+            RequestV2::Captcha => {
+                let token = captcha.ok_or_else(|| {
+                    error::RelayError::SponsorBuild("captcha requested but not provided".into())
+                })?;
+                state.captcha.verify(token, remote_ip).await?;
+                results.push(1u8);
             }
         }
     }
@@ -684,7 +716,7 @@ async fn resolve_requests(
 
 async fn check_bans_inner(
     state: &AppState,
-    intent: &Intent,
+    intent: &IntentV2,
     hmacs: &[[u8; 32]; 4],
 ) -> Result<(), error::RelayError> {
     let now_ms = std::time::SystemTime::now()
@@ -705,15 +737,15 @@ async fn check_bans_inner(
     let mut levels: Vec<&Bans> = Vec::with_capacity(3);
     if !board
         .as_ref()
-        .is_some_and(|board| board.projection.ignore_forum_bans)
+        .is_some_and(|board| board.projection.ignore_forum_bans())
     {
-        levels.push(&forum.projection.bans);
+        levels.push(&forum.projection.bans());
     }
     if let Some(board) = &board {
-        levels.push(&board.projection.bans);
+        levels.push(board.projection.bans());
     }
     if let Some(thread) = &thread {
-        levels.push(&thread.projection.bans);
+        levels.push(thread.projection.bans());
     }
 
     for bans in levels {
@@ -794,11 +826,19 @@ fn hierarchy_indices(
         "board_apply_intent_uid"
         | "board_apply_intent_uid_tripcode"
         | "board_apply_intent_uid_geo"
-        | "board_apply_intent_uid_geo_tripcode" => Ok((2, Some(3), None)),
+        | "board_apply_intent_uid_geo_tripcode"
+        | "board_apply_intent_uid_captcha"
+        | "board_apply_intent_uid_tripcode_captcha"
+        | "board_apply_intent_uid_geo_captcha"
+        | "board_apply_intent_uid_geo_tripcode_captcha" => Ok((2, Some(3), None)),
         "board_apply_thread_intent_uid"
         | "board_apply_thread_intent_uid_tripcode"
         | "board_apply_thread_intent_uid_geo"
-        | "board_apply_thread_intent_uid_geo_tripcode" => Ok((2, Some(3), Some(4))),
+        | "board_apply_thread_intent_uid_geo_tripcode"
+        | "board_apply_thread_intent_uid_captcha"
+        | "board_apply_thread_intent_uid_tripcode_captcha"
+        | "board_apply_thread_intent_uid_geo_captcha"
+        | "board_apply_thread_intent_uid_geo_tripcode_captcha" => Ok((2, Some(3), Some(4))),
         "thread_apply_intent_uid" => Ok((1, Some(2), Some(3))),
         _ => Err(error::RelayError::SponsorBuild(
             "unsupported intent hierarchy".into(),
@@ -861,7 +901,7 @@ fn read_uleb128(bytes: &[u8]) -> Result<(usize, usize), error::RelayError> {
     ))
 }
 
-fn validate_target(intent: &Intent, event_tag: &str) -> Result<(), error::RelayError> {
+fn validate_target(intent: &IntentV2, event_tag: &str) -> Result<(), error::RelayError> {
     if intent.module != "main" {
         return Err(error::RelayError::SponsorBuild(
             "intent module must be main".into(),
@@ -884,19 +924,27 @@ fn validate_target(intent: &Intent, event_tag: &str) -> Result<(), error::RelayE
             "set_bump_limit",
             "set_closed",
             "set_deleted",
-            "new_thread_v2",
+            "new_thread_migrate_v2",
             "set_description",
             "set_ignore_forum_bans",
             "set_reactions",
             "set_pinned",
         ],
-        "board_apply_thread_intent_uid" => &["new_post_v2", "new_post_migrate_v2"],
-        "board_apply_intent_uid_tripcode" => &["new_thread_v2", "new_thread_migrate_v2"],
-        "board_apply_intent_uid_geo" => &["new_thread_v2", "new_thread_migrate_v2"],
-        "board_apply_intent_uid_geo_tripcode" => &["new_thread_v2", "new_thread_migrate_v2"],
-        "board_apply_thread_intent_uid_tripcode" => &["new_post_v2", "new_post_migrate_v2"],
-        "board_apply_thread_intent_uid_geo" => &["new_post_v2", "new_post_migrate_v2"],
-        "board_apply_thread_intent_uid_geo_tripcode" => &["new_post_v2", "new_post_migrate_v2"],
+        "board_apply_thread_intent_uid" => &["new_post_migrate_v2"],
+        "board_apply_intent_uid_tripcode" => &["new_thread_migrate_v2"],
+        "board_apply_intent_uid_geo" => &["new_thread_migrate_v2"],
+        "board_apply_intent_uid_geo_tripcode" => &["new_thread_migrate_v2"],
+        "board_apply_thread_intent_uid_tripcode" => &["new_post_migrate_v2"],
+        "board_apply_thread_intent_uid_geo" => &["new_post_migrate_v2"],
+        "board_apply_thread_intent_uid_geo_tripcode" => &["new_post_migrate_v2"],
+        "board_apply_intent_uid_captcha" => &["new_thread_v2"],
+        "board_apply_intent_uid_tripcode_captcha" => &["new_thread_v2"],
+        "board_apply_intent_uid_geo_captcha" => &["new_thread_v2"],
+        "board_apply_intent_uid_geo_tripcode_captcha" => &["new_thread_v2"],
+        "board_apply_thread_intent_uid_captcha" => &["new_post_v2"],
+        "board_apply_thread_intent_uid_tripcode_captcha" => &["new_post_v2"],
+        "board_apply_thread_intent_uid_geo_captcha" => &["new_post_v2"],
+        "board_apply_thread_intent_uid_geo_tripcode_captcha" => &["new_post_v2"],
         "board_apply_post_intent_uid" => &["ban", "unban"],
         "thread_apply_intent_uid" => &[
             "upgrade",
@@ -907,8 +955,8 @@ fn validate_target(intent: &Intent, event_tag: &str) -> Result<(), error::RelayE
             "set_topic",
             "set_admin",
         ],
-        "thread_apply_post_intent_uid" => &["ban", "unban"],
-        "post_apply_intent_uid" => &["upgrade", "set_deleted", "set_text", "ban_media", "unban_media"],
+        "thread_apply_post_intent_uid" => &["ban", "unban", "post_set_deleted", "post_set_text"],
+        "post_apply_intent_uid" => &["upgrade", "ban_media", "unban_media", "set_deleted"],
         "post_apply_intent_uid_ip32" => &["set_reaction", "vote_v2"],
         _ => {
             return Err(error::RelayError::SponsorBuild(
@@ -926,37 +974,74 @@ fn validate_target(intent: &Intent, event_tag: &str) -> Result<(), error::RelayE
 
 pub(crate) async fn build_transaction(
     state: &AppState,
-    intent: &Intent,
+    intent: &IntentV2,
     signature_bytes: &[u8],
     sealed_responses: Vec<u8>,
 ) -> Result<Transaction, error::RelayError> {
-    let intent_bytes = bcs::to_bytes(intent)
-        .map_err(|e| error::RelayError::SponsorBuild(format!("failed to encode intent: {e}")))?;
-    let mut inputs = vec![
-        Input::Pure(bcs::to_bytes(&intent_bytes).map_err(|e| {
-            error::RelayError::SponsorBuild(format!("failed to encode intent bytes: {e}"))
-        })?),
-        Input::Pure(bcs::to_bytes(&signature_bytes.to_vec()).map_err(|e| {
-            error::RelayError::SponsorBuild(format!("failed to encode signature: {e}"))
-        })?),
-        Input::Pure(sealed_responses),
-    ];
-    let intent_objects: Vec<_> = intent.objects.iter().map(|o| (o.id, o.mutable)).collect();
-    inputs.extend(state.upstream.resolve_inputs(&intent_objects).await?);
+    build_transaction_many(
+        state,
+        &[(intent.clone(), signature_bytes.to_vec(), sealed_responses)],
+    )
+    .await
+}
 
-    let commands = vec![sui_sdk_types::Command::MoveCall(MoveCall {
-        package: state.package_id,
-        module: Identifier::from_str(intent.module.as_str()).map_err(|e| {
-            error::RelayError::SponsorBuild(format!("failed to parse module name: {e}"))
-        })?,
-        function: Identifier::from_str(intent.function.as_str()).map_err(|e| {
-            error::RelayError::SponsorBuild(format!("failed to parse function name: {e}"))
-        })?,
-        type_arguments: vec![],
-        arguments: (0u16..inputs.len() as u16)
-            .map(sui_sdk_types::Argument::Input)
-            .collect(),
-    })];
+async fn build_transaction_many(
+    state: &AppState,
+    items: &[(IntentV2, Vec<u8>, Vec<u8>)],
+) -> Result<Transaction, error::RelayError> {
+    let mut unique_objects: Vec<(Address, bool)> = Vec::new();
+    let mut object_index: HashMap<(Address, bool), usize> = HashMap::new();
+    for (intent, _, _) in items {
+        for obj in &intent.objects {
+            let key = (obj.id, obj.mutable);
+            if !object_index.contains_key(&key) {
+                object_index.insert(key, unique_objects.len());
+                unique_objects.push(key);
+            }
+        }
+    }
+    let resolved = state.upstream.resolve_inputs(&unique_objects).await?;
+
+    let mut inputs: Vec<Input> = Vec::new();
+    let mut input_index: HashMap<(Address, bool), usize> = HashMap::new();
+    for (key, inp) in unique_objects.iter().zip(resolved) {
+        input_index.insert(*key, inputs.len());
+        inputs.push(inp);
+    }
+
+    let mut commands = Vec::new();
+    for (intent, signature_bytes, sealed) in items {
+        let intent_bytes = bcs::to_bytes(intent)
+            .map_err(|e| error::RelayError::SponsorBuild(format!("failed to encode intent: {e}")))?;
+        let base = inputs.len();
+        inputs.push(Input::Pure(bcs::to_bytes(&intent_bytes).map_err(|e| {
+            error::RelayError::SponsorBuild(format!("failed to encode intent bytes: {e}"))
+        })?));
+        inputs.push(Input::Pure(bcs::to_bytes(&signature_bytes.clone()).map_err(|e| {
+            error::RelayError::SponsorBuild(format!("failed to encode signature: {e}"))
+        })?));
+        inputs.push(Input::Pure(sealed.clone()));
+        let mut arguments: Vec<sui_sdk_types::Argument> = vec![
+            sui_sdk_types::Argument::Input(base as u16),
+            sui_sdk_types::Argument::Input((base + 1) as u16),
+            sui_sdk_types::Argument::Input((base + 2) as u16),
+        ];
+        for obj in &intent.objects {
+            let idx = input_index[&(obj.id, obj.mutable)];
+            arguments.push(sui_sdk_types::Argument::Input(idx as u16));
+        }
+        commands.push(sui_sdk_types::Command::MoveCall(MoveCall {
+            package: state.package_id,
+            module: Identifier::from_str(intent.module.as_str()).map_err(|e| {
+                error::RelayError::SponsorBuild(format!("failed to parse module name: {e}"))
+            })?,
+            function: Identifier::from_str(intent.function.as_str()).map_err(|e| {
+                error::RelayError::SponsorBuild(format!("failed to parse function name: {e}"))
+            })?,
+            type_arguments: vec![],
+            arguments,
+        }));
+    }
 
     Ok(Transaction {
         kind: TransactionKind::ProgrammableTransaction(ProgrammableTransaction {
@@ -978,7 +1063,7 @@ pub(crate) async fn build_transaction(
             ],
             owner: state.sponsor.sponsor_address(),
             price: state.sponsor_gas_price,
-            budget: state.sponsor_gas_budget,
+            budget: state.sponsor_gas_budget.saturating_mul(items.len() as u64),
         },
         expiration: sui_sdk_types::TransactionExpiration::None,
     })

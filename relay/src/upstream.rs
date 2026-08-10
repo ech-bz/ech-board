@@ -164,9 +164,16 @@ impl UpstreamSender {
                 )))
             }
             Err(ExecuteAndWaitError::RpcError(status)) => {
+                let msg = format!("{url}: {status}");
+                let permanent = msg.contains("Size limit exceeded")
+                    || msg.contains("Error checking transaction input objects");
                 Err(RelayError::UpstreamAllFailed(UpstreamFailure::new(
-                    UpstreamFailureKind::Rpc,
-                    format!("{url}: {status}"),
+                    if permanent {
+                        UpstreamFailureKind::ExecutionDeterministic
+                    } else {
+                        UpstreamFailureKind::Rpc
+                    },
+                    msg,
                 )))
             }
             Err(ExecuteAndWaitError::MissingTransaction)

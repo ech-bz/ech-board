@@ -4,7 +4,7 @@ use crate::handlers::nonce::NonceInfo;
 use crate::handlers::send;
 use crate::handlers::{self, load_board};
 use crate::thumbnail;
-use crate::types::{ContentKind, Intent, IntentObject, PostPart, Request};
+use crate::types::{ContentKind, IntentObject, IntentV2, PostPart, RequestV2};
 use aws_sdk_kms::primitives::Blob;
 use base64::Engine;
 use blake2::Digest;
@@ -317,7 +317,7 @@ fn shard_id(nonce_shards: &Address, sender: &Address) -> Address {
 }
 
 async fn find_board(state: &AppState, slug: &str) -> Result<Option<Address>, RelayError> {
-    let boards_table_id = state.forum.projection.boards.id;
+    let boards_table_id = state.forum.projection.boards().id;
     let fields = state.upstream.list_dynamic_fields(boards_table_id).await?;
     for (_name, _child, value) in &fields {
         let Some(value) = value else {
@@ -329,7 +329,7 @@ async fn find_board(state: &AppState, slug: &str) -> Result<Option<Address>, Rel
         let Ok(board) = load_board(&state.upstream, addr).await else {
             continue;
         };
-        if board.projection.slug == slug {
+        if board.projection.slug() == slug {
             return Ok(Some(addr));
         }
     }
@@ -349,12 +349,12 @@ fn random_seed() -> [u8; 32] {
 fn intent_for(
     sender: &Address,
     function: &str,
-    requests: Vec<Request>,
+    requests: Vec<RequestV2>,
     objects: Vec<IntentObject>,
     payload: Vec<u8>,
     nonce: u64,
-) -> Intent {
-    Intent {
+) -> IntentV2 {
+    IntentV2 {
         module: "main".into(),
         function: function.into(),
         nonce,
@@ -371,7 +371,7 @@ fn board_objects(state: &AppState, sender: &Address, rest: Vec<Address>) -> Vec<
         id: clock(),
         mutable: false,
     }];
-    let nonce_shard = shard_id(&state.forum.projection.nonce_shards, sender);
+    let nonce_shard = shard_id(&state.forum.projection.nonce_shards(), sender);
     objs.push(IntentObject {
         id: nonce_shard,
         mutable: true,
@@ -406,7 +406,7 @@ async fn next_nonce(state: &AppState, admin_pk: &Address) -> Result<u64, RelayEr
     Ok(info.nonce)
 }
 
-fn sign_intent(admin: &ed25519_dalek::SigningKey, intent: &Intent) -> Vec<u8> {
+fn sign_intent(admin: &ed25519_dalek::SigningKey, intent: &IntentV2) -> Vec<u8> {
     let intent_bytes = bcs::to_bytes(intent).expect("intent bcs");
     let digest = Blake2b::digest(&intent_bytes);
     admin.sign(&digest).to_bytes().to_vec()
@@ -414,7 +414,7 @@ fn sign_intent(admin: &ed25519_dalek::SigningKey, intent: &Intent) -> Vec<u8> {
 
 async fn broadcast(
     state: &AppState,
-    intent: &Intent,
+    intent: &IntentV2,
     signature: Vec<u8>,
     responses: &[u8],
 ) -> Result<Vec<Address>, RelayError> {
@@ -444,10 +444,10 @@ async fn find_created(
     let mut post = None;
     for &id in created {
         if let Ok(t) = handlers::load_thread(&state.upstream, id).await {
-            thread = Some((id, t.projection.number));
+            thread = Some((id, t.projection.number()));
         }
         if let Ok(p) = handlers::load_post(&state.upstream, id).await {
-            post = Some((id, p.projection.number));
+            post = Some((id, p.projection.number()));
         }
     }
     Ok((
@@ -716,7 +716,7 @@ async fn migrate_requests(
     post: &DumpPost,
     thread: bool,
     trip: &Option<(bool, String)>,
-) -> Result<(String, Vec<Request>, Vec<u8>), RelayError> {
+) -> Result<(String, Vec<RequestV2>, Vec<u8>), RelayError> {
     let uid = uid_response(state, old_ip(post)).await?;
     let geo = post.force_geo.then(|| geo_response(&post.ip_country_code));
     let base = if thread {
@@ -727,17 +727,17 @@ async fn migrate_requests(
     let (function, requests) = match (geo, trip) {
         (Some(_), Some(_)) => (
             format!("{base}_geo_tripcode"),
-            vec![Request::Uid, Request::Geo, Request::Tripcode],
+            vec![RequestV2::Uid, RequestV2::Geo, RequestV2::Tripcode],
         ),
         (Some(_), None) => (
             format!("{base}_geo"),
-            vec![Request::Uid, Request::Geo],
+            vec![RequestV2::Uid, RequestV2::Geo],
         ),
         (None, Some(_)) => (
             format!("{base}_tripcode"),
-            vec![Request::Uid, Request::Tripcode],
+            vec![RequestV2::Uid, RequestV2::Tripcode],
         ),
-        (None, None) => (base.to_string(), vec![Request::Uid]),
+        (None, None) => (base.to_string(), vec![RequestV2::Uid]),
     };
     let mut inner = uid;
     if let Some(code) = geo {
@@ -1311,7 +1311,7 @@ async fn board_event(
     let intent = intent_for(
         admin_pk,
         "board_apply_intent_uid",
-        vec![Request::Uid],
+        vec![RequestV2::Uid],
         board_objects(state, admin_pk, vec![board_id]),
         payload,
         nonce,
@@ -1332,13 +1332,13 @@ async fn thread_event(
     fields: impl FnOnce(&mut Vec<u8>),
 ) -> Result<(), RelayError> {
     let nonce = next_nonce(state, admin_pk).await?;
-    let nonce_shard = shard_id(&state.forum.projection.nonce_shards, admin_pk);
+    let nonce_shard = shard_id(&state.forum.projection.nonce_shards(), admin_pk);
     let mut payload = event(tag);
     fields(&mut payload);
     let intent = intent_for(
         admin_pk,
         "thread_apply_intent_uid",
-        vec![Request::Uid],
+        vec![RequestV2::Uid],
         vec![
             IntentObject {
                 id: nonce_shard,
@@ -1379,7 +1379,7 @@ async fn post_ip32_event(
     let intent = intent_for(
         admin_pk,
         "post_apply_intent_uid_ip32",
-        vec![Request::Uid, Request::Ip32(post_id)],
+        vec![RequestV2::Uid, RequestV2::Ip32(post_id)],
         board_objects(state, admin_pk, vec![board_id, post_id]),
         payload,
         nonce,

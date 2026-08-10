@@ -5,11 +5,12 @@ use serde::{Deserialize, Serialize};
 use sui_sdk_types::Address;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub(crate) enum Request {
+pub(crate) enum RequestV2 {
     Uid,
     Ip32(Address),
     Tripcode,
     Geo,
+    Captcha,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -72,8 +73,8 @@ pub(crate) struct MediaMeta {
 
 #[derive(Debug, MultipartForm)]
 pub(crate) struct SendForm {
-    pub(crate) intent: MultipartBytes,
-    pub(crate) signature: MultipartBytes,
+    pub(crate) intent: Vec<MultipartBytes>,
+    pub(crate) signature: Vec<MultipartBytes>,
     pub(crate) captcha: Text<String>,
     pub(crate) text: Option<MultipartBytes>,
     pub(crate) description: Option<Text<String>>,
@@ -102,12 +103,12 @@ pub(crate) struct RelayEvent {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub(crate) struct Intent {
+pub(crate) struct IntentV2 {
     pub(crate) module: String,
     pub(crate) function: String,
     pub(crate) nonce: u64,
     pub(crate) objects: Vec<IntentObject>,
-    pub(crate) requests: Vec<Request>,
+    pub(crate) requests: Vec<RequestV2>,
     pub(crate) payload: Vec<u8>,
     pub(crate) public_key: Address,
     pub(crate) tweak: Address,

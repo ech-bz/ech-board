@@ -294,22 +294,35 @@ async fn send(
 ) -> Result<HttpResponse, error::RelayError> {
     let remote_ip = handlers::client_ip(&req)
         .ok_or_else(|| error::RelayError::SponsorBuild("no client IP".into()))?;
-    state
-        .captcha
-        .verify(form.captcha.as_str(), remote_ip.as_str())
-        .await?;
 
-    let intent: types::Intent = bcs::from_bytes(&form.intent.data)
-        .map_err(|e| error::RelayError::SponsorBuild(format!("failed to decode intent: {e}")))?;
+    if form.intent.is_empty() {
+        return Err(error::RelayError::SponsorBuild("no intents provided".into()));
+    }
+    if form.intent.len() != form.signature.len() {
+        return Err(error::RelayError::SponsorBuild(
+            "intent/signature count mismatch".into(),
+        ));
+    }
+    let intents: Vec<(types::IntentV2, Vec<u8>)> = form
+        .intent
+        .iter()
+        .zip(form.signature.iter())
+        .map(|(i, s)| {
+            let intent: types::IntentV2 = bcs::from_bytes(&i.data).map_err(|e| {
+                error::RelayError::SponsorBuild(format!("failed to decode intent: {e}"))
+            })?;
+            Ok((intent, s.data.to_vec()))
+        })
+        .collect::<Result<Vec<_>, error::RelayError>>()?;
 
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
         .body(
             handlers::send::handle_send(
                 &state,
-                intent,
-                form.signature.data.to_vec(),
+                intents,
                 &remote_ip,
+                Some(form.captcha.as_str()),
                 form.text,
                 form.description.map(|t| t.into_inner()),
                 form.topic.map(|t| t.into_inner()),
