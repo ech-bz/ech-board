@@ -209,6 +209,10 @@ impl Reconciler for WorkloadRelayReconciler {
                                 ))
                             })?,
                         },
+                        dragonfly: ech_board_common::RelayDragonflyConfig {
+                            url: network.spec.relay.dragonfly.url.clone(),
+                            channel: network.spec.relay.dragonfly.channel.clone(),
+                        },
                         seaweed_filer_url: network.spec.relay.seaweed_filer_url.clone(),
                         seaweed_jwt_signing_key,
                         forum_package_id,
