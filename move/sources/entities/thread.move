@@ -54,8 +54,8 @@ const DF_ADMIN: vector<u8> = b"admin";
 const DF_MODS: vector<u8> = b"moderators";
 const DF_BANS: vector<u8> = b"bans";
 const DF_POSTS: vector<u8> = b"posts";
-const DF_LAST3: vector<u8> = b"last_posts";
 const DF_POSTS_DELETED: vector<u8> = b"posts_deleted";
+const DF_LAST3: vector<u8> = b"last_posts";
 
 public(package) fun board(self: &Thread): &address {
     dynamic_field::borrow(&self.id, DF_BOARD)

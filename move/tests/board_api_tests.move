@@ -740,3 +740,117 @@ fun board_post_ban_rejects_user() {
     );
     abort
 }
+
+#[test]
+fun board_bump_frees_slot_after_post_delete() {
+    let mut ctx = tx_context::dummy();
+    let (forum, mut board, clock) = fixture(&mut ctx);
+    let admin = actor(ADMIN_PK);
+    let author = actor(USER_PK);
+    let mut thread = thread::new(
+        &mut ctx,
+        uid(b"thread"),
+        admin,
+        board.id(),
+        1,
+        option::none(),
+    );
+    let thread_id = thread.id();
+
+    board.apply(
+        &mut ctx,
+        &clock,
+        &forum,
+        board::set_bump_limit(uid(b"1"), admin, 2),
+    );
+
+    let mut post1 = post::new(
+        &mut ctx,
+        uid(b"p1"),
+        author,
+        thread_id,
+        1,
+        0,
+        option::none(),
+        option::some(10),
+        vector[],
+        vector[],
+        false,
+    );
+    let mut post2 = post::new(
+        &mut ctx,
+        uid(b"p2"),
+        author,
+        thread_id,
+        2,
+        0,
+        option::none(),
+        option::some(11),
+        vector[],
+        vector[],
+        false,
+    );
+    thread.apply(&mut ctx, &forum, &board, thread::new_post(uid(b"2"), author, post1.id()));
+    thread.apply(&mut ctx, &forum, &board, thread::new_post(uid(b"3"), author, post2.id()));
+
+    board.apply_thread(
+        &mut ctx,
+        &clock,
+        &forum,
+        &mut thread,
+        board::new_post_v2(
+            uid(b"4"),
+            author,
+            thread_id,
+            option::some(12),
+            vector[],
+            option::none(),
+            vector[],
+            false,
+        ),
+    );
+    assert!(board.bumps().next() == 1);
+
+    thread.apply_post(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &mut post1,
+        thread::post_set_deleted(uid(b"5"), author, true),
+    );
+    thread.apply_post(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &mut post2,
+        thread::post_set_deleted(uid(b"6"), author, true),
+    );
+    assert!(*thread.posts_deleted() == 2);
+
+    board.apply_thread(
+        &mut ctx,
+        &clock,
+        &forum,
+        &mut thread,
+        board::new_post_v2(
+            uid(b"7"),
+            author,
+            thread_id,
+            option::some(13),
+            vector[],
+            option::none(),
+            vector[],
+            false,
+        ),
+    );
+    assert!(board.bumps().next() == 2);
+
+    clock.destroy_for_testing();
+    post1.share();
+    post2.share();
+    thread.share();
+    board.share();
+    forum.share();
+}
