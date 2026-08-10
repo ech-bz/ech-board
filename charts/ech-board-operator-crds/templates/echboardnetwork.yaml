@@ -56,6 +56,7 @@ spec:
                     - awsCredentialsSecret
                     - kmsHmac
                     - kmsModerator
+                    - dragonfly
                   properties:
                     replicas:
                       type: integer
@@ -80,6 +81,16 @@ spec:
                       type: string
                     kmsModerator:
                       type: string
+                    dragonfly:
+                      type: object
+                      required:
+                        - url
+                        - channel
+                      properties:
+                        url:
+                          type: string
+                        channel:
+                          type: string
                     sponsor:
                       type: object
                       required:
