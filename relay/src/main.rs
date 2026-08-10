@@ -146,10 +146,11 @@ async fn healthz() -> HttpResponse {
 #[get("/content/{board_uid}/{thread_uid}/{post_uid}/{kind}/{hash}")]
 async fn content_handler(
     state: web::Data<AppState>,
+    req: HttpRequest,
     path: web::Path<(Address, Address, Address, types::ContentKind, Address)>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let (board_uid, thread_uid, post_uid, kind, hash) = path.into_inner();
-    handlers::content::fetch(state, board_uid, thread_uid, post_uid, kind, hash).await
+    handlers::content::fetch(state, req, board_uid, thread_uid, post_uid, kind, hash).await
 }
 
 #[get("/content/{board_uid}/reaction/{hash}")]

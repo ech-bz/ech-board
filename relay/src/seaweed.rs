@@ -137,6 +137,37 @@ impl SeaweedClient {
         Ok(Some(bytes.to_vec()))
     }
 
+    pub(crate) async fn open(
+        &self,
+        kind: ContentKind,
+        hash: &Address,
+        range: Option<&str>,
+    ) -> Result<Option<reqwest::Response>, RelayError> {
+        let url = self.url(kind, hash);
+        let mut req = self
+            .client
+            .get(&url)
+            .timeout(Duration::from_secs(300))
+            .header("Authorization", &self.auth_header()?);
+        if let Some(r) = range {
+            req = req.header("Range", r);
+        }
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| RelayError::Internal(format!("seaweed get: {e}")))?;
+        if resp.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if !resp.status().is_success() {
+            return Err(RelayError::Internal(format!(
+                "seaweed get HTTP {}",
+                resp.status()
+            )));
+        }
+        Ok(Some(resp))
+    }
+
     pub(crate) async fn delete(&self, kind: ContentKind, hash: &Address) -> Result<(), RelayError> {
         let url = self.url(kind, hash);
         let resp = self

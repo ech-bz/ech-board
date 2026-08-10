@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
-use crate::types::{ContentKind, FileType};
-use actix_web::{HttpResponse, web};
+use crate::types::{ContentKind, FileType, MediaMeta};
+use actix_web::{HttpRequest, HttpResponse, http::StatusCode, web};
 use blake2::Digest;
 use blake2::digest::consts::U32;
 use sui_sdk_types::Address;
@@ -11,6 +11,7 @@ use super::{load_board, load_post, load_thread};
 
 pub(crate) async fn fetch(
     state: web::Data<AppState>,
+    req: HttpRequest,
     board_uid: Address,
     thread_uid: Address,
     post_uid: Address,
@@ -44,6 +45,10 @@ pub(crate) async fn fetch(
         return Ok(HttpResponse::NotFound().finish());
     }
 
+    if kind == ContentKind::Media {
+        return stream_media(&state, req, &hash).await;
+    }
+
     match state.seaweed.get(kind, &hash).await {
         Ok(Some(data)) => Ok(HttpResponse::Ok()
             .insert_header(("Cache-Control", "public, max-age=31536000, immutable"))
@@ -52,6 +57,56 @@ pub(crate) async fn fetch(
                 FileType::detect(&data).map_or("application/octet-stream", |f| f.mime()),
             ))
             .body(data)),
+        Ok(None) => Ok(HttpResponse::NotFound().finish()),
+        Err(e) => Ok(HttpResponse::InternalServerError().body(e.to_string())),
+    }
+}
+
+async fn stream_media(
+    state: &AppState,
+    req: HttpRequest,
+    hash: &Address,
+) -> Result<HttpResponse, actix_web::Error> {
+    let mime = match state.seaweed.get(ContentKind::MediaMeta, hash).await {
+        Ok(Some(meta)) => bcs::from_bytes::<MediaMeta>(&meta)
+            .map_err(|e| {
+                actix_web::Error::from(crate::error::RelayError::Internal(format!(
+                    "media meta bcs: {e}"
+                )))
+            })?
+            .mime,
+        Ok(None) => return Ok(HttpResponse::NotFound().finish()),
+        Err(e) => return Ok(HttpResponse::InternalServerError().body(e.to_string())),
+    };
+
+    let range = req
+        .headers()
+        .get("Range")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+
+    match state.seaweed.open(ContentKind::Media, hash, range.as_deref()).await {
+        Ok(Some(resp)) => {
+            let status = if resp.status() == reqwest::StatusCode::PARTIAL_CONTENT {
+                StatusCode::PARTIAL_CONTENT
+            } else {
+                StatusCode::OK
+            };
+            let mut builder = HttpResponse::build(status);
+            builder
+                .insert_header(("Cache-Control", "public, max-age=31536000, immutable"))
+                .insert_header(("Accept-Ranges", "bytes"))
+                .insert_header(("Content-Type", mime.as_str()));
+            if let Some(len) = resp.content_length() {
+                builder.insert_header(("Content-Length", len.to_string()));
+            }
+            if let Some(cr) = resp.headers().get("content-range") {
+                if let Ok(s) = cr.to_str() {
+                    builder.insert_header(("Content-Range", s));
+                }
+            }
+            Ok(builder.streaming(resp.bytes_stream()))
+        }
         Ok(None) => Ok(HttpResponse::NotFound().finish()),
         Err(e) => Ok(HttpResponse::InternalServerError().body(e.to_string())),
     }
