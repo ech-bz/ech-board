@@ -6,18 +6,13 @@ use serde::{Deserialize, Serialize};
 use sui_sdk_types::Address;
 
 #[derive(Deserialize)]
-pub(crate) struct ReactionsQuery {
-    pub(crate) pk: Address,
-}
-
-#[derive(Deserialize)]
 #[allow(dead_code)]
 struct UserEntry2 {
     sender: Sender,
     options: Vec<Address>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct PostReactionsView {
     reaction: Option<Address>,
 }
@@ -61,24 +56,32 @@ async fn find_reaction(
     Ok(found)
 }
 
-pub(crate) async fn fetch(
+async fn cached_find_reaction(
     state: &AppState,
     post_uid: Address,
     pk: Address,
-) -> Result<Vec<u8>, RelayError> {
+) -> Result<Option<Address>, RelayError> {
+    let key = format!("v:reactions:{post_uid}:{pk}");
+    if let Some(cached) = state.cache.peek(&key).await {
+        if let Ok(view) = bcs::from_bytes::<PostReactionsView>(&cached) {
+            return Ok(view.reaction);
+        }
+    }
     let reaction = find_reaction(state, post_uid, pk).await?;
-    bcs::to_bytes(&PostReactionsView { reaction })
-        .map_err(|e| RelayError::Internal(format!("bcs encode PostReactionsView: {e}")))
+    let bytes = bcs::to_bytes(&PostReactionsView { reaction })
+        .map_err(|e| RelayError::Internal(format!("bcs encode PostReactionsView: {e}")))?;
+    state.cache.store(key, &bytes).await;
+    Ok(reaction)
 }
 
-pub(crate) async fn fetch_thread(
+pub(crate) async fn fetch(
     state: &AppState,
     queries: Vec<(Address, Address)>,
 ) -> Result<Vec<u8>, RelayError> {
     let results = join_all(
         queries
             .iter()
-            .map(|(pid, pk)| find_reaction(state, *pid, *pk)),
+            .map(|(pid, pk)| cached_find_reaction(state, *pid, *pk)),
     )
     .await;
 
@@ -89,5 +92,6 @@ pub(crate) async fn fetch_thread(
         }
     }
 
-    bcs::to_bytes(&out).map_err(|e| RelayError::Internal(format!("bcs encode thread reactions: {e}")))
+    bcs::to_bytes(&out)
+        .map_err(|e| RelayError::Internal(format!("bcs encode thread reactions: {e}")))
 }

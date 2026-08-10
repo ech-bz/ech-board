@@ -1,3 +1,4 @@
+use crate::cache::Cache;
 use crate::captcha::CaptchaVerifier;
 use crate::config;
 use crate::geoip::GeoIp;
@@ -27,6 +28,7 @@ pub(crate) struct AppState {
     pub(crate) kms: KmsClient,
     pub(crate) kms_hmac: String,
     pub(crate) kms_moderator: String,
+    pub(crate) cache: Cache,
 }
 
 impl AppState {
@@ -70,6 +72,11 @@ impl AppState {
                 .map_err(|e| std::io::Error::other(format!("failed to load geoip db: {e}")))?,
         );
 
+        let cache = Cache::new(&cfg.dragonfly)
+            .await
+            .map_err(std::io::Error::other)?;
+        cache.start_listener().await.map_err(std::io::Error::other)?;
+
         Ok(Self {
             captcha: CaptchaVerifier::new(client.clone(), cfg.captcha),
             upstream,
@@ -97,6 +104,7 @@ impl AppState {
             ),
             kms_hmac: cfg.kms_hmac,
             kms_moderator: cfg.kms_moderator,
+            cache,
         })
     }
 }

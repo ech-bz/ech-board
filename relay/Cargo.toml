@@ -34,3 +34,5 @@ ech-board-common = { path = "../common" }
 aws-sdk-kms = "1"
 maxminddb = "0.30.0"
 iso3166 = "1"
+fred = "10.1.0"
+moka = { version = "0.12.16", features = ["sync"] }

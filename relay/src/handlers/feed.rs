@@ -22,16 +22,27 @@ pub(crate) async fn fetch(
     feed_id: Address,
     query: FeedQuery,
 ) -> Result<Vec<u8>, RelayError> {
-    let end = query.cursor.unwrap_or(query.counter + 1);
-    let start = if end > LIMIT { end - LIMIT } else { 1 };
+    let key = format!(
+        "v:feed:{feed_id}:{}:{}",
+        query.counter,
+        query.cursor.unwrap_or(0)
+    );
+    state
+        .cache
+        .get_or_build(key, async {
+            let end = query.cursor.unwrap_or(query.counter + 1);
+            let start = if end > LIMIT { end - LIMIT } else { 1 };
 
-    let mut items = state.upstream.fetch_feed_raw(feed_id, start, end).await?;
+            let mut items = state.upstream.fetch_feed_raw(feed_id, start, end).await?;
 
-    items.reverse();
+            items.reverse();
 
-    let next_cursor = if start > 1 { Some(start) } else { None };
+            let next_cursor = if start > 1 { Some(start) } else { None };
 
-    let response = FeedView { items, next_cursor };
+            let response = FeedView { items, next_cursor };
 
-    bcs::to_bytes(&response).map_err(|e| RelayError::Internal(format!("bcs encode FeedPage: {e}")))
+            bcs::to_bytes(&response)
+                .map_err(|e| RelayError::Internal(format!("bcs encode FeedPage: {e}")))
+        })
+        .await
 }

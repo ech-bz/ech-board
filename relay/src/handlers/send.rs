@@ -1,6 +1,7 @@
 use crate::app_state::AppState;
 use crate::error;
 use crate::handlers::{Bans, BoardObject, Registry, load_board, load_forum, load_thread};
+use super::invalidate;
 use crate::types::{ContentKind, IntentV2, MAX_TEXT_SIZE, PostPart, RequestV2};
 use async_trait::async_trait;
 use aws_sdk_kms::primitives::Blob;
@@ -575,6 +576,10 @@ pub(crate) async fn handle_send(
         }
     }
 
+    if result.is_ok() {
+        invalidate::apply(state, &intents).await;
+    }
+
     bcs::to_bytes(&result?)
         .map_err(|e| error::RelayError::SponsorBuild(format!("bcs encode SendResponse: {e}")))
 }
@@ -867,7 +872,7 @@ pub(crate) fn seal_responses(
     })
 }
 
-fn split_event(event: &[u8]) -> Result<(&str, &[u8]), error::RelayError> {
+pub(crate) fn split_event(event: &[u8]) -> Result<(&str, &[u8]), error::RelayError> {
     let (len, prefix_len) = read_uleb128(event)?;
     let end = prefix_len
         .checked_add(len)

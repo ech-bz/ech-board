@@ -18,6 +18,10 @@ pub(crate) async fn resolve_post(
     board_uid: Address,
     number: u64,
 ) -> Result<Vec<u8>, RelayError> {
+    let key = format!("v:resolvepost:{board_uid}:{number}");
+    if let Some(cached) = state.cache.peek(&key).await {
+        return Ok(cached);
+    }
     let board = load_board(&state.upstream, board_uid).await?;
     if board.projection.deleted() {
         return Err(RelayError::NotFound("board deleted".into()));
@@ -38,7 +42,9 @@ pub(crate) async fn resolve_post(
     let entry: PostEntry = object.contents().deserialize().map_err(|e| {
         RelayError::Internal(format!("post table entry decode: {e}"))
     })?;
-    Ok(entry.value.as_bytes().to_vec())
+    let bytes = entry.value.as_bytes().to_vec();
+    state.cache.store(key, &bytes).await;
+    Ok(bytes)
 }
 
 pub(crate) async fn resolve_thread(
@@ -46,6 +52,10 @@ pub(crate) async fn resolve_thread(
     board_uid: Address,
     number: u64,
 ) -> Result<Vec<u8>, RelayError> {
+    let key = format!("v:resolvethread:{board_uid}:{number}");
+    if let Some(cached) = state.cache.peek(&key).await {
+        return Ok(cached);
+    }
     let board = load_board(&state.upstream, board_uid).await?;
     if board.projection.deleted() {
         return Err(RelayError::NotFound("board deleted".into()));
@@ -66,7 +76,9 @@ pub(crate) async fn resolve_thread(
     let entry: PostEntry = object.contents().deserialize().map_err(|e| {
         RelayError::Internal(format!("thread table entry decode: {e}"))
     })?;
-    Ok(entry.value.as_bytes().to_vec())
+    let bytes = entry.value.as_bytes().to_vec();
+    state.cache.store(key, &bytes).await;
+    Ok(bytes)
 }
 
 #[derive(Deserialize)]
@@ -99,6 +111,19 @@ pub(crate) async fn fetch(
 
     if board.projection.deleted() {
         return Err(RelayError::NotFound("board deleted".into()));
+    }
+
+    let pcounter = board.projection.posts().size;
+    let rgen = state
+        .cache
+        .gen_get(&format!("gen:board:{board_uid}"))
+        .await;
+    let key = format!(
+        "v:board:{board_uid}:{pcounter}:{rgen}:{}",
+        cursor.unwrap_or(0)
+    );
+    if let Some(cached) = state.cache.peek(&key).await {
+        return Ok(cached);
     }
 
     let counter = board.projection.bumps().counter;
@@ -235,5 +260,8 @@ pub(crate) async fn fetch(
         moderators,
     };
 
-    bcs::to_bytes(&response).map_err(|e| RelayError::Internal(format!("bcs encode BoardView: {e}")))
+    let bytes = bcs::to_bytes(&response)
+        .map_err(|e| RelayError::Internal(format!("bcs encode BoardView: {e}")))?;
+    state.cache.store(key, &bytes).await;
+    Ok(bytes)
 }

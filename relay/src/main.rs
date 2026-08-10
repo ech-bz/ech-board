@@ -1,4 +1,5 @@
 mod app_state;
+mod cache;
 mod captcha;
 mod config;
 mod error;
@@ -104,8 +105,7 @@ async fn main() -> std::io::Result<()> {
             .service(content_handler)
             .service(reaction_content_handler)
             .service(reaction_put_handler)
-            .service(post_reactions_handler)
-            .service(thread_reactions_handler)
+            .service(reactions_handler)
             .service(feed_handler)
             .service(bans_handler)
             .service(healthz)
@@ -232,28 +232,16 @@ async fn post_handler(
         .body(handlers::post::fetch(&state, path.into_inner()).await?))
 }
 
-#[get("/post/{uid}/reactions")]
-async fn post_reactions_handler(
+#[post("/reactions")]
+async fn reactions_handler(
     state: web::Data<AppState>,
-    path: web::Path<Address>,
-    query: web::Query<handlers::reactions::ReactionsQuery>,
-) -> Result<HttpResponse, error::RelayError> {
-    Ok(HttpResponse::Ok()
-        .content_type("application/octet-stream")
-        .body(handlers::reactions::fetch(&state, path.into_inner(), query.pk).await?))
-}
-
-#[post("/thread/{uid}/reactions")]
-async fn thread_reactions_handler(
-    state: web::Data<AppState>,
-    _path: web::Path<Address>,
     body: web::Bytes,
 ) -> Result<HttpResponse, error::RelayError> {
     let queries: Vec<(Address, Address)> = bcs::from_bytes(&body)
-        .map_err(|e| error::RelayError::Internal(format!("bcs decode reactions query: {e}")))?;
+        .map_err(|e| error::RelayError::SponsorBuild(format!("reactions batch decode: {e}")))?;
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
-        .body(handlers::reactions::fetch_thread(&state, queries).await?))
+        .body(handlers::reactions::fetch(&state, queries).await?))
 }
 
 #[get("/feed/{uid}")]

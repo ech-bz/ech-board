@@ -5,6 +5,7 @@ pub(crate) mod content;
 pub(crate) mod decrypt;
 pub(crate) mod feed;
 pub(crate) mod forum;
+pub(crate) mod invalidate;
 pub(crate) mod nonce;
 pub(crate) mod post;
 pub(crate) mod reactions;

@@ -74,47 +74,55 @@ pub(crate) async fn fetch(
     uid: Address,
     cursor: Option<u64>,
 ) -> Result<Vec<u8>, RelayError> {
-    let fields = DynamicFields::load(&state.upstream, uid).await?;
-    let bans: Bans = fields.get(b"bans")?;
+    let key = format!("v:bans:{uid}:{}", cursor.unwrap_or(0));
+    state
+        .cache
+        .get_or_build(key, async {
+            let fields = DynamicFields::load(&state.upstream, uid).await?;
+            let bans: Bans = fields.get(b"bans")?;
 
-    let mut all: Vec<BanEntry> = Vec::new();
-    for (reg, mask) in [
-        (&bans.ip32, 32u8),
-        (&bans.ip24, 24u8),
-        (&bans.ip20, 20u8),
-        (&bans.ip16, 16u8),
-    ] {
-        all.extend(read_registry(&state.upstream, reg, mask).await?);
-    }
+            let mut all: Vec<BanEntry> = Vec::new();
+            for (reg, mask) in [
+                (&bans.ip32, 32u8),
+                (&bans.ip24, 24u8),
+                (&bans.ip20, 20u8),
+                (&bans.ip16, 16u8),
+            ] {
+                all.extend(read_registry(&state.upstream, reg, mask).await?);
+            }
 
-    let reason_hashes: HashSet<Address> = all.iter().map(|b| b.reason_hash).collect();
-    let plain = fetch_content(&state.seaweed, ContentKind::PlainText, reason_hashes).await;
+            let reason_hashes: HashSet<Address> = all.iter().map(|b| b.reason_hash).collect();
+            let plain =
+                fetch_content(&state.seaweed, ContentKind::PlainText, reason_hashes).await;
 
-    let offset = cursor.unwrap_or(0);
-    let start = offset as usize;
-    let page: Vec<BanEntry> = all
-        .iter()
-        .skip(start)
-        .take(LIMIT as usize)
-        .cloned()
-        .map(|mut b| {
-            b.reason = plain
-                .get(&b.reason_hash)
-                .map(|bytes| String::from_utf8_lossy(bytes).into_owned());
-            b
+            let offset = cursor.unwrap_or(0);
+            let start = offset as usize;
+            let page: Vec<BanEntry> = all
+                .iter()
+                .skip(start)
+                .take(LIMIT as usize)
+                .cloned()
+                .map(|mut b| {
+                    b.reason = plain
+                        .get(&b.reason_hash)
+                        .map(|bytes| String::from_utf8_lossy(bytes).into_owned());
+                    b
+                })
+                .collect();
+            let next_cursor = if offset + (page.len() as u64) < (all.len() as u64) {
+                Some(offset + page.len() as u64)
+            } else {
+                None
+            };
+
+            let response = BansView {
+                level: bans.level,
+                bans: page,
+                next_cursor,
+            };
+
+            bcs::to_bytes(&response)
+                .map_err(|e| RelayError::Internal(format!("bcs encode BansView: {e}")))
         })
-        .collect();
-    let next_cursor = if offset + (page.len() as u64) < (all.len() as u64) {
-        Some(offset + page.len() as u64)
-    } else {
-        None
-    };
-
-    let response = BansView {
-        level: bans.level,
-        bans: page,
-        next_cursor,
-    };
-
-    bcs::to_bytes(&response).map_err(|e| RelayError::Internal(format!("bcs encode BansView: {e}")))
+        .await
 }
