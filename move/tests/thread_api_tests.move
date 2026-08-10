@@ -359,6 +359,109 @@ fun thread_moderator_cannot_add_moderator() {
 }
 
 #[test]
+fun thread_post_set_deleted_updates_counter() {
+    let mut ctx = tx_context::dummy();
+    let (forum, board, mut thread, clock) = fixture(&mut ctx);
+    let author = actor(USER_PK);
+    let mut post1 = post::new(
+        &mut ctx,
+        uid(b"p1"),
+        author,
+        thread.id(),
+        1,
+        0,
+        option::none(),
+        option::some(1),
+        vector[],
+        vector[],
+        false,
+    );
+    let mut post2 = post::new(
+        &mut ctx,
+        uid(b"p2"),
+        author,
+        thread.id(),
+        2,
+        0,
+        option::none(),
+        option::some(2),
+        vector[],
+        vector[],
+        false,
+    );
+
+    thread.apply(&mut ctx, &forum, &board, thread::new_post(uid(b"1"), author, post1.id()));
+    thread.apply(&mut ctx, &forum, &board, thread::new_post(uid(b"2"), author, post2.id()));
+    assert!(*thread.posts_deleted() == 0);
+
+    thread.apply_post(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &mut post1,
+        thread::post_set_deleted(uid(b"3"), author, true),
+    );
+    assert!(*post1.deleted());
+    assert!(*thread.posts_deleted() == 1);
+
+    thread.apply_post(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &mut post1,
+        thread::post_set_deleted(uid(b"4"), author, false),
+    );
+    assert!(!*post1.deleted());
+    assert!(*thread.posts_deleted() == 0);
+
+    clock.destroy_for_testing();
+    post1.share();
+    post2.share();
+    thread.share();
+    board.share();
+    forum.share();
+}
+
+#[test]
+fun post_set_text_none_auto_deletes_empty_post() {
+    let mut ctx = tx_context::dummy();
+    let (forum, board, mut thread, clock) = fixture(&mut ctx);
+    let author = actor(USER_PK);
+    let mut post = post::new(
+        &mut ctx,
+        uid(b"post"),
+        author,
+        thread.id(),
+        1,
+        0,
+        option::none(),
+        option::some(1),
+        vector[],
+        vector[],
+        false,
+    );
+    thread.apply_post(
+        &mut ctx,
+        &clock,
+        &forum,
+        &board,
+        &mut post,
+        thread::post_set_text(uid(b"1"), author, option::none()),
+    );
+    assert!(post.text_hash().is_none());
+    assert!(*post.deleted());
+    assert!(*thread.posts_deleted() == 1);
+
+    clock.destroy_for_testing();
+    post.share();
+    thread.share();
+    board.share();
+    forum.share();
+}
+
+#[test]
 #[expected_failure(abort_code = 14)]
 fun thread_moderator_cannot_pin_thread() {
     let mut ctx = tx_context::dummy();

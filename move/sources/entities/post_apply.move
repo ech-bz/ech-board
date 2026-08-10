@@ -77,16 +77,6 @@ public(package) fun apply(
                 error::not_authorized(),
             );
             *self.text_hash_mut() = hash;
-            if (self.media_hashes().is_empty() && self.text_hash().is_none()) {
-                self.apply(
-                    ctx,
-                    clock,
-                    forum,
-                    board,
-                    thread,
-                    post::set_deleted(responses, sender, true),
-                );
-            };
         },
         b"ban_media" => {
             let hashes = event.peel_vec!(|b| b.peel_u256());

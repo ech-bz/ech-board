@@ -152,28 +152,6 @@ fun post_uid_allowed_events_for_author() {
 }
 
 #[test]
-fun post_set_text_none_auto_deletes_empty_post() {
-    let mut ctx = tx_context::dummy();
-    let (forum, board, thread, mut post, clock) = fixture(
-        &mut ctx,
-        option::some(1),
-        vector[],
-        vector[],
-    );
-    post.apply(
-        &mut ctx,
-        &clock,
-        &forum,
-        &board,
-        &thread,
-        post::set_text(uid(b"1"), actor(AUTHOR_PK), option::none()),
-    );
-    assert!(post.text_hash().is_none());
-    assert!(*post.deleted());
-    finish(forum, board, thread, post, clock);
-}
-
-#[test]
 fun post_moderator_ban_then_unban_media() {
     let mut ctx = tx_context::dummy();
     let (forum, mut board, thread, mut post, mut clock) = fixture(
