@@ -118,30 +118,6 @@ public(package) fun apply(
                 self.banned_media_mut().remove(&hash);
             });
         },
-        b"remove_media" => {
-            let hashes = event.peel_vec!(|b| b.peel_u256());
-            assert!(
-                addr == forum.admin()
-                    || forum.mods().contains(addr)
-                    || board.mods().contains(addr)
-                    || thread.admin().is_some_and!(|a| addr == a)
-                    || thread.mods().contains(addr)
-                    || can_self_moderate,
-                error::not_authorized(),
-            );
-            *self.media_hashes_mut() =
-                (*self.media_hashes()).filter!(|hash| !hashes.contains(hash));
-            if (self.media_hashes().is_empty() && self.text_hash().is_none()) {
-                self.apply(
-                    ctx,
-                    clock,
-                    forum,
-                    board,
-                    thread,
-                    post::set_deleted(responses, sender, true),
-                );
-            };
-        },
         b"set_reaction" => {
             let ip32_hash = *responses.ip32().borrow();
             let reaction_hash = event.peel_u256();
