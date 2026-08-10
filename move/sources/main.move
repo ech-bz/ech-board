@@ -622,7 +622,7 @@ public fun thread_apply_post_intent_uid(
             object::id(thread),
             object::id(post),
         ],
-        vector["ban", "unban"],
+        vector["ban", "unban", "post_set_deleted", "post_set_text"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     thread.apply_post(ctx, clock, forum, board, post, intent.into_event());
@@ -655,7 +655,7 @@ public fun post_apply_intent_uid(
             object::id(thread),
             object::id(post),
         ],
-        vector["upgrade", "set_deleted", "set_text", "ban_media", "unban_media"],
+        vector["upgrade", "ban_media", "unban_media"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     post.apply(ctx, clock, forum, board, thread, intent.into_event());

@@ -273,7 +273,8 @@ public(package) fun apply_thread(
                 multi_vote,
             );
             self.posts_mut().add(number, post.id());
-            if (thread.posts().next() <= *self.bump_limit() && !self.pinned().contains(&thread.id())) {
+            let posts_live = thread.posts().next() - *thread.posts_deleted();
+            if (posts_live <= *self.bump_limit() && !self.pinned().contains(&thread.id())) {
                 self.bumps_mut().push(thread.id()).share();
             };
             thread.apply(ctx, forum, self, thread::new_post(responses, sender, post.id()));
@@ -312,7 +313,8 @@ public(package) fun apply_thread(
                 multi_vote,
             );
             self.posts_mut().add(number, post.id());
-            if (thread.posts().next() <= *self.bump_limit() && !self.pinned().contains(&thread.id())) {
+            let posts_live = thread.posts().next() - *thread.posts_deleted();
+            if (posts_live <= *self.bump_limit() && !self.pinned().contains(&thread.id())) {
                 self.bumps_mut().push(thread.id()).share();
             };
             thread.apply(ctx, forum, self, thread::new_post(responses, sender, post.id()));

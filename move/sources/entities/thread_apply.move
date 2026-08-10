@@ -209,6 +209,45 @@ public(package) fun apply_post(
                 post::set_banned(responses, sender, option::none()),
             );
         },
+        b"post_set_deleted" => {
+            let deleted = event.peel_bool();
+            post.apply(
+                ctx,
+                clock,
+                forum,
+                board,
+                self,
+                post::set_deleted(responses, sender, deleted),
+            );
+            let deleted_count = self.posts_deleted_mut();
+            if (deleted) {
+                *deleted_count = *deleted_count + 1u64;
+            } else {
+                *deleted_count = *deleted_count - 1u64;
+            };
+        },
+        b"post_set_text" => {
+            let hash = event.peel_option!(|b| b.peel_u256());
+            post.apply(
+                ctx,
+                clock,
+                forum,
+                board,
+                self,
+                post::set_text(responses, sender, hash),
+            );
+            if (post.media_hashes().is_empty() && post.text_hash().is_none() && !*post.deleted()) {
+                apply_post(
+                    self,
+                    ctx,
+                    clock,
+                    forum,
+                    board,
+                    post,
+                    thread::post_set_deleted(responses, sender, true),
+                );
+            };
+        },
         _ => abort,
     };
 

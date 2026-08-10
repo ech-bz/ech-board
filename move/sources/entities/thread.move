@@ -11,7 +11,7 @@ use sui::bcs;
 use sui::dynamic_field;
 use sui::table::{Self, Table};
 
-const VERSION: u16 = 2;
+const VERSION: u16 = 3;
 
 public struct Thread has key {
     id: UID,
@@ -55,6 +55,7 @@ const DF_MODS: vector<u8> = b"moderators";
 const DF_BANS: vector<u8> = b"bans";
 const DF_POSTS: vector<u8> = b"posts";
 const DF_LAST3: vector<u8> = b"last_posts";
+const DF_POSTS_DELETED: vector<u8> = b"posts_deleted";
 
 public(package) fun board(self: &Thread): &address {
     dynamic_field::borrow(&self.id, DF_BOARD)
@@ -136,6 +137,14 @@ public(package) fun posts_mut(self: &mut Thread): &mut Feed<address> {
     dynamic_field::borrow_mut(&mut self.id, DF_POSTS)
 }
 
+public(package) fun posts_deleted(self: &Thread): &u64 {
+    dynamic_field::borrow(&self.id, DF_POSTS_DELETED)
+}
+
+public(package) fun posts_deleted_mut(self: &mut Thread): &mut u64 {
+    dynamic_field::borrow_mut(&mut self.id, DF_POSTS_DELETED)
+}
+
 public(package) fun last3(self: &Thread): &vector<address> {
     dynamic_field::borrow(&self.id, DF_LAST3)
 }
@@ -154,6 +163,7 @@ fun empty(ctx: &mut TxContext): Thread {
 public(package) fun do_upgrade(self: &mut Thread, ctx: &mut TxContext) {
     if (self.entity.version() < 1) self.init_v1(ctx);
     if (self.entity.version() < 2) self.init_v2(ctx);
+    if (self.entity.version() < 3) self.init_v3(ctx);
 }
 
 fun init_v1(self: &mut Thread, ctx: &mut TxContext) {
@@ -176,6 +186,11 @@ fun init_v1(self: &mut Thread, ctx: &mut TxContext) {
 fun init_v2(self: &mut Thread, _ctx: &mut TxContext) {
     self.entity.set_version(2);
     let _: bool = dynamic_field::remove(&mut self.id, DF_PINNED);
+}
+
+fun init_v3(self: &mut Thread, _ctx: &mut TxContext) {
+    self.entity.set_version(3);
+    dynamic_field::add(&mut self.id, DF_POSTS_DELETED, 0u64);
 }
 
 public(package) fun new(
@@ -224,6 +239,18 @@ public(package) fun set_closed(responses: Responses, sender: Sender, closed: boo
 
 public(package) fun set_deleted(responses: Responses, sender: Sender, deleted: bool): vector<u8> {
     event::new("set_deleted", responses, sender).with(&deleted).build()
+}
+
+public(package) fun post_set_deleted(responses: Responses, sender: Sender, deleted: bool): vector<u8> {
+    event::new("post_set_deleted", responses, sender).with(&deleted).build()
+}
+
+public(package) fun post_set_text(
+    responses: Responses,
+    sender: Sender,
+    hash: Option<u256>,
+): vector<u8> {
+    event::new("post_set_text", responses, sender).with(&hash).build()
 }
 
 public(package) fun set_topic(
