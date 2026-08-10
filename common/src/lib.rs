@@ -129,11 +129,18 @@ pub struct RelaySponsorConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RelayDragonflyConfig {
+    pub url: String,
+    pub channel: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RelayConfig {
     pub server: RelayServerConfig,
     pub captcha: RelayCaptchaConfig,
     pub upstream: RelayUpstreamConfig,
     pub sponsor: RelaySponsorConfig,
+    pub dragonfly: RelayDragonflyConfig,
     pub seaweed_filer_url: String,
     pub seaweed_jwt_signing_key: String,
     pub forum_package_id: String,
