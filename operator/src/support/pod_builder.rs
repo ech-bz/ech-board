@@ -255,6 +255,26 @@ impl<'a> SuiNodePodBuilder<'a> {
                         ..Default::default()
                     },
                     EnvVar {
+                        name: "OBJECTS_BLOCK_CACHE_MB".into(),
+                        value: Some("32".into()),
+                        ..Default::default()
+                    },
+                    EnvVar {
+                        name: "TRANSACTIONS_BLOCK_CACHE_MB".into(),
+                        value: Some("16".into()),
+                        ..Default::default()
+                    },
+                    EnvVar {
+                        name: "EFFECTS_BLOCK_CACHE_MB".into(),
+                        value: Some("16".into()),
+                        ..Default::default()
+                    },
+                    EnvVar {
+                        name: "LOCKS_BLOCK_CACHE_MB".into(),
+                        value: Some("16".into()),
+                        ..Default::default()
+                    },
+                    EnvVar {
                         name: "AWS_ACCESS_KEY_ID".into(),
                         value_from: Some(EnvVarSource {
                             secret_key_ref: Some(SecretKeySelector {
