@@ -814,22 +814,14 @@ pub(super) async fn load_threads(
 ) -> Result<HashMap<Address, ThreadObject>, crate::error::RelayError> {
     let objects = upstream.fetch_objects(ids.iter().copied()).await?;
     let threads = futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
-        let root = object
-            .as_ref()
-            .ok_or_else(|| {
-                crate::error::RelayError::Internal(format!("thread object {id} not found"))
-            })?
-            .contents()
-            .deserialize::<EntityRoot>()
-            .map_err(|e| {
-                crate::error::RelayError::Internal(format!("thread root {id} decode: {e}"))
-            })?;
-        let fields = DynamicFields::load(upstream, *id).await?;
-        decode_thread(*id, root, fields)
+        let root = object.as_ref()?.contents().deserialize::<EntityRoot>().ok()?;
+        let fields = DynamicFields::load(upstream, *id).await.ok()?;
+        decode_thread(*id, root, fields).ok()
     }))
     .buffer_unordered(64)
-    .try_collect::<Vec<_>>()
-    .await?;
+    .filter_map(|t| async move { t })
+    .collect::<Vec<_>>()
+    .await;
     Ok(threads.into_iter().map(|t| (t.id, t)).collect())
 }
 

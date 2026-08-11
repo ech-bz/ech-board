@@ -166,9 +166,9 @@ pub(crate) async fn fetch(
         Vec::with_capacity(thread_addrs.len());
 
     for thread_id in thread_addrs {
-        let thread = thread_map.get(&thread_id).ok_or_else(|| {
-            crate::error::RelayError::Internal(format!("thread {thread_id} not loaded"))
-        })?;
+        let Some(thread) = thread_map.get(&thread_id) else {
+            continue;
+        };
         let thread_uid = thread.id;
         let mut post_addrs = vec![thread.projection.op()];
         post_addrs.extend_from_slice(thread.projection.last_3());
