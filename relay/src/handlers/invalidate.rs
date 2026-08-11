@@ -77,7 +77,10 @@ pub(crate) async fn apply(state: &AppState, intents: &[(IntentV2, Vec<u8>)]) {
         let post = obj_at(&intent.objects, post_idx);
 
         match event {
-            "new_post_v2" | "new_post_migrate_v2" | "new_thread_v2" | "new_thread_migrate_v2" => {}
+            "new_post_v2" | "new_post_migrate_v2" | "new_thread_v2" | "new_thread_migrate_v2" => {
+                dels.push("v:forum".into());
+                scopes.push("v:forum".into());
+            }
             "set_reaction" | "vote_v2" => {
                 if let (Some(b), Some(t), Some(p)) = (board, thread, post) {
                     gens.push(format!("gen:thread:{t}"));
