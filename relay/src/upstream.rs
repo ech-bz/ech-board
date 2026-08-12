@@ -60,7 +60,9 @@ impl UpstreamSender {
 
         let mut request = ExecuteTransactionRequest::new(signed.transaction.clone().into());
         request.signatures = signed.signatures.iter().cloned().map(Into::into).collect();
-        request.read_mask = Some(FieldMask::from_str("effects.status,events,effects.changed_objects"));
+        request.read_mask = Some(FieldMask::from_str(
+            "effects.status,events,effects.changed_objects,effects.gas_used"
+        ));
 
         let result = client
             .execute_transaction_and_wait_for_checkpoint(request, Duration::from_secs(5))
@@ -76,7 +78,27 @@ impl UpstreamSender {
                     .and_then(|effects| effects.status.clone());
                 let success = status.as_ref().and_then(|s| s.success).unwrap_or(false);
 
+                let gas_used = response
+                    .transaction
+                    .as_ref()
+                    .and_then(|tx| tx.effects.as_ref())
+                    .and_then(|effects| effects.gas_used.as_ref())
+                    .map(|g| {
+                        (
+                            g.computation_cost.unwrap_or(0),
+                            g.storage_cost.unwrap_or(0),
+                            g.storage_rebate.unwrap_or(0),
+                            g.non_refundable_storage_fee.unwrap_or(0),
+                        )
+                    });
+
                 if success {
+                    if let Some((computation, storage, rebate, non_refundable)) = gas_used {
+                        let net = computation as i128 + storage as i128 - rebate as i128;
+                        eprintln!(
+                            "relay gas digest={digest} computation={computation} storage={storage} storage_rebate={rebate} non_refundable={non_refundable} net={net}"
+                        );
+                    }
                     let created = response
                         .transaction
                         .as_ref()
@@ -127,6 +149,12 @@ impl UpstreamSender {
                         created,
                     })
                 } else {
+                    if let Some((computation, storage, rebate, non_refundable)) = gas_used {
+                        let net = computation as i128 + storage as i128 - rebate as i128;
+                        eprintln!(
+                            "relay gas digest={digest} status=failed computation={computation} storage={storage} storage_rebate={rebate} non_refundable={non_refundable} net={net}"
+                        );
+                    }
                     let (kind, details) = status
                         .and_then(|s| s.error)
                         .map(|e| {

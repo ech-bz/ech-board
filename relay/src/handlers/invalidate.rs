@@ -2,6 +2,8 @@ use crate::app_state::AppState;
 use crate::cache::Invalidation;
 use crate::handlers::send::split_event;
 use crate::types::IntentV2;
+use std::future::Future;
+use std::pin::Pin;
 use sui_sdk_types::Address;
 
 fn object_indexes(fn_name: &str) -> (Option<usize>, Option<usize>, Option<usize>, Option<usize>) {
@@ -156,32 +158,45 @@ pub(crate) async fn apply(state: &AppState, intents: &[(IntentV2, Vec<u8>)]) {
             })
             .await;
     } else {
+        let mut futs: Vec<Pin<Box<dyn Future<Output = ()> + Send + '_>>> = Vec::new();
         for g in &gens {
-            if let Err(e) = state.cache.l2_incr(g).await {
-                eprintln!("cache incr {g}: {e}");
-            }
+            let key = g.clone();
+            futs.push(Box::pin(async move {
+                if let Err(e) = state.cache.l2_incr(&key).await {
+                    eprintln!("cache incr {key}: {e}");
+                }
+            }));
         }
         if !dels.is_empty() {
-            if let Err(e) = state.cache.l2_del(&dels).await {
-                eprintln!("cache del {dels:?}: {e}");
-            }
+            let keys = dels.clone();
+            futs.push(Box::pin(async move {
+                if let Err(e) = state.cache.l2_del(&keys).await {
+                    eprintln!("cache del {keys:?}: {e}");
+                }
+            }));
         }
         for p in &patterns {
-            if let Err(e) = state.cache.l2_pattern_del(p).await {
-                eprintln!("cache pattern del {p}: {e}");
-            }
+            let pat = p.clone();
+            futs.push(Box::pin(async move {
+                if let Err(e) = state.cache.l2_pattern_del(&pat).await {
+                    eprintln!("cache pattern del {pat}: {e}");
+                }
+            }));
         }
         for scope in &scopes {
             state.cache.l1_invalidate_prefix(scope);
         }
         if !scopes.is_empty() {
-            let _ = state
-                .cache
-                .publish(&Invalidation {
-                    flush: false,
-                    scopes,
-                })
-                .await;
+            let inv = Invalidation {
+                flush: false,
+                scopes,
+            };
+            futs.push(Box::pin(async move {
+                if let Err(e) = state.cache.publish(&inv).await {
+                    eprintln!("cache publish: {e}");
+                }
+            }));
         }
+        futures::future::join_all(futs).await;
     }
 }

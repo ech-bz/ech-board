@@ -607,18 +607,24 @@ async fn resolve_requests(
                 ];
                 let mut hmacs: [[u8; 32]; 4] = [[0u8; 32]; 4];
                 let mut uid_plaintext = Vec::new();
-                for (idx, (mask_byte, mask)) in masks.iter().enumerate() {
-                    let masked = ip32 & mask;
-                    let mut msg = vec![*mask_byte];
-                    msg.extend_from_slice(&masked.to_be_bytes());
-                    let mac: [u8; 32] = state
-                        .kms
-                        .generate_mac()
-                        .key_id(&state.kms_hmac)
-                        .message(Blob::new(msg))
-                        .mac_algorithm(aws_sdk_kms::types::MacAlgorithmSpec::HmacSha256)
-                        .send()
-                        .await
+                let mac_futs: Vec<_> = masks
+                    .iter()
+                    .map(|(mask_byte, mask)| {
+                        let masked = ip32 & mask;
+                        let mut msg = vec![*mask_byte];
+                        msg.extend_from_slice(&masked.to_be_bytes());
+                        state
+                            .kms
+                            .generate_mac()
+                            .key_id(&state.kms_hmac)
+                            .message(Blob::new(msg))
+                            .mac_algorithm(aws_sdk_kms::types::MacAlgorithmSpec::HmacSha256)
+                            .send()
+                    })
+                    .collect();
+                let mac_results = futures::future::join_all(mac_futs).await;
+                for (idx, mac_res) in mac_results.into_iter().enumerate() {
+                    let mac: [u8; 32] = mac_res
                         .map_err(|e| error::RelayError::SponsorBuild(format!("kms hmac: {e}")))?
                         .mac()
                         .ok_or_else(|| error::RelayError::SponsorBuild("kms hmac: no mac".into()))?
@@ -730,15 +736,24 @@ async fn check_bans_inner(
         .as_millis() as u64;
 
     let (forum_index, board_index, thread_index) = hierarchy_indices(&intent.function)?;
-    let forum = load_forum(&state.upstream, intent.objects[forum_index].id).await?;
-    let board = match board_index {
-        Some(index) => Some(load_board(&state.upstream, intent.objects[index].id).await?),
-        None => None,
-    };
-    let thread = match thread_index {
-        Some(index) => Some(load_thread(&state.upstream, intent.objects[index].id).await?),
-        None => None,
-    };
+    let (forum, board, thread) = tokio::join!(
+        load_forum(&state.upstream, intent.objects[forum_index].id),
+        async {
+            match board_index {
+                Some(index) => Ok(Some(load_board(&state.upstream, intent.objects[index].id).await?)),
+                None => Ok(None),
+            }
+        },
+        async {
+            match thread_index {
+                Some(index) => Ok(Some(load_thread(&state.upstream, intent.objects[index].id).await?)),
+                None => Ok(None),
+            }
+        },
+    );
+    let forum = forum?;
+    let board = board?;
+    let thread = thread?;
     let mut levels: Vec<&Bans> = Vec::with_capacity(3);
     if !board
         .as_ref()
@@ -753,6 +768,7 @@ async fn check_bans_inner(
         levels.push(thread.projection.bans());
     }
 
+    let mut checks: Vec<(&Registry, Vec<u8>)> = Vec::new();
     for bans in levels {
         let registries: [(u8, &Registry); 4] = [
             (32, &bans.ip32),
@@ -767,30 +783,35 @@ async fn check_bans_inner(
             hash_input.extend_from_slice(&hmacs[mask_idx]);
             let hash_bytes = Blake2b::digest(&hash_input);
             let hash_le: Vec<u8> = hash_bytes.iter().rev().copied().collect();
-
-            let fields = state.upstream.list_dynamic_fields(reg.index.id).await?;
-            for (name, _child, value) in &fields {
-                if name.as_slice() == hash_le.as_slice() {
-                    if let Some(v) = value {
-                        if let Ok(entry_id) = bcs::from_bytes::<u64>(v) {
-                            let entry_obj_id = reg
-                                .entries
-                                .id
-                                .derive_dynamic_child_id(&TypeTag::U64, &entry_id.to_le_bytes());
-                            if let Some(entry) =
-                                &state.upstream.fetch_objects([entry_obj_id]).await?[0]
-                            {
-                                let field = entry
-                                    .contents()
-                                    .deserialize::<BanEntryField>()
-                                    .map_err(|e| {
-                                        error::RelayError::SponsorBuild(format!(
-                                            "ban entry decode: {e}"
-                                        ))
-                                    })?;
-                                if field.value.expires > now_ms {
-                                    return Err(error::RelayError::SponsorBuild("banned".into()));
-                                }
+            checks.push((reg, hash_le));
+        }
+    }
+    let field_lists = futures::future::join_all(
+        checks.iter().map(|(reg, _)| state.upstream.list_dynamic_fields(reg.index.id)),
+    )
+    .await;
+    for ((reg, hash_le), fields) in checks.iter().zip(field_lists) {
+        for (name, _child, value) in &fields? {
+            if name.as_slice() == hash_le.as_slice() {
+                if let Some(v) = value {
+                    if let Ok(entry_id) = bcs::from_bytes::<u64>(v) {
+                        let entry_obj_id = reg
+                            .entries
+                            .id
+                            .derive_dynamic_child_id(&TypeTag::U64, &entry_id.to_le_bytes());
+                        if let Some(entry) =
+                            &state.upstream.fetch_objects([entry_obj_id]).await?[0]
+                        {
+                            let field = entry
+                                .contents()
+                                .deserialize::<BanEntryField>()
+                                .map_err(|e| {
+                                    error::RelayError::SponsorBuild(format!(
+                                        "ban entry decode: {e}"
+                                    ))
+                                })?;
+                            if field.value.expires > now_ms {
+                                return Err(error::RelayError::SponsorBuild("banned".into()));
                             }
                         }
                     }
