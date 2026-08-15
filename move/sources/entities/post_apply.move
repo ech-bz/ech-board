@@ -108,8 +108,9 @@ public(package) fun apply(
                 self.banned_media_mut().remove(&hash);
             });
         },
-        b"set_reaction" => {
+        b"set_reaction_v2" => {
             let ip32_hash = *responses.ip32().borrow();
+            let old = event.peel_option!(|b| b.peel_u256());
             let reaction_hash = event.peel_u256();
             assert!(board.reactions().contains(&reaction_hash), error::reaction_not_allowed());
             let reacted_id = self.reacted().find(sender.pk()).or!(self.reacted().find(ip32_hash));
@@ -118,6 +119,7 @@ public(package) fun apply(
                 let entry = *self.reacted().entry(reacted_id);
                 let entry_hash = entry.options()[0];
                 assert!(entry.sender() == sender, error::not_authorized());
+                assert!(old == option::some(entry_hash), error::intent_args_mismatch());
                 reaction_dec(self, entry_hash);
                 self.reacted_mut().remove(reacted_id);
                 if (entry_hash != reaction_hash) {
@@ -130,6 +132,7 @@ public(package) fun apply(
                         );
                 };
             } else {
+                assert!(old.is_none(), error::intent_args_mismatch());
                 reaction_inc(self, reaction_hash);
                 self
                     .reacted_mut()

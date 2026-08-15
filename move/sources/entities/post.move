@@ -275,7 +275,7 @@ public(package) fun new(
     multi_vote: bool,
 ): Post {
     let mut self = empty(ctx);
-    let mut event = event::new("genesis", copy responses, sender);
+    let mut event = event::new("genesis_v2", copy responses, sender);
     *self.uid_mut() = *responses.uid().borrow();
     *self.trip_mut() = *responses.tripcode();
     *self.geo_mut() = *responses.geo();
@@ -302,6 +302,7 @@ public(package) fun new(
     event = event.with(&vote_keys);
     vote_keys.do!(|key| self.votes_mut().insert(key, 0));
 
+    event = event.with(&multi_vote);
     *self.multi_vote_mut() = multi_vote;
 
     self.push(event.build());
@@ -346,6 +347,15 @@ public(package) fun set_reaction(
     reaction_hash: u256,
 ): vector<u8> {
     event::new("set_reaction", responses, sender).with(&reaction_hash).build()
+}
+
+public(package) fun set_reaction_v2(
+    responses: Responses,
+    sender: Sender,
+    old: Option<u256>,
+    reaction_hash: u256,
+): vector<u8> {
+    event::new("set_reaction_v2", responses, sender).with(&old).with(&reaction_hash).build()
 }
 
 public(package) fun vote(responses: Responses, sender: Sender, option_hash: u256): vector<u8> {

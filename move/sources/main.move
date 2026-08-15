@@ -688,7 +688,7 @@ public fun post_apply_intent_uid_ip32(
             object::id(thread),
             object::id(post),
         ],
-        vector["set_reaction", "vote_v2"],
+        vector["set_reaction_v2", "vote_v2"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     post.apply(ctx, clock, forum, board, thread, intent.into_event());
