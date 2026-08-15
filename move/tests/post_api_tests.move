@@ -393,7 +393,7 @@ fun post_reaction_add_toggle_and_change() {
         &forum,
         &board,
         &thread,
-        post::set_reaction(uid_ip(b"2", 500), user, 100),
+        post::set_reaction_v2(uid_ip(b"2", 500), user, option::none(), 100),
     );
     assert!(post.reactions()[&100] == 1);
 
@@ -403,7 +403,7 @@ fun post_reaction_add_toggle_and_change() {
         &forum,
         &board,
         &thread,
-        post::set_reaction(uid_ip(b"3", 500), user, 100),
+        post::set_reaction_v2(uid_ip(b"3", 500), user, option::some(100), 100),
     );
     assert!(!post.reactions().contains(&100));
 
@@ -413,7 +413,7 @@ fun post_reaction_add_toggle_and_change() {
         &forum,
         &board,
         &thread,
-        post::set_reaction(uid_ip(b"4", 500), user, 100),
+        post::set_reaction_v2(uid_ip(b"4", 500), user, option::none(), 100),
     );
     post.apply(
         &mut ctx,
@@ -421,7 +421,7 @@ fun post_reaction_add_toggle_and_change() {
         &forum,
         &board,
         &thread,
-        post::set_reaction(uid_ip(b"5", 500), user, 101),
+        post::set_reaction_v2(uid_ip(b"5", 500), user, option::some(100), 101),
     );
     assert!(!post.reactions().contains(&100));
     assert!(post.reactions()[&101] == 1);
@@ -509,7 +509,7 @@ fun post_rejects_unconfigured_reaction() {
         &forum,
         &board,
         &thread,
-        post::set_reaction(uid_ip(b"1", 500), actor(USER_PK), 100),
+        post::set_reaction_v2(uid_ip(b"1", 500), actor(USER_PK), option::none(), 100),
     );
     abort
 }
@@ -587,7 +587,7 @@ fun post_rejects_reaction_takeover_by_same_ip() {
         &forum,
         &board,
         &thread,
-        post::set_reaction(uid_ip(b"2", 500), actor(USER_PK), 100),
+        post::set_reaction_v2(uid_ip(b"2", 500), actor(USER_PK), option::none(), 100),
     );
     post.apply(
         &mut ctx,
@@ -595,7 +595,7 @@ fun post_rejects_reaction_takeover_by_same_ip() {
         &forum,
         &board,
         &thread,
-        post::set_reaction(uid_ip(b"3", 500), actor(OTHER_USER_PK), 100),
+        post::set_reaction_v2(uid_ip(b"3", 500), actor(OTHER_USER_PK), option::none(), 100),
     );
     abort
 }
