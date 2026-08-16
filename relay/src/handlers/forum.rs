@@ -1,13 +1,97 @@
 use std::collections::{HashMap, HashSet};
 
 use super::fetch_content;
-use super::{BoardObject, ForumObject, Moderators, list_mods, load_board, load_forum};
+use super::load_root_fields;
+use super::board::{BoardObject, load_board};
+use super::{Moderators, list_mods};
 use crate::app_state::AppState;
 use crate::cache::CACHE_NS;
 use crate::error::RelayError;
-use crate::types::ContentKind;
-use serde::Serialize;
+use crate::types::{Bans, ContentKind, EntityRoot, Table};
+use serde::{Deserialize, Serialize};
 use sui_sdk_types::Address;
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) struct ForumObject {
+    pub(crate) root: EntityRoot,
+    pub(crate) projection: ForumProjection,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) enum ForumProjection {
+    V1 {
+        nonce_shards: Address,
+        admin: Address,
+        mods: Table,
+        bans: Bans,
+        boards: Table,
+        timestamp_precision_ms: u64,
+    },
+}
+
+impl ForumProjection {
+    pub fn nonce_shards(&self) -> Address {
+        match self {
+            ForumProjection::V1 { nonce_shards, .. } => *nonce_shards,
+        }
+    }
+
+    pub fn admin(&self) -> Address {
+        match self {
+            ForumProjection::V1 { admin, .. } => *admin,
+        }
+    }
+
+    pub fn mods(&self) -> &Table {
+        match self {
+            ForumProjection::V1 { mods, .. } => mods,
+        }
+    }
+
+    pub fn bans(&self) -> &Bans {
+        match self {
+            ForumProjection::V1 { bans, .. } => bans,
+        }
+    }
+
+    pub fn boards(&self) -> &Table {
+        match self {
+            ForumProjection::V1 { boards, .. } => boards,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn timestamp_precision_ms(&self) -> u64 {
+        match self {
+            ForumProjection::V1 { timestamp_precision_ms, .. } => *timestamp_precision_ms,
+        }
+    }
+}
+
+pub(crate) async fn load_forum(
+    upstream: &crate::upstream::UpstreamSender,
+    id: Address,
+) -> Result<ForumObject, RelayError> {
+    let (root, fields) = load_root_fields(upstream, id).await?;
+    let version = root.entity.version;
+    let projection = match version {
+        1 => ForumProjection::V1 {
+            nonce_shards: fields.get(b"nonce_shards")?,
+            admin: fields.get(b"admin")?,
+            mods: fields.get(b"moderators")?,
+            bans: fields.get(b"bans")?,
+            boards: fields.get(b"boards")?,
+            timestamp_precision_ms: fields.get(b"timestamp_precision")?,
+        },
+        _ => return Err(RelayError::Internal(format!(
+            "forum version {version} not supported"
+        ))),
+    };
+    Ok(ForumObject {
+        root,
+        projection,
+    })
+}
 
 #[derive(Serialize)]
 pub(crate) struct ForumView {

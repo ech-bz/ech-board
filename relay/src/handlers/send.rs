@@ -1,6 +1,9 @@
 use crate::app_state::AppState;
 use crate::error;
-use crate::handlers::{Bans, BoardObject, Registry, load_board, load_forum, load_thread};
+use crate::handlers::board::{BoardObject, load_board};
+use crate::handlers::forum::load_forum;
+use crate::handlers::thread::load_thread;
+use crate::types::{Bans, Registry};
 use super::invalidate;
 use crate::types::{ContentKind, IntentV2, MAX_TEXT_SIZE, PostPart, RequestV2};
 use async_trait::async_trait;

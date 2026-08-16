@@ -1,6 +1,9 @@
 use crate::app_state::AppState;
 use crate::error;
-use crate::handlers::{load_board, load_forum, load_post, load_thread};
+use crate::handlers::board::load_board;
+use crate::handlers::forum::load_forum;
+use crate::handlers::post::load_post;
+use crate::handlers::thread::load_thread;
 use crate::types::DecryptRequest;
 use aws_sdk_kms::primitives::Blob;
 use blake2::Digest;

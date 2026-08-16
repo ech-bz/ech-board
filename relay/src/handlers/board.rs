@@ -8,8 +8,222 @@ use sui_sdk_types::{Address, TypeTag};
 
 use super::fetch_content;
 use super::fetch_media_meta;
-use super::{BoardObject, Moderators, PostObject, ThreadObject, list_mods, load_board, load_posts, load_threads};
-use crate::types::{ContentKind, MediaMeta};
+use super::post::{PostObject, decode_post, load_posts};
+use super::{DynamicFields, load_root_fields, load_roots_fields};
+use super::thread::{ThreadObject, load_threads};
+use super::{Moderators, list_mods};
+use crate::types::{Bans, ContentKind, EntityRoot, Feed, MediaMeta, Table};
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) struct BoardObject {
+    pub(crate) root: EntityRoot,
+    pub(crate) projection: BoardProjection,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) enum BoardProjection {
+    V1 {
+        slug: String,
+        description_hash: Option<Address>,
+        max_media: u64,
+        bump_limit: u64,
+        closed: bool,
+        deleted: bool,
+        ignore_forum_bans: bool,
+        mods: Table,
+        bans: Bans,
+        reactions: Vec<Address>,
+        threads: Table,
+        posts: Table,
+        bumps: Feed,
+    },
+    V2 {
+        slug: String,
+        description_hash: Option<Address>,
+        max_media: u64,
+        bump_limit: u64,
+        closed: bool,
+        deleted: bool,
+        pinned: Vec<Address>,
+        ignore_forum_bans: bool,
+        mods: Table,
+        bans: Bans,
+        reactions: Vec<Address>,
+        threads: Table,
+        posts: Table,
+        bumps: Feed,
+    },
+}
+
+impl BoardProjection {
+    pub fn slug(&self) -> &str {
+        match self {
+            BoardProjection::V1 { slug, .. } => slug,
+            BoardProjection::V2 { slug, .. } => slug,
+        }
+    }
+
+    pub fn description_hash(&self) -> Option<Address> {
+        match self {
+            BoardProjection::V1 { description_hash, .. } => *description_hash,
+            BoardProjection::V2 { description_hash, .. } => *description_hash,
+        }
+    }
+
+    pub fn max_media(&self) -> u64 {
+        match self {
+            BoardProjection::V1 { max_media, .. } => *max_media,
+            BoardProjection::V2 { max_media, .. } => *max_media,
+        }
+    }
+
+    pub fn deleted(&self) -> bool {
+        match self {
+            BoardProjection::V1 { deleted, .. } => *deleted,
+            BoardProjection::V2 { deleted, .. } => *deleted,
+        }
+    }
+
+    pub fn ignore_forum_bans(&self) -> bool {
+        match self {
+            BoardProjection::V1 { ignore_forum_bans, .. } => *ignore_forum_bans,
+            BoardProjection::V2 { ignore_forum_bans, .. } => *ignore_forum_bans,
+        }
+    }
+
+    pub fn mods(&self) -> &Table {
+        match self {
+            BoardProjection::V1 { mods, .. } => mods,
+            BoardProjection::V2 { mods, .. } => mods,
+        }
+    }
+
+    pub fn bans(&self) -> &Bans {
+        match self {
+            BoardProjection::V1 { bans, .. } => bans,
+            BoardProjection::V2 { bans, .. } => bans,
+        }
+    }
+
+    pub fn reactions(&self) -> &[Address] {
+        match self {
+            BoardProjection::V1 { reactions, .. } => reactions,
+            BoardProjection::V2 { reactions, .. } => reactions,
+        }
+    }
+
+    pub fn threads(&self) -> &Table {
+        match self {
+            BoardProjection::V1 { threads, .. } => threads,
+            BoardProjection::V2 { threads, .. } => threads,
+        }
+    }
+
+    pub fn posts(&self) -> &Table {
+        match self {
+            BoardProjection::V1 { posts, .. } => posts,
+            BoardProjection::V2 { posts, .. } => posts,
+        }
+    }
+
+    pub fn bumps(&self) -> &Feed {
+        match self {
+            BoardProjection::V1 { bumps, .. } => bumps,
+            BoardProjection::V2 { bumps, .. } => bumps,
+        }
+    }
+
+    pub fn pinned(&self) -> &[Address] {
+        match self {
+            BoardProjection::V1 { .. } => &[],
+            BoardProjection::V2 { pinned, .. } => pinned,
+        }
+    }
+}
+
+pub(super) fn decode_board(
+    root: EntityRoot,
+    fields: DynamicFields,
+) -> Result<BoardObject, RelayError> {
+    let version = root.entity.version;
+    let projection = match version {
+        1 => BoardProjection::V1 {
+            slug: fields.get(b"slug")?,
+            description_hash: fields.get(b"description_hash")?,
+            max_media: fields.get(b"max_media")?,
+            bump_limit: fields.get(b"bump_limit")?,
+            closed: fields.get(b"closed")?,
+            deleted: fields.get(b"deleted")?,
+            ignore_forum_bans: fields.get(b"ignore_forum_bans")?,
+            mods: fields.get(b"moderators")?,
+            bans: fields.get(b"bans")?,
+            reactions: fields.get(b"reactions")?,
+            threads: fields.get(b"threads")?,
+            posts: fields.get(b"posts")?,
+            bumps: fields.get(b"bumps")?,
+        },
+        2 => BoardProjection::V2 {
+            slug: fields.get(b"slug")?,
+            description_hash: fields.get(b"description_hash")?,
+            max_media: fields.get(b"max_media")?,
+            bump_limit: fields.get(b"bump_limit")?,
+            closed: fields.get(b"closed")?,
+            deleted: fields.get(b"deleted")?,
+            pinned: fields.get(b"pinned")?,
+            ignore_forum_bans: fields.get(b"ignore_forum_bans")?,
+            mods: fields.get(b"moderators")?,
+            bans: fields.get(b"bans")?,
+            reactions: fields.get(b"reactions")?,
+            threads: fields.get(b"threads")?,
+            posts: fields.get(b"posts")?,
+            bumps: fields.get(b"bumps")?,
+        },
+        _ => return Err(RelayError::Internal(format!(
+            "board version {version} not supported"
+        ))),
+    };
+    Ok(BoardObject {
+        root,
+        projection,
+    })
+}
+
+pub(crate) async fn load_board(
+    upstream: &crate::upstream::UpstreamSender,
+    id: Address,
+) -> Result<BoardObject, RelayError> {
+    let (root, fields) = load_root_fields(upstream, id).await?;
+    decode_board(root, fields)
+}
+
+pub(crate) async fn load_posts_and_board(
+    upstream: &crate::upstream::UpstreamSender,
+    post_ids: Vec<Address>,
+    board_id: Address,
+) -> Result<(Vec<PostObject>, BoardObject), RelayError> {
+    let mut ids = post_ids.clone();
+    ids.push(board_id);
+    let (roots, mut fields) = load_roots_fields(upstream, &ids).await?;
+    let mut roots = roots.into_iter();
+    let board_root = roots
+        .next_back()
+        .ok_or_else(|| RelayError::Internal("load_posts_and_board: empty ids".to_string()))?;
+    let board_fields = fields
+        .remove(&board_id)
+        .ok_or_else(|| RelayError::Internal("board fields missing".to_string()))?;
+    let board = decode_board(board_root, board_fields)?;
+    let posts = post_ids
+        .into_iter()
+        .zip(roots)
+        .map(|(id, root)| {
+            let fields = fields
+                .remove(&id)
+                .ok_or_else(|| RelayError::Internal(format!("post fields {id} missing")))?;
+            decode_post(root, fields)
+        })
+        .collect::<Result<Vec<_>, RelayError>>()?;
+    Ok((posts, board))
+}
 
 const PAGE_THREADS: usize = 20;
 const BUMP_CHUNK: u64 = 500;

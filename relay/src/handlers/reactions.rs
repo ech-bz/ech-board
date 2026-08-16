@@ -1,7 +1,8 @@
 use crate::app_state::AppState;
 use crate::cache::CACHE_NS;
 use crate::error::RelayError;
-use crate::handlers::{DynamicFields, Registry, Sender};
+use crate::handlers::DynamicFields;
+use crate::types::{Registry, Sender};
 use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 use sui_sdk_types::Address;

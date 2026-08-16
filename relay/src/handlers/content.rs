@@ -7,7 +7,12 @@ use sui_sdk_types::Address;
 
 type Blake2b = blake2::Blake2b<U32>;
 
-use super::{load_board, load_post, load_thread};
+use crate::error::RelayError;
+
+use super::board::{decode_board, load_board};
+use super::load_roots_fields;
+use super::post::decode_post;
+use super::thread::decode_thread;
 
 pub(crate) async fn fetch(
     state: web::Data<AppState>,
@@ -18,23 +23,36 @@ pub(crate) async fn fetch(
     kind: ContentKind,
     hash: Address,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let board = load_board(&state.upstream, board_uid)
-        .await
-        .map_err(actix_web::Error::from)?;
+    let (roots, mut fields) =
+        load_roots_fields(&state.upstream, &[board_uid, thread_uid, post_uid]).await?;
+    let mut roots = roots.into_iter();
+    let board_root = roots
+        .next()
+        .ok_or_else(|| RelayError::Internal("board root missing".to_string()))?;
+    let thread_root = roots
+        .next()
+        .ok_or_else(|| RelayError::Internal("thread root missing".to_string()))?;
+    let post_root = roots
+        .next()
+        .ok_or_else(|| RelayError::Internal("post root missing".to_string()))?;
+    let board_fields = fields
+        .remove(&board_uid)
+        .ok_or_else(|| RelayError::Internal("board fields missing".to_string()))?;
+    let thread_fields = fields
+        .remove(&thread_uid)
+        .ok_or_else(|| RelayError::Internal("thread fields missing".to_string()))?;
+    let post_fields = fields
+        .remove(&post_uid)
+        .ok_or_else(|| RelayError::Internal("post fields missing".to_string()))?;
+    let board = decode_board(board_root, board_fields)?;
+    let thread = decode_thread(thread_root, thread_fields)?;
+    let post = decode_post(post_root, post_fields)?;
     if board.projection.deleted() {
         return Ok(HttpResponse::NotFound().finish());
     }
-
-    let thread = load_thread(&state.upstream, thread_uid)
-        .await
-        .map_err(actix_web::Error::from)?;
     if thread.projection.deleted() {
         return Ok(HttpResponse::NotFound().finish());
     }
-
-    let post = load_post(&state.upstream, post_uid)
-        .await
-        .map_err(actix_web::Error::from)?;
     if post.projection.deleted() {
         return Ok(HttpResponse::NotFound().finish());
     }

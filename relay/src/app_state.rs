@@ -2,7 +2,7 @@ use crate::cache::Cache;
 use crate::captcha::CaptchaVerifier;
 use crate::config;
 use crate::geoip::GeoIp;
-use crate::handlers::{ForumObject, load_forum};
+use crate::handlers::forum::{ForumObject, load_forum};
 use crate::realtime::Batch;
 use crate::seaweed::SeaweedClient;
 use crate::sponsor::SponsorService;

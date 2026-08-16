@@ -32,6 +32,42 @@ pub(crate) struct EntityRoot {
     pub(crate) genesis: bool,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) struct Table {
+    pub(crate) id: Address,
+    pub(crate) size: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) struct Registry {
+    pub(crate) counter: u64,
+    pub(crate) entries: Table,
+    pub(crate) identities: Table,
+    pub(crate) index: Table,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) struct Bans {
+    pub(crate) level: Address,
+    pub(crate) ip32: Registry,
+    pub(crate) ip24: Registry,
+    pub(crate) ip20: Registry,
+    pub(crate) ip16: Registry,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) struct Sender {
+    pub(crate) pk: [u8; 32],
+    pub(crate) tweak: [u8; 32],
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) struct BanKey {
+    pub(crate) level: Address,
+    pub(crate) mask: u8,
+    pub(crate) ip_hash: Address,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) enum RequestV2 {
     Uid,

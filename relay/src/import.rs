@@ -2,7 +2,8 @@ use crate::app_state::AppState;
 use crate::error::RelayError;
 use crate::handlers::nonce::NonceInfo;
 use crate::handlers::send;
-use crate::handlers::{self, load_board};
+use crate::handlers;
+use crate::handlers::board::load_board;
 use crate::thumbnail;
 use crate::types::{ContentKind, IntentObject, IntentV2, PostPart, RequestV2};
 use aws_sdk_kms::primitives::Blob;
@@ -443,10 +444,10 @@ async fn find_created(
     let mut thread = None;
     let mut post = None;
     for &id in created {
-        if let Ok(t) = handlers::load_thread(&state.upstream, id).await {
+        if let Ok(t) = handlers::thread::load_thread(&state.upstream, id).await {
             thread = Some((id, t.projection.number()));
         }
-        if let Ok(p) = handlers::load_post(&state.upstream, id).await {
+        if let Ok(p) = handlers::post::load_post(&state.upstream, id).await {
             post = Some((id, p.projection.number()));
         }
     }
