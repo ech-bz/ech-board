@@ -33,7 +33,7 @@ async fn build_intent(
         .map_err(|e| RelayError::SponsorBuild(format!("nonce decode: {e}")))?;
 
     let nonce_shard_id = shard_id(&state.forum.projection.nonce_shards(), &sponsor_pk);
-    let forum_id = state.forum.id;
+    let forum_id = state.forum.root.id;
 
     let mut payload = Vec::new();
     bcs::serialize_into(&mut payload, event)

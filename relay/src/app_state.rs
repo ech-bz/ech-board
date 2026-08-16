@@ -3,6 +3,7 @@ use crate::captcha::CaptchaVerifier;
 use crate::config;
 use crate::geoip::GeoIp;
 use crate::handlers::{ForumObject, load_forum};
+use crate::realtime::Batch;
 use crate::seaweed::SeaweedClient;
 use crate::sponsor::SponsorService;
 use crate::upstream::UpstreamSender;
@@ -11,6 +12,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use sui_sdk_types::Address;
+use tokio::sync::broadcast;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
@@ -29,6 +31,7 @@ pub(crate) struct AppState {
     pub(crate) kms_hmac: String,
     pub(crate) kms_moderator: String,
     pub(crate) cache: Cache,
+    pub(crate) sse_tx: broadcast::Sender<Batch>,
 }
 
 impl AppState {
@@ -77,6 +80,8 @@ impl AppState {
             .map_err(std::io::Error::other)?;
         cache.start_listener().await.map_err(std::io::Error::other)?;
 
+        let (sse_tx, _) = broadcast::channel(1024);
+
         Ok(Self {
             captcha: CaptchaVerifier::new(client.clone(), cfg.captcha),
             upstream,
@@ -105,6 +110,7 @@ impl AppState {
             kms_hmac: cfg.kms_hmac,
             kms_moderator: cfg.kms_moderator,
             cache,
+            sse_tx,
         })
     }
 }

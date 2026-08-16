@@ -1,5 +1,5 @@
 use crate::app_state::AppState;
-use crate::cache::Invalidation;
+use crate::cache::{CACHE_NS, Invalidation};
 use crate::handlers::send::split_event;
 use crate::types::IntentV2;
 use std::future::Future;
@@ -80,37 +80,37 @@ pub(crate) async fn apply(state: &AppState, intents: &[(IntentV2, Vec<u8>)]) {
 
         match event {
             "new_post_v2" | "new_post_migrate_v2" | "new_thread_v2" | "new_thread_migrate_v2" => {
-                dels.push("v:forum".into());
-                scopes.push("v:forum".into());
+                dels.push(format!("{CACHE_NS}:forum"));
+                scopes.push(format!("{CACHE_NS}:forum"));
             }
-            "set_reaction" | "vote_v2" => {
+            "set_reaction_v2" | "vote_v2" => {
                 if let (Some(b), Some(t), Some(p)) = (board, thread, post) {
                     gens.push(format!("gen:thread:{t}"));
                     gens.push(format!("gen:board:{b}"));
-                    dels.push(format!("v:post:{p}"));
-                    dels.push(format!("v:reactions:{p}:{}", intent.public_key));
-                    scopes.push(format!("v:post:{p}"));
-                    scopes.push(format!("v:reactions:{p}:{}", intent.public_key));
+                    dels.push(format!("{CACHE_NS}:post:{p}"));
+                    dels.push(format!("{CACHE_NS}:reactions:{p}:{}", intent.public_key));
+                    scopes.push(format!("{CACHE_NS}:post:{p}"));
+                    scopes.push(format!("{CACHE_NS}:reactions:{p}:{}", intent.public_key));
                 }
             }
             "set_topic" => {
                 if let Some(t) = thread {
-                    patterns.push(format!("v:thread:{t}:*"));
-                    scopes.push(format!("v:thread:{t}"));
+                    patterns.push(format!("{CACHE_NS}:thread:{t}:*"));
+                    scopes.push(format!("{CACHE_NS}:thread:{t}"));
                 }
                 if let Some(b) = board {
-                    patterns.push(format!("v:board:{b}:*"));
-                    scopes.push(format!("v:board:{b}"));
+                    patterns.push(format!("{CACHE_NS}:board:{b}:*"));
+                    scopes.push(format!("{CACHE_NS}:board:{b}"));
                 }
             }
             "post_set_text" | "post_set_deleted" | "ban_media" | "unban_media" => {
                 if let (Some(b), Some(t), Some(p)) = (board, thread, post) {
-                    dels.push(format!("v:post:{p}"));
-                    patterns.push(format!("v:thread:{t}:*"));
-                    patterns.push(format!("v:board:{b}:*"));
-                    scopes.push(format!("v:post:{p}"));
-                    scopes.push(format!("v:thread:{t}"));
-                    scopes.push(format!("v:board:{b}"));
+                    dels.push(format!("{CACHE_NS}:post:{p}"));
+                    patterns.push(format!("{CACHE_NS}:thread:{t}:*"));
+                    patterns.push(format!("{CACHE_NS}:board:{b}:*"));
+                    scopes.push(format!("{CACHE_NS}:post:{p}"));
+                    scopes.push(format!("{CACHE_NS}:thread:{t}"));
+                    scopes.push(format!("{CACHE_NS}:board:{b}"));
                 }
             }
             "ban" | "unban" => {
@@ -121,8 +121,8 @@ pub(crate) async fn apply(state: &AppState, intents: &[(IntentV2, Vec<u8>)]) {
                     _ => None,
                 };
                 if let Some(l) = level {
-                    patterns.push(format!("v:bans:{l}:*"));
-                    scopes.push(format!("v:bans:{l}"));
+                    patterns.push(format!("{CACHE_NS}:bans:{l}:*"));
+                    scopes.push(format!("{CACHE_NS}:bans:{l}"));
                 }
             }
             "set_closed"

@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::app_state::AppState;
+use crate::cache::CACHE_NS;
 use crate::error::RelayError;
 use crate::handlers::{Bans, DynamicFields, Registry, fetch_content};
 use crate::types::ContentKind;
@@ -74,7 +75,7 @@ pub(crate) async fn fetch(
     uid: Address,
     cursor: Option<u64>,
 ) -> Result<Vec<u8>, RelayError> {
-    let key = format!("v:bans:{uid}:{}", cursor.unwrap_or(0));
+    let key = format!("{CACHE_NS}:bans:{uid}:{}", cursor.unwrap_or(0));
     state
         .cache
         .get_or_build(key, async {

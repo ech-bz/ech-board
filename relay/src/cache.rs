@@ -12,6 +12,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 const L1_MAX_BYTES: u64 = 64 * 1024 * 1024;
 const L2_POOL_SIZE: usize = 4;
 
+pub(crate) const CACHE_NS: &str = "v3";
+
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Invalidation {
     pub(crate) flush: bool,
@@ -209,7 +211,7 @@ impl Cache {
     }
 
     pub(crate) async fn l2_flush(&self) -> Result<(), RelayError> {
-        self.l2_pattern_del("v:*").await?;
+        self.l2_pattern_del(&format!("{CACHE_NS}:*")).await?;
         self.l2_pattern_del("gen:*").await?;
         Ok(())
     }

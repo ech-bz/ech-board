@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use super::fetch_content;
 use super::{BoardObject, ForumObject, Moderators, list_mods, load_board, load_forum};
 use crate::app_state::AppState;
+use crate::cache::CACHE_NS;
 use crate::error::RelayError;
 use crate::types::ContentKind;
 use serde::Serialize;
@@ -17,10 +18,10 @@ pub(crate) struct ForumView {
 }
 
 pub(crate) async fn fetch(state: &AppState) -> Result<Vec<u8>, RelayError> {
-    let forum_uid = state.forum.id;
+    let forum_uid = state.forum.root.id;
     state
         .cache
-        .get_or_build("v:forum".into(), async {
+        .get_or_build(format!("{CACHE_NS}:forum"), async {
             let forum_obj = load_forum(&state.upstream, forum_uid).await?;
 
             let boards_table_id = forum_obj.projection.boards().id;

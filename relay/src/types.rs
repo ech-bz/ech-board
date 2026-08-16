@@ -4,6 +4,34 @@ use actix_multipart::form::{
 use serde::{Deserialize, Serialize};
 use sui_sdk_types::Address;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum EntityKind {
+    Forum,
+    Board,
+    Thread,
+    Post,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) struct Feed {
+    pub(crate) id: Address,
+    pub(crate) counter: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) struct Entity {
+    pub(crate) feed: Feed,
+    pub(crate) version: u16,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub(crate) struct EntityRoot {
+    pub(crate) id: Address,
+    pub(crate) entity: Entity,
+    pub(crate) genesis: bool,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) enum RequestV2 {
     Uid,

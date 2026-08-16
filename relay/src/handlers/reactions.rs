@@ -1,4 +1,5 @@
 use crate::app_state::AppState;
+use crate::cache::CACHE_NS;
 use crate::error::RelayError;
 use crate::handlers::{DynamicFields, Registry, Sender};
 use futures::future::join_all;
@@ -61,7 +62,7 @@ async fn cached_find_reaction(
     post_uid: Address,
     pk: Address,
 ) -> Result<Option<Address>, RelayError> {
-    let key = format!("v:reactions:{post_uid}:{pk}");
+    let key = format!("{CACHE_NS}:reactions:{post_uid}:{pk}");
     if let Some(cached) = state.cache.peek(&key).await {
         if let Ok(view) = bcs::from_bytes::<PostReactionsView>(&cached) {
             return Ok(view.reaction);

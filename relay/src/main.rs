@@ -12,6 +12,7 @@ mod thumbnail;
 mod tripcode;
 mod types;
 mod upstream;
+mod realtime;
 
 use actix_cors::Cors;
 use actix_multipart::form::{MultipartForm, MultipartFormConfig};
@@ -57,6 +58,7 @@ async fn main() -> std::io::Result<()> {
     let bind_addr = cfg.server.bind.clone();
     let admin_bind = cfg.server.admin_bind.clone();
     let admin_key_config = cfg.sponsor.private_key_base64.clone();
+    let realtime_url = cfg.upstream.submit_url.clone();
     let state = AppState::from_config(cfg).await?;
 
     if let Some(Command::Import {
@@ -84,6 +86,11 @@ async fn main() -> std::io::Result<()> {
         return Ok(());
     }
 
+    tokio::spawn(realtime::run_observer(
+        realtime_url,
+        state.sse_tx.clone(),
+    ));
+
     let state = web::Data::new(state);
 
     let public_state = state.clone();
@@ -110,6 +117,9 @@ async fn main() -> std::io::Result<()> {
             .service(bans_handler)
             .service(healthz)
             .service(decrypt_handler)
+            .service(realtime::sse_forum_handler)
+            .service(realtime::sse_board_handler)
+            .service(realtime::sse_thread_handler)
     })
     .bind(&bind_addr)?
     .run();

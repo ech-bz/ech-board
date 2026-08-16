@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::app_state::AppState;
+use crate::cache::CACHE_NS;
 use crate::error::RelayError;
 use serde::{Deserialize, Serialize};
 use sui_sdk_types::{Address, TypeTag};
@@ -18,7 +19,7 @@ pub(crate) async fn resolve_post(
     board_uid: Address,
     number: u64,
 ) -> Result<Vec<u8>, RelayError> {
-    let key = format!("v:resolvepost:{board_uid}:{number}");
+    let key = format!("{CACHE_NS}:resolvepost:{board_uid}:{number}");
     if let Some(cached) = state.cache.peek(&key).await {
         return Ok(cached);
     }
@@ -52,7 +53,7 @@ pub(crate) async fn resolve_thread(
     board_uid: Address,
     number: u64,
 ) -> Result<Vec<u8>, RelayError> {
-    let key = format!("v:resolvethread:{board_uid}:{number}");
+    let key = format!("{CACHE_NS}:resolvethread:{board_uid}:{number}");
     if let Some(cached) = state.cache.peek(&key).await {
         return Ok(cached);
     }
@@ -94,6 +95,7 @@ struct PostEntry {
 pub(crate) struct BoardView {
     pub(crate) board: BoardObject,
     pub(crate) threads: Vec<ThreadObject>,
+    pub(crate) op_posts: HashMap<Address, PostObject>,
     pub(crate) last_3: HashMap<Address, Vec<PostObject>>,
     pub(crate) text: HashMap<Address, Vec<u8>>,
     pub(crate) plain_text: HashMap<Address, Vec<u8>>,
@@ -119,7 +121,7 @@ pub(crate) async fn fetch(
         .gen_get(&format!("gen:board:{board_uid}"))
         .await;
     let key = format!(
-        "v:board:{board_uid}:{pcounter}:{rgen}:{}",
+        "{CACHE_NS}:board:{board_uid}:{pcounter}:{rgen}:{}",
         cursor.unwrap_or(0)
     );
     if let Some(cached) = state.cache.peek(&key).await {
@@ -162,29 +164,42 @@ pub(crate) async fn fetch(
 
     let thread_map = load_threads(&state.upstream, &thread_addrs).await?;
     let mut threads = Vec::with_capacity(thread_addrs.len());
-    let mut post_addrs_by_thread: Vec<(Address, Vec<Address>)> =
+    let mut op_addrs: Vec<(Address, Address)> = Vec::with_capacity(thread_addrs.len());
+    let mut reply_addrs_by_thread: Vec<(Address, Vec<Address>)> =
         Vec::with_capacity(thread_addrs.len());
 
     for thread_id in thread_addrs {
         let Some(thread) = thread_map.get(&thread_id) else {
             continue;
         };
-        let thread_uid = thread.id;
-        let mut post_addrs = vec![thread.projection.op()];
-        post_addrs.extend_from_slice(thread.projection.last_3());
-        post_addrs_by_thread.push((thread_uid, post_addrs));
+        let thread_uid = thread.root.id;
+        op_addrs.push((thread_uid, thread.projection.op()));
+        reply_addrs_by_thread.push((thread_uid, thread.projection.last_3().to_vec()));
         threads.push(thread.clone());
     }
 
-    let all_post_ids: Vec<_> = post_addrs_by_thread
+    let all_post_ids: Vec<_> = op_addrs
         .iter()
-        .flat_map(|(_, addrs)| addrs.iter().copied())
+        .map(|(_, id)| *id)
+        .chain(
+            reply_addrs_by_thread
+                .iter()
+                .flat_map(|(_, addrs)| addrs.iter().copied()),
+        )
         .collect();
 
     let post_map = load_posts(&state.upstream, &all_post_ids).await?;
 
-    let mut last_3 = HashMap::with_capacity(post_addrs_by_thread.len());
-    for (thread_uid, addrs) in &post_addrs_by_thread {
+    let mut op_posts = HashMap::with_capacity(op_addrs.len());
+    for (thread_uid, id) in &op_addrs {
+        let post = post_map.get(id).ok_or_else(|| {
+            crate::error::RelayError::Internal(format!("post {id} not loaded"))
+        })?;
+        op_posts.insert(*thread_uid, post.clone());
+    }
+
+    let mut last_3 = HashMap::with_capacity(reply_addrs_by_thread.len());
+    for (thread_uid, addrs) in &reply_addrs_by_thread {
         let mut posts = Vec::with_capacity(addrs.len());
         for id in addrs {
             let post = post_map.get(id).ok_or_else(|| {
@@ -196,11 +211,20 @@ pub(crate) async fn fetch(
     }
 
     let deleted_threads: HashSet<Address> =
-        threads.iter().filter(|t| t.projection.deleted()).map(|t| t.id).collect();
-    let text_hashes: HashSet<Address> = last_3
+        threads.iter().filter(|t| t.projection.deleted()).map(|t| t.root.id).collect();
+    let preview_posts: Vec<&PostObject> = op_posts
         .iter()
         .filter(|(tid, _)| !deleted_threads.contains(tid))
-        .flat_map(|(_, posts)| posts.iter())
+        .map(|(_, p)| p)
+        .chain(
+            last_3
+                .iter()
+                .filter(|(tid, _)| !deleted_threads.contains(tid))
+                .flat_map(|(_, posts)| posts.iter()),
+        )
+        .collect();
+    let text_hashes: HashSet<Address> = preview_posts
+        .iter()
         .filter(|p| !p.projection.deleted())
         .filter_map(|p| p.projection.text_hash())
         .collect();
@@ -218,22 +242,15 @@ pub(crate) async fn fetch(
             plain_text_hashes.insert(h);
         }
     }
-    for (tid, posts) in &last_3 {
-        if deleted_threads.contains(tid) {
-            continue;
-        }
-        for post in posts.iter().filter(|p| !p.projection.deleted()) {
-            if let Some(h) = post.projection.name_hash() {
-                plain_text_hashes.insert(h);
-            }
+    for post in preview_posts.iter().filter(|p| !p.projection.deleted()) {
+        if let Some(h) = post.projection.name_hash() {
+            plain_text_hashes.insert(h);
         }
     }
     let plain_text = fetch_content(&state.seaweed, ContentKind::PlainText, plain_text_hashes).await;
 
-    let media_hashes: HashSet<Address> = last_3
+    let media_hashes: HashSet<Address> = preview_posts
         .iter()
-        .filter(|(tid, _)| !deleted_threads.contains(tid))
-        .flat_map(|(_, posts)| posts.iter())
         .filter(|p| !p.projection.deleted())
         .flat_map(|p| p.projection.media_hashes().iter().copied())
         .collect();
@@ -252,6 +269,7 @@ pub(crate) async fn fetch(
     let response = BoardView {
         board,
         threads,
+        op_posts,
         last_3,
         text,
         plain_text,

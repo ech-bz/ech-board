@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::app_state::AppState;
+use crate::cache::CACHE_NS;
 use crate::error::RelayError;
 use serde::Serialize;
 use sui_sdk_types::Address;
@@ -30,7 +31,7 @@ pub(crate) async fn fetch(state: &AppState, thread_uid: Address) -> Result<Vec<u
         .cache
         .gen_get(&format!("gen:thread:{thread_uid}"))
         .await;
-    let key = format!("v:thread:{thread_uid}:{pcounter}:{rgen}");
+    let key = format!("{CACHE_NS}:thread:{thread_uid}:{pcounter}:{rgen}");
     state
         .cache
         .get_or_build(key, async {

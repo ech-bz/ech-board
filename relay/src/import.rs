@@ -377,7 +377,7 @@ fn board_objects(state: &AppState, sender: &Address, rest: Vec<Address>) -> Vec<
         mutable: true,
     });
     objs.push(IntentObject {
-        id: state.forum.id,
+        id: state.forum.root.id,
         mutable: true,
     });
     for id in rest {
@@ -879,7 +879,7 @@ async fn migrate_thread(
     let media_hashes = upload_files(state, client, opts, post).await?;
     let text_hash = upload_text(
         state,
-        &post_parts(state.forum.id, board_id, &opts.board, mapping, post),
+        &post_parts(state.forum.root.id, board_id, &opts.board, mapping, post),
     )
     .await?;
     let topic_hash = upload_plaintext(state, post.subject.as_deref().unwrap_or("")).await?;
@@ -936,7 +936,7 @@ async fn migrate_post(
     let media_hashes = upload_files(state, client, opts, post).await?;
     let text_hash = upload_text(
         state,
-        &post_parts(state.forum.id, board_id, &opts.board, mapping, post),
+        &post_parts(state.forum.root.id, board_id, &opts.board, mapping, post),
     )
     .await?;
     let name_hash = upload_plaintext(state, name.as_deref().unwrap_or("")).await?;
@@ -1279,7 +1279,8 @@ async fn replay(
     for ev in reaction_events {
         let uid = uid_response(state, &ev.ip).await?;
         let ip32 = ip32_response(state, &ev.post, &ev.ip).await?;
-        let mut payload = event("set_reaction");
+        let mut payload = event("set_reaction_v2");
+        push_bytes(&mut payload, &None::<Address>);
         push_bytes(&mut payload, &ev.icon);
         let mut inner = uid;
         inner.extend_from_slice(&ip32);
@@ -1345,7 +1346,7 @@ async fn thread_event(
                 mutable: true,
             },
             IntentObject {
-                id: state.forum.id,
+                id: state.forum.root.id,
                 mutable: true,
             },
             IntentObject {

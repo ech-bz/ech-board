@@ -295,6 +295,28 @@ impl UpstreamSender {
         .collect()
     }
 
+    pub async fn fetch_feed_entries(
+        &self,
+        feed_id: Address,
+        start: u64,
+        end: u64,
+    ) -> Result<Vec<(u64, Vec<u8>)>, RelayError> {
+        let ids: Vec<Address> = (start..end)
+            .map(|i| feed_id.derive_object_id(&TypeTag::U64, &i.to_le_bytes()))
+            .collect();
+        let objects = self.fetch_objects(&ids).await?;
+        let mut out = Vec::with_capacity(objects.len());
+        for (i, obj) in (start..end).zip(objects.into_iter()) {
+            if let Some(obj) = obj {
+                let entry: FeedEntry<Vec<u8>> = obj.contents().deserialize().map_err(|e| {
+                    RelayError::Internal(format!("bcs decode FeedEntry: {e}"))
+                })?;
+                out.push((i, entry.value));
+            }
+        }
+        Ok(out)
+    }
+
     pub async fn list_dynamic_fields(
         &self,
         parent_id: Address,
@@ -400,7 +422,7 @@ impl UpstreamSender {
     ) -> Result<Vec<Option<sui_rpc::proto::sui::rpc::v2::Object>>, RelayError> {
         let mut client = self.client.clone();
         let mut request = BatchGetObjectsRequest::default();
-        request.read_mask = Some(FieldMask::from_str("owner,version,digest,contents"));
+        request.read_mask = Some(FieldMask::from_str("owner,version,digest,contents,object_type"));
         request.requests = object_ids
             .iter()
             .map(|object_id| GetObjectRequest::new(object_id))

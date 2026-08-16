@@ -1,4 +1,5 @@
 use crate::app_state::AppState;
+use crate::cache::CACHE_NS;
 use crate::error::RelayError;
 use serde::{Deserialize, Serialize};
 use sui_sdk_types::Address;
@@ -23,7 +24,7 @@ pub(crate) async fn fetch(
     query: FeedQuery,
 ) -> Result<Vec<u8>, RelayError> {
     let key = format!(
-        "v:feed:{feed_id}:{}:{}",
+        "{CACHE_NS}:feed:{feed_id}:{}:{}",
         query.counter,
         query.cursor.unwrap_or(0)
     );

@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::app_state::AppState;
+use crate::cache::CACHE_NS;
 use crate::error::RelayError;
 use serde::Serialize;
 use sui_sdk_types::Address;
@@ -21,7 +22,7 @@ pub(crate) struct PostView {
 }
 
 pub(crate) async fn fetch(state: &AppState, post_uid: Address) -> Result<Vec<u8>, RelayError> {
-    let key = format!("v:post:{post_uid}");
+    let key = format!("{CACHE_NS}:post:{post_uid}");
     state
         .cache
         .get_or_build(key, async {

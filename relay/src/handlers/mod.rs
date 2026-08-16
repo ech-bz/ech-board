@@ -13,7 +13,7 @@ pub(crate) mod send;
 pub(crate) mod thread;
 
 use crate::seaweed::SeaweedClient;
-use crate::types::{ContentKind, MediaMeta, Tripcode};
+use crate::types::{ContentKind, EntityRoot, Feed, MediaMeta, Tripcode};
 use actix_web::HttpRequest;
 use futures::StreamExt;
 use futures::TryStreamExt;
@@ -35,12 +35,6 @@ pub(super) struct Table {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub(super) struct Feed {
-    pub(super) id: Address,
-    pub(super) counter: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
 pub(super) struct Moderators {
     pub(super) forum_admin: Option<Address>,
     pub(super) forum_mods: Vec<Address>,
@@ -51,8 +45,7 @@ pub(super) struct Moderators {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub(super) struct ForumObject {
-    pub(super) id: Address,
-    pub(super) entity: Entity,
+    pub(super) root: EntityRoot,
     pub(super) projection: ForumProjection,
 }
 
@@ -109,8 +102,7 @@ impl ForumProjection {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub(super) struct BoardObject {
-    pub(super) id: Address,
-    pub(super) entity: Entity,
+    pub(super) root: EntityRoot,
     pub(super) projection: BoardProjection,
 }
 
@@ -237,8 +229,7 @@ impl BoardProjection {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub(super) struct ThreadObject {
-    pub(super) id: Address,
-    pub(super) entity: Entity,
+    pub(super) root: EntityRoot,
     pub(super) projection: ThreadProjection,
 }
 
@@ -371,8 +362,7 @@ impl ThreadProjection {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub(super) struct PostObject {
-    pub(super) id: Address,
-    pub(super) entity: Entity,
+    pub(super) root: EntityRoot,
     pub(super) projection: PostProjection,
 }
 
@@ -529,21 +519,6 @@ pub(super) struct Shard {
     pub(super) counters: Table,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-pub(super) struct Entity {
-    pub(super) feed: Feed,
-    pub(super) version: u16,
-}
-
-#[derive(Deserialize)]
-struct EntityRoot {
-    #[allow(dead_code)]
-    id: Address,
-    entity: Entity,
-    #[allow(dead_code)]
-    genesis: bool,
-}
-
 struct DynamicFields {
     values: HashMap<Vec<u8>, Vec<u8>>,
 }
@@ -639,14 +614,12 @@ pub(super) async fn load_forum(
         ))),
     };
     Ok(ForumObject {
-        id,
-        entity: Entity { feed: root.entity.feed, version },
+        root,
         projection,
     })
 }
 
 fn decode_board(
-    id: Address,
     root: EntityRoot,
     fields: DynamicFields,
 ) -> Result<BoardObject, crate::error::RelayError> {
@@ -688,8 +661,7 @@ fn decode_board(
         ))),
     };
     Ok(BoardObject {
-        id,
-        entity: Entity { feed: root.entity.feed, version },
+        root,
         projection,
     })
 }
@@ -702,7 +674,7 @@ pub(super) async fn load_board(
         load_root(upstream, id),
         DynamicFields::load(upstream, id),
     );
-    decode_board(id, root?, fields?)
+    decode_board(root?, fields?)
 }
 
 async fn load_board_from_root(
@@ -711,7 +683,7 @@ async fn load_board_from_root(
     root: EntityRoot,
 ) -> Result<BoardObject, crate::error::RelayError> {
     let fields = DynamicFields::load(upstream, id).await?;
-    decode_board(id, root, fields)
+    decode_board(root, fields)
 }
 
 pub(super) async fn load_posts_and_board(
@@ -728,7 +700,7 @@ pub(super) async fn load_posts_and_board(
     let board = load_board_from_root(upstream, board_id, board_root).await?;
     let posts = futures::stream::iter(post_ids.into_iter().zip(roots).map(|(id, root)| async move {
         let fields = DynamicFields::load(upstream, id).await?;
-        decode_post(id, root, fields)
+        decode_post(root, fields)
     }))
     .buffer_unordered(64)
     .collect::<Vec<_>>()
@@ -739,7 +711,6 @@ pub(super) async fn load_posts_and_board(
 }
 
 fn decode_thread(
-    id: Address,
     root: EntityRoot,
     fields: DynamicFields,
 ) -> Result<ThreadObject, crate::error::RelayError> {
@@ -791,8 +762,7 @@ fn decode_thread(
         ))),
     };
     Ok(ThreadObject {
-        id,
-        entity: Entity { feed: root.entity.feed, version },
+        root,
         projection,
     })
 }
@@ -805,7 +775,7 @@ pub(super) async fn load_thread(
         load_root(upstream, id),
         DynamicFields::load(upstream, id),
     );
-    decode_thread(id, root?, fields?)
+    decode_thread(root?, fields?)
 }
 
 pub(super) async fn load_threads(
@@ -816,17 +786,16 @@ pub(super) async fn load_threads(
     let threads = futures::stream::iter(ids.iter().zip(objects.into_iter()).map(|(id, object)| async move {
         let root = object.as_ref()?.contents().deserialize::<EntityRoot>().ok()?;
         let fields = DynamicFields::load(upstream, *id).await.ok()?;
-        decode_thread(*id, root, fields).ok()
+        decode_thread(root, fields).ok()
     }))
     .buffer_unordered(64)
     .filter_map(|t| async move { t })
     .collect::<Vec<_>>()
     .await;
-    Ok(threads.into_iter().map(|t| (t.id, t)).collect())
+    Ok(threads.into_iter().map(|t| (t.root.id, t)).collect())
 }
 
 fn decode_post(
-    id: Address,
     root: EntityRoot,
     fields: DynamicFields,
 ) -> Result<PostObject, crate::error::RelayError> {
@@ -892,8 +861,7 @@ fn decode_post(
         ))),
     };
     Ok(PostObject {
-        id,
-        entity: Entity { feed: root.entity.feed, version },
+        root,
         projection,
     })
 }
@@ -906,7 +874,7 @@ pub(super) async fn load_post(
         load_root(upstream, id),
         DynamicFields::load(upstream, id),
     );
-    decode_post(id, root?, fields?)
+    decode_post(root?, fields?)
 }
 
 pub(super) async fn load_posts(
@@ -926,12 +894,12 @@ pub(super) async fn load_posts(
                 crate::error::RelayError::Internal(format!("post root {id} decode: {e}"))
             })?;
         let fields = DynamicFields::load(upstream, *id).await?;
-        decode_post(*id, root, fields)
+        decode_post(root, fields)
     }))
     .buffer_unordered(64)
     .try_collect::<Vec<_>>()
     .await?;
-    Ok(posts.into_iter().map(|p| (p.id, p)).collect())
+    Ok(posts.into_iter().map(|p| (p.root.id, p)).collect())
 }
 
 pub(super) async fn list_mods(
