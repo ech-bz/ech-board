@@ -17,20 +17,32 @@ public enum Request has copy, drop, store {
     Geo,
 }
 
-public(package) fun request_uid(): Request {
-    Request::Uid
+public enum RequestV2 has copy, drop, store {
+    Uid,
+    Ip32(address),
+    Tripcode,
+    Geo,
+    Captcha,
 }
 
-public(package) fun request_ip32(domain: address): Request {
-    Request::Ip32(domain)
+public(package) fun request_uid(): RequestV2 {
+    RequestV2::Uid
 }
 
-public(package) fun request_tripcode(): Request {
-    Request::Tripcode
+public(package) fun request_ip32(domain: address): RequestV2 {
+    RequestV2::Ip32(domain)
 }
 
-public(package) fun request_geo(): Request {
-    Request::Geo
+public(package) fun request_tripcode(): RequestV2 {
+    RequestV2::Tripcode
+}
+
+public(package) fun request_geo(): RequestV2 {
+    RequestV2::Geo
+}
+
+public(package) fun request_captcha(): RequestV2 {
+    RequestV2::Captcha
 }
 
 #[allow(unused_field)]
@@ -49,8 +61,18 @@ public struct Intent {
     sender: Sender,
 }
 
-public(package) fun into_event(self: Intent): vector<u8> {
-    let Intent { event, .. } = self;
+public struct IntentV2 {
+    module_name: String,
+    function: String,
+    nonce: u64,
+    objects: vector<IntentObject>,
+    requests: vector<RequestV2>,
+    event: vector<u8>,
+    sender: Sender,
+}
+
+public(package) fun into_event(self: IntentV2): vector<u8> {
+    let IntentV2 { event, .. } = self;
     event
 }
 
@@ -59,13 +81,13 @@ public(package) fun decode(
     expected_module: String,
     expected_function: String,
     signature: vector<u8>,
-    expected_requests: vector<Request>,
+    expected_requests: vector<RequestV2>,
     responses: vector<u8>,
     expected_ids: vector<ID>,
     allowed_events: vector<String>,
-): Intent {
+): IntentV2 {
     let mut intent_bcs = bcs::new(data);
-    let mut intent = Intent {
+    let mut intent = IntentV2 {
         module_name: ascii::string(intent_bcs.peel_vec_u8()),
         function: ascii::string(intent_bcs.peel_vec_u8()),
         nonce: intent_bcs.peel_u64(),
@@ -77,10 +99,11 @@ public(package) fun decode(
         }),
         requests: intent_bcs.peel_vec!(
             |bcs| match (bcs.peel_enum_tag()) {
-                0 => Request::Uid,
-                1 => Request::Ip32(bcs.peel_address()),
-                2 => Request::Tripcode,
-                3 => Request::Geo,
+                0 => RequestV2::Uid,
+                1 => RequestV2::Ip32(bcs.peel_address()),
+                2 => RequestV2::Tripcode,
+                3 => RequestV2::Geo,
+                4 => RequestV2::Captcha,
                 _ => abort error::intent_args_mismatch(),
             },
         ),
@@ -137,12 +160,13 @@ public(package) fun decode(
         .requests
         .do_ref!(
             |req| match (req) {
-                Request::Uid => uid.fill(responses.peel_vec_u8()),
-                Request::Ip32(_) => ip32.fill(responses.peel_u256()),
-                Request::Tripcode => tripcode.fill(
+                RequestV2::Uid => uid.fill(responses.peel_vec_u8()),
+                RequestV2::Ip32(_) => ip32.fill(responses.peel_u256()),
+                RequestV2::Tripcode => tripcode.fill(
                     tripcode::new(responses.peel_bool(), ascii::string(responses.peel_vec_u8())),
                 ),
-                Request::Geo => geo.fill(responses.peel_u32()),
+                RequestV2::Geo => geo.fill(responses.peel_u32()),
+                RequestV2::Captcha => { let _ = responses.peel_u8(); },
             },
         );
     assert!(responses.into_remainder_bytes().is_empty(), error::intent_args_mismatch());
@@ -157,14 +181,14 @@ public(package) fun decode(
     intent
 }
 
-public(package) fun nonce(self: &Intent): u64 {
+public(package) fun nonce(self: &IntentV2): u64 {
     self.nonce
 }
 
-public(package) fun sender(self: &Intent): Sender {
+public(package) fun sender(self: &IntentV2): Sender {
     self.sender
 }
 
-public(package) fun requests(self: &Intent): vector<Request> {
+public(package) fun requests(self: &IntentV2): vector<RequestV2> {
     self.requests
 }
