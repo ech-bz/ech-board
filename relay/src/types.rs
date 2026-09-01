@@ -99,8 +99,11 @@ pub(crate) enum FileType {
     Jpeg,
     Png,
     WebP,
+    Gif,
     Mp4,
     WebM,
+    Mp3,
+    Ogg,
 }
 
 impl FileType {
@@ -109,10 +112,19 @@ impl FileType {
             [0xff, 0xd8, ..] => Some(Self::Jpeg),
             [0x89, 0x50, 0x4e, 0x47, ..] => Some(Self::Png),
             [0x52, 0x49, 0x46, 0x46, ..] => Some(Self::WebP),
+            [b'G', b'I', b'F', b'8', b'7', b'a', ..]
+            | [b'G', b'I', b'F', b'8', b'9', b'a', ..] => Some(Self::Gif),
             [_, _, _, _, b'f', b't', b'y', b'p', ..] => Some(Self::Mp4),
             [0x1a, 0x45, 0xdf, 0xa3, ..] => Some(Self::WebM),
+            [b'I', b'D', b'3', ..] => Some(Self::Mp3),
+            [0xff, b, ..] if *b & 0xE0 == 0xE0 => Some(Self::Mp3),
+            [b'O', b'g', b'g', b'S', ..] => Some(Self::Ogg),
             _ => None,
         }
+    }
+
+    pub(crate) fn is_audio(&self) -> bool {
+        matches!(self, Self::Mp3 | Self::Ogg)
     }
 
     pub(crate) fn mime(&self) -> &'static str {
@@ -120,8 +132,11 @@ impl FileType {
             Self::Jpeg => "image/jpeg",
             Self::Png => "image/png",
             Self::WebP => "image/webp",
+            Self::Gif => "image/gif",
             Self::Mp4 => "video/mp4",
             Self::WebM => "video/webm",
+            Self::Mp3 => "audio/mpeg",
+            Self::Ogg => "audio/ogg",
         }
     }
 }

@@ -392,15 +392,18 @@ async fn verify_content(
         let data = tokio::fs::read(file.file.path())
             .await
             .map_err(|e| error::RelayError::SponsorBuild(format!("failed to read media: {e}")))?;
-        let thumb = crate::thumbnail::generate(&data, file.file.path())?;
+        let ft = crate::thumbnail::validate(&data)?;
         let meta = crate::thumbnail::compute_meta(&data, file.file.path())?;
         let meta_bcs = bcs::to_bytes(&meta)
             .map_err(|e| error::RelayError::Internal(format!("bcs encode media meta: {e}")))?;
         state.seaweed.put(ContentKind::Media, hash, &data).await?;
-        state
-            .seaweed
-            .put(ContentKind::Thumbnail, hash, &thumb)
-            .await?;
+        if !ft.is_audio() {
+            let thumb = crate::thumbnail::generate(&data, file.file.path())?;
+            state
+                .seaweed
+                .put(ContentKind::Thumbnail, hash, &thumb)
+                .await?;
+        }
         state
             .seaweed
             .put(ContentKind::MediaMeta, hash, &meta_bcs)

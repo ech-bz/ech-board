@@ -193,8 +193,9 @@ pub(crate) async fn reaction_put(
     if Blake2b::digest(&data).as_slice() != hash.as_bytes() {
         return Ok(HttpResponse::BadRequest().body("content hash mismatch"));
     }
-    if FileType::detect(&data).is_none() {
-        return Ok(HttpResponse::BadRequest().body("unsupported file type"));
+    match FileType::detect(&data) {
+        Some(FileType::Jpeg | FileType::Png | FileType::WebP | FileType::Gif) => {}
+        _ => return Ok(HttpResponse::BadRequest().body("unsupported file type")),
     }
 
     state

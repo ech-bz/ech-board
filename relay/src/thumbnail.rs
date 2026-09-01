@@ -26,9 +26,12 @@ pub(crate) fn validate(data: &[u8]) -> Result<FileType, RelayError> {
 
 fn to_image(data: &[u8], path: &Path, ft: FileType) -> Result<image::DynamicImage, RelayError> {
     match ft {
-        FileType::Jpeg | FileType::Png | FileType::WebP => image::load_from_memory(data)
+        FileType::Jpeg | FileType::Png | FileType::WebP | FileType::Gif => image::load_from_memory(data)
             .map_err(|e| RelayError::SponsorBuild(format!("image decode: {e}"))),
         FileType::Mp4 | FileType::WebM => extract_frame(path),
+        FileType::Mp3 | FileType::Ogg => {
+            Err(RelayError::SponsorBuild("audio has no thumbnail".into()))
+        }
     }
 }
 
@@ -97,7 +100,7 @@ pub(crate) fn compute_meta(data: &[u8], path: &Path) -> Result<MediaMeta, RelayE
     let ft = validate(data)?;
     let size = data.len() as u64;
     match ft {
-        FileType::Jpeg | FileType::Png | FileType::WebP => {
+        FileType::Jpeg | FileType::Png | FileType::WebP | FileType::Gif => {
             let img = image::load_from_memory(data)
                 .map_err(|e| RelayError::SponsorBuild(format!("image decode: {e}")))?;
             let (w, h) = img.dimensions();
@@ -117,6 +120,17 @@ pub(crate) fn compute_meta(data: &[u8], path: &Path) -> Result<MediaMeta, RelayE
                 width: w,
                 height: h,
                 duration_ms: probe_duration(path),
+                size,
+            })
+        }
+        FileType::Mp3 | FileType::Ogg => {
+            let duration_ms = probe_duration(path)
+                .ok_or_else(|| RelayError::SponsorBuild("audio probe failed".into()))?;
+            Ok(MediaMeta {
+                mime: ft.mime().to_string(),
+                width: 0,
+                height: 0,
+                duration_ms: Some(duration_ms),
                 size,
             })
         }

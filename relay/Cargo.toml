@@ -26,7 +26,7 @@ futures = "0.3.31"
 hex = "0.4"
 graphql_client = { version = "0.14", default-features = false, features = ["graphql_query_derive"] }
 jsonwebtoken = "9"
-image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
 encoding_rs = "0.8"
 sha1 = "0.10"
 pwhash = "1"
