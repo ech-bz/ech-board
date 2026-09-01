@@ -71,7 +71,7 @@ impl IntentPayload for NewBoardPayload {
     }
     async fn cleanup(&self, state: &AppState) {
         if let Some(hash) = &self.description_hash {
-            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+            // let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
         }
     }
 }
@@ -138,10 +138,10 @@ macro_rules! impl_thread_payload {
             async fn cleanup(&self, state: &AppState) {
                 cleanup_content(state, &self.text_hash, &self.media_hashes).await;
                 if let Some(hash) = &self.topic_hash {
-                    let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+                    // let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
                 }
                 if let Some(hash) = &self.name_hash {
-                    let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+                    // let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
                 }
             }
         }
@@ -177,7 +177,7 @@ macro_rules! impl_post_payload {
             async fn cleanup(&self, state: &AppState) {
                 cleanup_content(state, &self.text_hash, &self.media_hashes).await;
                 if let Some(hash) = &self.name_hash {
-                    let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+                    // let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
                 }
             }
         }
@@ -217,7 +217,7 @@ impl IntentPayload for SetTextPayload {
     }
     async fn cleanup(&self, state: &AppState) {
         if let Some(hash) = &self.text_hash {
-            let _ = state.seaweed.delete(ContentKind::Text, hash).await;
+            // let _ = state.seaweed.delete(ContentKind::Text, hash).await;
         }
     }
 }
@@ -251,7 +251,7 @@ impl IntentPayload for SetTopicPayload {
     }
     async fn cleanup(&self, state: &AppState) {
         if let Some(hash) = &self.topic_hash {
-            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+            // let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
         }
     }
 }
@@ -278,7 +278,7 @@ impl IntentPayload for SetDescriptionPayload {
     }
     async fn cleanup(&self, state: &AppState) {
         if let Some(hash) = &self.description_hash {
-            let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
+            // let _ = state.seaweed.delete(ContentKind::PlainText, hash).await;
         }
     }
 }
@@ -315,7 +315,7 @@ impl IntentPayload for BanPayload {
         Ok(())
     }
     async fn cleanup(&self, state: &AppState) {
-        let _ = state.seaweed.delete(ContentKind::PlainText, &self.reason_hash).await;
+        // let _ = state.seaweed.delete(ContentKind::PlainText, &self.reason_hash).await;
     }
 }
 
@@ -412,11 +412,11 @@ async fn verify_content(
 
 async fn cleanup_content(state: &AppState, text_hash: &Option<Address>, media_hashes: &[Address]) {
     if let Some(hash) = text_hash {
-        let _ = state.seaweed.delete(ContentKind::Text, hash).await;
+        // let _ = state.seaweed.delete(ContentKind::Text, hash).await;
     }
     for hash in media_hashes {
-        let _ = state.seaweed.delete(ContentKind::Media, hash).await;
-        let _ = state.seaweed.delete(ContentKind::Thumbnail, hash).await;
+        // let _ = state.seaweed.delete(ContentKind::Media, hash).await;
+        // let _ = state.seaweed.delete(ContentKind::Thumbnail, hash).await;
     }
 }
 
