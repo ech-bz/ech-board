@@ -29,8 +29,8 @@ fn to_image(data: &[u8], path: &Path, ft: FileType) -> Result<image::DynamicImag
         FileType::Jpeg | FileType::Png | FileType::WebP | FileType::Gif => image::load_from_memory(data)
             .map_err(|e| RelayError::SponsorBuild(format!("image decode: {e}"))),
         FileType::Mp4 | FileType::WebM => extract_frame(path),
-        FileType::Mp3 | FileType::Ogg => {
-            Err(RelayError::SponsorBuild("audio has no thumbnail".into()))
+        FileType::Mp3 | FileType::Ogg | FileType::Pdf => {
+            Err(RelayError::SponsorBuild("media has no thumbnail".into()))
         }
     }
 }
@@ -134,5 +134,12 @@ pub(crate) fn compute_meta(data: &[u8], path: &Path) -> Result<MediaMeta, RelayE
                 size,
             })
         }
+        FileType::Pdf => Ok(MediaMeta {
+            mime: ft.mime().to_string(),
+            width: 0,
+            height: 0,
+            duration_ms: None,
+            size,
+        }),
     }
 }

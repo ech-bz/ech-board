@@ -397,7 +397,7 @@ async fn verify_content(
         let meta_bcs = bcs::to_bytes(&meta)
             .map_err(|e| error::RelayError::Internal(format!("bcs encode media meta: {e}")))?;
         state.seaweed.put(ContentKind::Media, hash, &data).await?;
-        if !ft.is_audio() {
+        if ft.supports_thumbnail() {
             let thumb = crate::thumbnail::generate(&data, file.file.path())?;
             state
                 .seaweed

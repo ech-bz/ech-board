@@ -104,6 +104,7 @@ pub(crate) enum FileType {
     WebM,
     Mp3,
     Ogg,
+    Pdf,
 }
 
 impl FileType {
@@ -119,12 +120,16 @@ impl FileType {
             [b'I', b'D', b'3', ..] => Some(Self::Mp3),
             [0xff, b, ..] if *b & 0xE0 == 0xE0 => Some(Self::Mp3),
             [b'O', b'g', b'g', b'S', ..] => Some(Self::Ogg),
+            [0x25, b'P', b'D', b'F', ..] => Some(Self::Pdf),
             _ => None,
         }
     }
 
-    pub(crate) fn is_audio(&self) -> bool {
-        matches!(self, Self::Mp3 | Self::Ogg)
+    pub(crate) fn supports_thumbnail(&self) -> bool {
+        matches!(
+            self,
+            Self::Jpeg | Self::Png | Self::WebP | Self::Gif | Self::Mp4 | Self::WebM
+        )
     }
 
     pub(crate) fn mime(&self) -> &'static str {
@@ -137,6 +142,7 @@ impl FileType {
             Self::WebM => "video/webm",
             Self::Mp3 => "audio/mpeg",
             Self::Ogg => "audio/ogg",
+            Self::Pdf => "application/pdf",
         }
     }
 }
