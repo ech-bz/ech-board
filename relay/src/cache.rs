@@ -75,12 +75,15 @@ fn cache_err(err: fred::error::Error) -> RelayError {
 
 impl Cache {
     pub(crate) async fn new(cfg: &RelayDragonflyConfig) -> Result<Self, RelayError> {
-        let config = Config::from_url(&cfg.url)
+        let mut config = Config::from_url(&cfg.url)
             .map_err(|e| RelayError::ConfigInvalid(format!("dragonfly url: {e}")))?;
-        let pool = Builder::from_config(config.clone())
+        config.fail_fast = false;
+        let mut builder = Builder::from_config(config);
+        builder.set_policy(ReconnectPolicy::new_exponential(0, 100, 5000, 2));
+        let pool = builder
             .build_pool(L2_POOL_SIZE)
             .map_err(|e| RelayError::ConfigInvalid(format!("dragonfly pool: {e}")))?;
-        let subscriber = Builder::from_config(config)
+        let subscriber = builder
             .build()
             .map_err(|e| RelayError::ConfigInvalid(format!("dragonfly subscriber: {e}")))?;
         pool.init()
