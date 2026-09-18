@@ -511,7 +511,10 @@ pub(crate) async fn handle_send(
             )),
             ("forum_apply_post_intent_uid", "ban")
             | ("board_apply_post_intent_uid", "ban")
-            | ("thread_apply_post_intent_uid", "ban") => Some(Box::new(
+            | ("thread_apply_post_intent_uid", "ban")
+            | ("forum_apply_intent_uid", "ban")
+            | ("board_apply_intent_uid", "ban")
+            | ("thread_apply_intent_uid", "ban") => Some(Box::new(
                 bcs::from_bytes::<BanPayload>(event_payload).map_err(payload_err)?,
             )),
             _ => None,
@@ -946,6 +949,8 @@ fn validate_target(intent: &IntentV2, event_tag: &str) -> Result<(), error::Rela
             "del_moderator",
             "new_board",
             "set_timestamp_precision",
+            "ban",
+            "unban",
         ],
         "forum_apply_post_intent_uid" => &["ban", "unban"],
         "board_apply_intent_uid" => &[
@@ -961,6 +966,8 @@ fn validate_target(intent: &IntentV2, event_tag: &str) -> Result<(), error::Rela
             "set_ignore_forum_bans",
             "set_reactions",
             "set_pinned",
+            "ban",
+            "unban",
         ],
         "board_apply_thread_intent_uid" => &["new_post_migrate_v2"],
         "board_apply_intent_uid_tripcode" => &["new_thread_migrate_v2"],
@@ -986,6 +993,8 @@ fn validate_target(intent: &IntentV2, event_tag: &str) -> Result<(), error::Rela
             "set_deleted",
             "set_topic",
             "set_admin",
+            "ban",
+            "unban",
         ],
         "thread_apply_post_intent_uid" => &["ban", "unban", "post_set_deleted", "post_set_text"],
         "post_apply_intent_uid" => &["upgrade", "ban_media", "unban_media"],
