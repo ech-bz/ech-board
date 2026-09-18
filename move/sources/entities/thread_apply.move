@@ -133,6 +133,31 @@ public(package) fun apply(
                 };
             };
         },
+        b"ban" => {
+            let key = bans::key(event.peel_address(), event.peel_u8(), event.peel_u256());
+            let value = bans::value(event.peel_u256(), event.peel_u64());
+            assert!(
+                addr == forum.admin()
+                    || forum.mods().contains(addr)
+                    || board.mods().contains(addr)
+                    || self.admin().is_some_and!(|a| addr == a)
+                    || self.mods().contains(addr),
+                error::not_authorized(),
+            );
+            self.bans_mut().ban(key, value);
+        },
+        b"unban" => {
+            let key = bans::key(event.peel_address(), event.peel_u8(), event.peel_u256());
+            assert!(
+                addr == forum.admin()
+                    || forum.mods().contains(addr)
+                    || board.mods().contains(addr)
+                    || self.admin().is_some_and!(|a| addr == a)
+                    || self.mods().contains(addr),
+                error::not_authorized(),
+            );
+            self.bans_mut().unban(key);
+        },
         _ => abort,
     };
 

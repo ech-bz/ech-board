@@ -38,7 +38,15 @@ public fun forum_apply_intent_uid(
         vector[intent::request_uid()],
         responses,
         vector[object::id(clock), object::id(nonce_shard), object::id(forum)],
-        vector["upgrade", "add_moderator", "del_moderator", "new_board", "set_timestamp_precision"],
+        vector[
+            "upgrade",
+            "add_moderator",
+            "del_moderator",
+            "new_board",
+            "set_timestamp_precision",
+            "ban",
+            "unban",
+        ],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     forum.apply(ctx, clock, intent.into_event());
@@ -108,6 +116,8 @@ public fun board_apply_intent_uid(
             "set_ignore_forum_bans",
             "set_reactions",
             "set_pinned",
+            "ban",
+            "unban",
         ],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
@@ -589,6 +599,8 @@ public fun thread_apply_intent_uid(
             "set_deleted",
             "set_topic",
             "set_admin",
+            "ban",
+            "unban",
         ],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());

@@ -115,9 +115,9 @@ pub(crate) async fn apply(state: &AppState, intents: &[(IntentV2, Vec<u8>)]) {
             }
             "ban" | "unban" => {
                 let level = match intent.function.as_str() {
-                    "forum_apply_post_intent_uid" => forum,
-                    "board_apply_post_intent_uid" => board,
-                    "thread_apply_post_intent_uid" => thread,
+                    "forum_apply_intent_uid" | "forum_apply_post_intent_uid" => forum,
+                    "board_apply_intent_uid" | "board_apply_post_intent_uid" => board,
+                    "thread_apply_intent_uid" | "thread_apply_post_intent_uid" => thread,
                     _ => None,
                 };
                 if let Some(l) = level {
