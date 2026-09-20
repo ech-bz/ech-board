@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 const L1_MAX_BYTES: u64 = 64 * 1024 * 1024;
 const L2_POOL_SIZE: usize = 4;
 
-pub(crate) const CACHE_NS: &str = "v3";
+pub(crate) const CACHE_NS: &str = "v4";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Invalidation {

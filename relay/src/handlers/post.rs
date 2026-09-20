@@ -240,6 +240,7 @@ pub(crate) struct PostView {
     pub(crate) thread: ThreadObject,
     pub(crate) board: BoardObject,
     pub(crate) text: HashMap<Address, Vec<u8>>,
+    pub(crate) plain_text: HashMap<Address, Vec<u8>>,
     pub(crate) media_meta: HashMap<Address, MediaMeta>,
     pub(crate) moderators: Moderators,
 }
@@ -266,11 +267,22 @@ pub(crate) async fn fetch(state: &AppState, post_uid: Address) -> Result<Vec<u8>
             if let Some(h) = post.projection.text_hash() {
                 text_hashes.insert(h);
             }
-            let text = fetch_content(&state.seaweed, ContentKind::Text, text_hashes).await;
+            let mut plain_text_hashes = HashSet::new();
+            if let Some(h) = post.projection.name_hash() {
+                plain_text_hashes.insert(h);
+            }
+            if let Some(h) = thread.projection.topic_hash() {
+                plain_text_hashes.insert(h);
+            }
 
             let media_hashes: HashSet<Address> =
                 post.projection.media_hashes().iter().copied().collect();
-            let media_meta = fetch_media_meta(&state.seaweed, media_hashes).await;
+
+            let (text, plain_text, media_meta) = tokio::join!(
+                fetch_content(&state.seaweed, ContentKind::Text, text_hashes),
+                fetch_content(&state.seaweed, ContentKind::PlainText, plain_text_hashes),
+                fetch_media_meta(&state.seaweed, media_hashes),
+            );
 
             let moderators = Moderators {
                 forum_admin: Some(state.forum.projection.admin()),
@@ -285,6 +297,7 @@ pub(crate) async fn fetch(state: &AppState, post_uid: Address) -> Result<Vec<u8>
                 thread,
                 board,
                 text,
+                plain_text,
                 media_meta,
                 moderators,
             };

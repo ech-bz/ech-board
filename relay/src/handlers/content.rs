@@ -71,15 +71,26 @@ pub(crate) async fn fetch(
     if post.projection.deleted() {
         return Ok(HttpResponse::NotFound().finish());
     }
-    if kind == ContentKind::Text {
-        if post.projection.text_hash() != Some(hash) {
-            return Ok(HttpResponse::NotFound().finish());
+    match kind {
+        ContentKind::Text => {
+            if post.projection.text_hash() != Some(hash) {
+                return Ok(HttpResponse::NotFound().finish());
+            }
         }
-    } else {
-        if !post.projection.media_hashes().contains(&hash)
-            || post.projection.banned_media().contains(&hash)
-        {
-            return Ok(HttpResponse::NotFound().finish());
+        ContentKind::PlainText => {
+            let allowed = post.projection.name_hash() == Some(hash)
+                || thread.projection.topic_hash() == Some(hash)
+                || board.projection.description_hash() == Some(hash);
+            if !allowed {
+                return Ok(HttpResponse::NotFound().finish());
+            }
+        }
+        _ => {
+            if !post.projection.media_hashes().contains(&hash)
+                || post.projection.banned_media().contains(&hash)
+            {
+                return Ok(HttpResponse::NotFound().finish());
+            }
         }
     }
 
