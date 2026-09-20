@@ -95,6 +95,14 @@ impl PostProjection {
         }
     }
 
+    pub fn uid(&self) -> &[u8] {
+        match self {
+            PostProjection::V1 { uid, .. } => uid,
+            PostProjection::V2 { uid, .. } => uid,
+            PostProjection::V3 { uid, .. } => uid,
+        }
+    }
+
     pub fn deleted(&self) -> bool {
         match self {
             PostProjection::V1 { deleted, .. } => *deleted,

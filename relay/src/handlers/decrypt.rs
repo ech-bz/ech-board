@@ -68,7 +68,7 @@ pub(crate) async fn handle(
         None
     };
 
-    let _post = if req.path.len() >= 4 {
+    let post = if req.path.len() >= 4 {
         Some(
             load_post(&state.upstream, req.path[3])
                 .await
@@ -78,31 +78,49 @@ pub(crate) async fn handle(
         None
     };
 
-    let mut mods_table_ids = vec![forum.projection.mods().id];
+    let mut mods_tables: Vec<(Scope, Address)> = vec![(Scope::Forum, forum.projection.mods().id)];
     let mut bans_registry = forum.projection.bans();
 
     if let Some(ref b) = board {
-        mods_table_ids.push(b.projection.mods().id);
+        mods_tables.push((Scope::Board, b.projection.mods().id));
         bans_registry = b.projection.bans();
     }
     if let Some(ref t) = thread {
-        mods_table_ids.push(t.projection.mods().id);
+        mods_tables.push((Scope::Thread, t.projection.mods().id));
         bans_registry = t.projection.bans();
     }
 
-    let authorized = check_authorization(
+    let scope = match check_authorization(
         state,
-        &mods_table_ids,
+        &mods_tables,
         &sender_address(&req.pk),
         &forum.projection.admin(),
         thread.as_ref().and_then(|t| t.projection.admin().as_ref()),
     )
-    .await?;
+    .await?
+    {
+        Some(scope) => scope,
+        None => {
+            return Err(error::RelayError::SponsorBuild(
+                "pk not authorized in chain".into(),
+            ));
+        }
+    };
 
-    if !authorized {
-        return Err(error::RelayError::SponsorBuild(
-            "pk not authorized in chain".into(),
-        ));
+    if let Scope::Thread = scope {
+        let post = post.ok_or_else(|| {
+            error::RelayError::SponsorBuild("thread-scoped decrypt requires the post in path".into())
+        })?;
+        if post.projection.thread() != req.path[2] {
+            return Err(error::RelayError::SponsorBuild(
+                "post does not belong to this thread".into(),
+            ));
+        }
+        if post.projection.uid() != req.uid.as_slice() {
+            return Err(error::RelayError::SponsorBuild(
+                "uid is not the uid of that post".into(),
+            ));
+        }
     }
 
     let decrypted = state
@@ -139,33 +157,42 @@ pub(crate) async fn handle(
     Ok(out)
 }
 
+#[derive(Clone, Copy)]
+enum Scope {
+    Forum,
+    Board,
+    Thread,
+}
+
 async fn check_authorization(
     state: &AppState,
-    mods_table_ids: &[Address],
+    mods_tables: &[(Scope, Address)],
     pk: &Address,
     forum_admin: &Address,
     thread_admin: Option<&Address>,
-) -> Result<bool, error::RelayError> {
-    let mut entry_ids: Vec<Address> = Vec::with_capacity(mods_table_ids.len());
+) -> Result<Option<Scope>, error::RelayError> {
+    let mut entry_ids: Vec<Address> = Vec::with_capacity(mods_tables.len());
 
-    for mods_id in mods_table_ids {
+    for (_, mods_id) in mods_tables {
         entry_ids.push(mods_id.derive_dynamic_child_id(&TypeTag::Address, pk.as_bytes()));
     }
 
     let entries = state.upstream.fetch_objects(&entry_ids).await?;
-    if entries.iter().any(|e| e.is_some()) {
-        return Ok(true);
+    for (i, entry) in entries.iter().enumerate() {
+        if entry.is_some() {
+            return Ok(Some(mods_tables[i].0));
+        }
     }
 
     if forum_admin == pk {
-        return Ok(true);
+        return Ok(Some(Scope::Forum));
     }
 
     if thread_admin == Some(pk) {
-        return Ok(true);
+        return Ok(Some(Scope::Thread));
     }
 
-    Ok(false)
+    Ok(None)
 }
 
 fn sender_address(pk: &Address) -> Address {
