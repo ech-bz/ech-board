@@ -200,9 +200,10 @@ public(package) fun new(
     board: address,
     number: u64,
     topic_hash: Option<u256>,
+    self_admin: bool,
 ): Thread {
     let mut self = empty(ctx);
-    let mut event = event::new("genesis", responses, sender);
+    let mut event = event::new("genesis_v2", responses, sender);
 
     event = event.with(&board);
     *self.board_mut() = board;
@@ -212,6 +213,10 @@ public(package) fun new(
 
     event = event.with(&topic_hash);
     *self.topic_hash_mut() = topic_hash;
+
+    let admin = if (self_admin) option::some(sender.addr()) else option::none<address>();
+    event = event.with(&admin);
+    *self.admin_mut() = admin;
 
     self.push(event.build());
     self

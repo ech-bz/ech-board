@@ -5,7 +5,7 @@ import { useStore } from '../store'
 import { usePostSelection } from '../postSelection/PostSelectionProvider'
 import { threadModItems } from '../threadModItems'
 import type { PostRecord } from '../../store/records'
-import type { BanScope } from '../../core/intent/capabilities'
+import { canSelectAllFromAuthor, type BanScope } from '../../core/intent/capabilities'
 import type { ThreadObject } from '../../core/bcs/types'
 
 export function PostMenu(props: { record: PostRecord; closed: boolean; threadObject?: ThreadObject; onEdit?: (uid: string) => void }) {
@@ -23,7 +23,7 @@ export function PostMenu(props: { record: PostRecord; closed: boolean; threadObj
       result.push({ label: t('mod.moderators'), onClick: () => actions.openThreadModerators() })
       result.push({ label: t('mod.bans'), onClick: () => actions.openBans(t('mod.bans'), rec.uid) })
       if (actions.canBanAny()) result.push({ label: t('mod.banUid'), onClick: () => actions.openBanUid() })
-      if (selection?.canSelect()) result.push(author())
+      if (selection?.canSelect() && canSelectAllFromAuthor(actions.roleKinds())) result.push(author())
       result.push({ label: t('mod.debugThread'), onClick: () => actions.openLogs('thread', props.threadObject) })
       return result
     }
@@ -42,7 +42,7 @@ export function PostMenu(props: { record: PostRecord; closed: boolean; threadObj
         result.push({ label: t('mod.unban'), onClick: () => actions.runUnban(rec.post, threadUid, scope) })
       }
     }
-    if (selection?.canSelect()) result.push(author())
+    if (selection?.canSelect() && canSelectAllFromAuthor(actions.roleKinds())) result.push(author())
     result.push({ label: t('mod.debugPost'), onClick: () => actions.openLogs('post', rec.post) })
     return result
   }

@@ -47,6 +47,7 @@ fun fixture(
         board.id(),
         1,
         option::none(),
+        false,
     );
     let post = post::new(
         ctx,
@@ -80,6 +81,7 @@ fun fixture_multi(
         board.id(),
         1,
         option::none(),
+        false,
     );
     let post = post::new(
         ctx,
@@ -694,6 +696,7 @@ fun post_rejects_thread_cross_reference_mismatch() {
         board.id(),
         2,
         option::none(),
+        false,
     );
     post.apply(
         &mut ctx,

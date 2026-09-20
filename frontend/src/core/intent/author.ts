@@ -24,9 +24,10 @@ function cachePut(key: string, value: string): void {
   keyCache.set(key, value)
 }
 
-async function uidKey(relayUrl: string, uid: Uint8Array, pathHex: string[], pk: Uint8Array, secretKey: Uint8Array): Promise<string> {
-  const signature = await sign(secretKey, concatBytes(uid, ...pathHex.map(fromHex), pk))
-  const hashes = await fetchBanHashes(relayUrl, uid, pathHex, pk, signature)
+async function uidKey(relayUrl: string, uid: Uint8Array, pathHex: string[], postHex: string, pk: Uint8Array, secretKey: Uint8Array): Promise<string> {
+  const path = [...pathHex, postHex]
+  const signature = await sign(secretKey, concatBytes(uid, ...path.map(fromHex), pk))
+  const hashes = await fetchBanHashes(relayUrl, uid, path, pk, signature)
   return toHex(hashes[EXACT_IP_MASK_INDEX])
 }
 
@@ -54,7 +55,7 @@ export async function matchPostsByAuthor(opts: {
   const worker = async () => {
     while (cursor < pending.length) {
       const item = pending[cursor++]
-      const key = await uidKey(opts.relayUrl, item.uid, opts.pathHex, opts.pk, opts.secretKey)
+      const key = await uidKey(opts.relayUrl, item.uid, opts.pathHex, item.id, opts.pk, opts.secretKey)
       cachePut(cacheKey(scope, item.uid), key)
       keys.set(item.id, key)
       done += 1

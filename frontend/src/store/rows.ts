@@ -1,5 +1,5 @@
 import { BoardProjection, PostProjection, ThreadProjection, type PostObject, type ThreadObject } from '../core/bcs/types'
-import { deriveThreadTitle, postUid, threadCount, threadTopicText } from '../core/posts'
+import { deriveThreadTitle, authorAddressOf, postUid, threadCount, threadTopicText } from '../core/posts'
 import { toHex } from '../core/intent/crypto'
 import type { BoardViewData } from '../core/load'
 
@@ -14,6 +14,7 @@ export interface ThreadRowRecord {
   readonly closed: boolean
   readonly pinned: boolean
   readonly deleted: boolean
+  readonly opAdmin: boolean
   readonly skipped: number
   readonly thread: ThreadObject
 }
@@ -28,6 +29,7 @@ function rowOf(data: BoardViewData, thread: ThreadObject, tp: ThreadProjection, 
   const uid = toHex(thread.root.id)
   const op = data.opPosts.get(uid) ?? null
   const count = threadCount(tp)
+  const admin = tp.admin()
   return {
     uid,
     number: Number(tp.number()),
@@ -39,6 +41,7 @@ function rowOf(data: BoardViewData, thread: ThreadObject, tp: ThreadProjection, 
     closed: tp.closed(),
     pinned: tp.pinned() || boardPinned.has(uid),
     deleted: tp.deleted(),
+    opAdmin: admin !== null && op !== null && toHex(admin) === authorAddressOf(op),
     skipped: Math.max(0, count - 1 - replies.length),
     thread,
   }
@@ -65,7 +68,7 @@ export function buildRows(data: BoardViewData): RowsResult {
 
 export function sameRow(x: ThreadRowRecord, y: ThreadRowRecord): boolean {
   if (x === y) return true
-  if (x.uid !== y.uid || x.number !== y.number || x.opUid !== y.opUid || x.title !== y.title || x.topic !== y.topic || x.count !== y.count || x.closed !== y.closed || x.pinned !== y.pinned || x.deleted !== y.deleted || x.skipped !== y.skipped) return false
+  if (x.uid !== y.uid || x.number !== y.number || x.opUid !== y.opUid || x.title !== y.title || x.topic !== y.topic || x.count !== y.count || x.closed !== y.closed || x.pinned !== y.pinned || x.deleted !== y.deleted || x.opAdmin !== y.opAdmin || x.skipped !== y.skipped) return false
   if (x.replyUids.length !== y.replyUids.length) return false
   for (let j = 0; j < x.replyUids.length; j++) if (x.replyUids[j] !== y.replyUids[j]) return false
   return true

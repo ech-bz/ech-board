@@ -5,7 +5,7 @@ import { decodeRealtimeEvent } from '../core/events/core'
 import { contentUrl, clearMediaCache, type MediaInfo } from '../core/media'
 import { contentMapOf, loadBoardPage, mediaMetaMapOf, type BoardViewData, type PostCtx, type ThreadViewData, type TooltipPost } from '../core/load'
 import { fetchPostView } from '../core/api/relay'
-import { deriveThreadTitle, postMeta, postParts, postReplyTargets, postUid, threadTopicText, type PostRef } from '../core/posts'
+import { authorAddressOf, deriveThreadTitle, postMeta, postParts, postReplyTargets, postUid, threadTopicText, type PostRef } from '../core/posts'
 import { computeTweak, derivePostKeypair, fromHex, toHex } from '../core/intent/crypto'
 import type { DecryptContext } from '../core/intent/decrypt'
 import { buildDecryptContext } from '../core/intent/decrypt'
@@ -22,6 +22,7 @@ export interface ThreadPageInfo {
   closed: boolean
   deleted: boolean
   pinned: boolean
+  opAdmin: boolean
 }
 
 export interface BoardPageInfo {
@@ -302,15 +303,20 @@ export class ForumStore {
     const thread = this.threadData
     if (thread) {
       const post = thread.posts.find((item) => postUid(item) === uid)
-      return post ? { post, threadUid: thread.threadUid, ctx: thread, threadObj: thread.thread, slug, refs } : null
+      if (!post) return null
+      const opUid = toHex(new ThreadProjection(thread.thread.projection).op())
+      return { post, threadUid: thread.threadUid, ctx: thread, threadObj: thread.thread, slug, refs, opAddress: this.opAddressOfUid(opUid) }
     }
     const board = this.boardData
     if (!board) return null
     const op = [...board.opPosts.entries()].find(([, item]) => postUid(item) === uid)
-    if (op) return { post: op[1], threadUid: op[0], ctx: board, threadObj: board.threads.find((item) => toHex(item.root.id) === op[0]), slug, refs }
+    if (op) return { post: op[1], threadUid: op[0], ctx: board, threadObj: board.threads.find((item) => toHex(item.root.id) === op[0]), slug, refs, opAddress: authorAddressOf(op[1]) }
     for (const [threadUid, list] of board.last3) {
       const post = list.find((item) => postUid(item) === uid)
-      if (post) return { post, threadUid, ctx: board, threadObj: board.threads.find((item) => toHex(item.root.id) === threadUid), slug, refs }
+      if (post) {
+        const opPost = board.opPosts.get(threadUid)
+        return { post, threadUid, ctx: board, threadObj: board.threads.find((item) => toHex(item.root.id) === threadUid), slug, refs, opAddress: opPost ? authorAddressOf(opPost) : null }
+      }
     }
     return null
   }
@@ -685,6 +691,11 @@ export class ForumStore {
     const threadOp = this.threadData ? new ThreadProjection(this.threadData.thread.projection) : null
     const threadOpUid = threadOp ? toHex(threadOp.op()) : null
     const threadDeletedFlag = threadOp ? threadOp.deleted() : false
+    const opAddressOf = (threadUid: string): string | null => {
+      if (this.threadData) return threadOpUid ? this.opAddressOfUid(threadOpUid) : null
+      const op = this.boardData?.opPosts.get(threadUid)
+      return op ? authorAddressOf(op) : null
+    }
     for (const uid of uids) {
       const post = this.postsByUid.get(uid)
       if (!post) continue
@@ -708,6 +719,7 @@ export class ForumStore {
         boardReactions: ctx.boardReactions,
         roleKinds: this.roleKinds,
         op,
+        opAddress: opAddressOf(threadUid),
         opDeleted: op && opDeleted,
         relNum,
         refs: this.backrefs.get(uid) ?? [],
@@ -721,6 +733,11 @@ export class ForumStore {
       this.notify(uid)
     }
     this.recomputeCollections()
+  }
+
+  private opAddressOfUid(uid: string): string | null {
+    const post = this.postsByUid.get(uid) ?? this.threadData?.posts.find((item) => toHex(item.root.id) === uid)
+    return post ? authorAddressOf(post) : null
   }
 
   private isThreadOp(uid: string, threadUid: string): boolean {
@@ -797,10 +814,18 @@ export class ForumStore {
       const data = this.threadData
       if (!data) return
       const tp = new ThreadProjection(data.thread.projection)
-      const next: ThreadPageInfo = { uid: data.threadUid, closed: tp.closed(), deleted: tp.deleted(), pinned: tp.pinned() }
+      const admin = tp.admin()
+      const opAddress = this.opAddressOfUid(toHex(tp.op()))
+      const next: ThreadPageInfo = {
+        uid: data.threadUid,
+        closed: tp.closed(),
+        deleted: tp.deleted(),
+        pinned: tp.pinned(),
+        opAdmin: admin !== null && opAddress !== null && toHex(admin) === opAddress,
+      }
       const prev = this.threadPage
       this.threadPage = next
-      if (!prev || prev.uid !== next.uid || prev.closed !== next.closed || prev.deleted !== next.deleted || prev.pinned !== next.pinned) this.notifyPage()
+      if (!prev || prev.uid !== next.uid || prev.closed !== next.closed || prev.deleted !== next.deleted || prev.pinned !== next.pinned || prev.opAdmin !== next.opAdmin) this.notifyPage()
       return
     }
     this.recomputeBoardPage(this.boardData)

@@ -214,7 +214,7 @@ public fun board_apply_intent_uid_captcha(
         vector[intent::request_uid(), intent::request_captcha()],
         responses,
         vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
-        vector["new_thread_v2"],
+        vector["new_thread_v3"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply(ctx, clock, forum, intent.into_event());
@@ -238,7 +238,7 @@ public fun board_apply_intent_uid_geo_captcha(
         vector[intent::request_uid(), intent::request_geo(), intent::request_captcha()],
         responses,
         vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
-        vector["new_thread_v2"],
+        vector["new_thread_v3"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply(ctx, clock, forum, intent.into_event());
@@ -262,7 +262,7 @@ public fun board_apply_intent_uid_tripcode_captcha(
         vector[intent::request_uid(), intent::request_tripcode(), intent::request_captcha()],
         responses,
         vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
-        vector["new_thread_v2"],
+        vector["new_thread_v3"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply(ctx, clock, forum, intent.into_event());
@@ -286,7 +286,7 @@ public fun board_apply_intent_uid_geo_tripcode_captcha(
         vector[intent::request_uid(), intent::request_geo(), intent::request_tripcode(), intent::request_captcha()],
         responses,
         vector[object::id(clock), object::id(nonce_shard), object::id(forum), object::id(board)],
-        vector["new_thread_v2"],
+        vector["new_thread_v3"],
     );
     nonce_shard.inc_checked(&intent.sender().addr(), intent.nonce());
     board.apply(ctx, clock, forum, intent.into_event());

@@ -36,6 +36,7 @@ export interface ModEnv {
   slug?: string
   roles: RoleOption[]
   myTweaks: Map<string, Uint8Array>
+  postByUid: (uidHex: string) => string | null
   onDone?: () => Promise<void> | void
   onPostDone?: (post: PostObject) => Promise<void> | void
   onPostContent?: (hashHex: string, blob: Uint8Array) => void
@@ -58,8 +59,13 @@ function concatBytes(...arrays: Uint8Array[]): Uint8Array {
   return out
 }
 
-function banScopeVars(scope: BanScope, forumId: string, boardUid: string, threadUid: string, durationMs: number, reason: string) {
-  const pathHex = scope === 'forum' ? [forumId] : scope === 'board' ? [forumId, boardUid] : [forumId, boardUid, threadUid]
+function banScopeVars(scope: BanScope, forumId: string, boardUid: string, threadUid: string, postUid: string | null, durationMs: number, reason: string) {
+  if (scope === 'thread' && postUid === null) throw new Error('thread ban requires the post address')
+  const pathHex = scope === 'forum'
+    ? [forumId]
+    : scope === 'board'
+      ? [forumId, boardUid]
+      : [forumId, boardUid, threadUid, postUid!]
   const reasonHash = blake2b(new TextEncoder().encode(reason), { dkLen: 32 })
   const expires = Date.now() + durationMs
   const level = fromHex(scope === 'forum' ? forumId : scope === 'board' ? boardUid : threadUid)
@@ -195,7 +201,7 @@ export function createModActions(getEnv: () => ModEnv) {
     const forumIdBytes = fromHex(env.forumId)
     const tweak = computeTweak(...role.tweakArgs)
     const { secretKey, publicKey } = derivePostKeypair(masterSecret, forumIdBytes, tweak)
-    const vars = banScopeVars(scope, env.forumId, env.boardUid, threadUid, durationMs, reason)
+    const vars = banScopeVars(scope, env.forumId, env.boardUid, threadUid, toHex(post.root.id), durationMs, reason)
     const event = await buildBanEvent(new PostProjection(post.projection).uid(), scope, mask, vars, secretKey, publicKey, env.relayUrl)
     const builder = createIntentBuilder({ forumId: env.forumId, nonceShardsId: env.nonceShardsId, relayUrl: env.relayUrl, masterSecret })
       .event(event)
@@ -215,7 +221,9 @@ export function createModActions(getEnv: () => ModEnv) {
     const forumIdBytes = fromHex(env.forumId)
     const tweak = computeTweak(...role.tweakArgs)
     const { secretKey, publicKey } = derivePostKeypair(masterSecret, forumIdBytes, tweak)
-    const vars = banScopeVars(scope, env.forumId, env.boardUid, threadUid, durationMs, reason)
+    const postUid = scope === 'thread' ? env.postByUid(uidHex) : null
+    if (scope === 'thread' && postUid === null) throw new Error('uid not found in this thread')
+    const vars = banScopeVars(scope, env.forumId, env.boardUid, threadUid, postUid, durationMs, reason)
     const event = await buildBanEvent(fromHex(uidHex), scope, mask, vars, secretKey, publicKey, env.relayUrl)
     let builder = createIntentBuilder({ forumId: env.forumId, nonceShardsId: env.nonceShardsId, relayUrl: env.relayUrl, masterSecret })
       .event(event)
@@ -317,7 +325,6 @@ export function createModActions(getEnv: () => ModEnv) {
     const tweak = computeTweak(...role.tweakArgs)
     const { secretKey, publicKey } = derivePostKeypair(masterSecret, forumIdBytes, tweak)
     const sender = toHex(publicKey).replace(/^0x/, '')
-    const vars = banScopeVars(scope, env.forumId, env.boardUid, threadUid, durationMs, reason)
     let done = 0
     for (let start = 0; start < posts.length; start += BATCH_CHUNK) {
       const chunk = posts.slice(start, start + BATCH_CHUNK)
@@ -325,6 +332,7 @@ export function createModActions(getEnv: () => ModEnv) {
       const items: { intentBytes: Uint8Array; signature: Uint8Array }[] = []
       for (let i = 0; i < chunk.length; i++) {
         const post = chunk[i]
+        const vars = banScopeVars(scope, env.forumId, env.boardUid, threadUid, toHex(post.root.id), durationMs, reason)
         const event = await buildBanEvent(new PostProjection(post.projection).uid(), scope, mask, vars, secretKey, publicKey, env.relayUrl)
         const builder = createIntentBuilder({ forumId: env.forumId, nonceShardsId: env.nonceShardsId, relayUrl: env.relayUrl })
           .event(event)

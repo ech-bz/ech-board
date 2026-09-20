@@ -11,6 +11,7 @@ import { ReactionPicker } from './ReactionPicker'
 import { MediaBox } from './MediaBox'
 import { LockIcon } from '../icons/LockIcon'
 import { PinIcon } from '../icons/PinIcon'
+import { BroomIcon } from '../icons/BroomIcon'
 import { useGallery } from './Gallery/useGallery'
 import { useIsMobile } from './Gallery/useIsMobile'
 import { PostRefLink } from '../postTooltip/PostRefLink'
@@ -72,6 +73,7 @@ const relNumVariants = cva('text-quote')
 const deletedVariants = cva('text-xs font-semibold uppercase tracking-wide text-danger')
 const lockIconVariants = cva('inline-flex size-4 flex-none align-middle text-danger')
 const pinIconVariants = cva('inline-flex size-4 flex-none align-middle text-success')
+const broomIconVariants = cva('inline-flex size-4 flex-none align-middle text-[#ff6600]')
 const mediaRowVariants = cva('mb-2 flex flex-wrap items-center gap-1')
 const expandRowVariants = cva('mt-2 text-center')
 const expandBtnVariants = cva('inline-flex cursor-pointer items-center justify-center rounded-full border-0 bg-chip px-2.5 py-1.5 text-sm text-fg')
@@ -93,6 +95,7 @@ export function PostBody(props: {
   record: PostRecord
   ctx: PostViewCtx
   threadClosed: boolean
+  threadBroom: boolean
   pinned?: boolean
   slug?: string
   threadNum?: number
@@ -339,6 +342,9 @@ export function PostBody(props: {
           <Show when={props.record.deleted}>
             <span class={deletedVariants()}>{t('post.deleted')}</span>
           </Show>
+          <Show when={props.record.op && props.threadBroom}>
+            <BroomIcon width={16} height={16} class={broomIconVariants()} />
+          </Show>
           <Show when={props.record.op && props.threadClosed}>
             <LockIcon width={16} height={16} class={lockIconVariants()} />
           </Show>
@@ -441,6 +447,7 @@ export function Post(props: {
   forumId: string
   threadUid: string
   threadClosed: boolean
+  threadBroom: boolean
   slug?: string
   threadNum?: number
   onEdit?: (uid: string) => void
@@ -460,6 +467,7 @@ export function Post(props: {
               boardUid: store.info()!.boardUid,
             }}
             threadClosed={props.threadClosed}
+            threadBroom={props.threadBroom}
             slug={props.slug}
             threadNum={props.threadNum}
             onEdit={props.onEdit}

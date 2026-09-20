@@ -23,6 +23,7 @@ export const ru = {
   'postForm.maxMediaPartial': 'Лимит вложений — {n}. Добавлено: {added}, пропущено: {skipped}.',
   'postForm.withFlag': 'С флажком',
   'postForm.stripExif': 'Удалить EXIF (только картинки)',
+  'postForm.becomeAdmin': 'Стать админом треда',
   'post.secret': 'приватный текст',
   'post.secretDecryptFailed': 'Не удалось расшифровать',
   'roles.anonymous': 'Анонимно',

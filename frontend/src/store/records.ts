@@ -1,7 +1,7 @@
 import { PostProjection, type PostObject, type PostPartInput, type MediaMetaData, type ModeratorsData } from '../core/bcs/types'
 import type { DecryptContext } from '../core/intent/decrypt'
 import { canPostAction, canUnbanMedia, SELF_MOD_WINDOW_MS, type PostAction } from '../core/intent/capabilities'
-import { matchesAuthor, roleForAddress, type PostRole, type RoleKind } from '../core/intent/roles'
+import { matchesAuthor, postRole, type PostRole, type RoleKind } from '../core/intent/roles'
 import { postMedia, postReactions, reactionUrl, type MediaInfo, type ReactionInfo } from '../core/media'
 import { partsToPlainText, postMeta, postParts, type PostRef } from '../core/posts'
 import { senderAddress, shardIndex, toHex } from '../core/intent/crypto'
@@ -58,6 +58,7 @@ export interface RecordInput {
   boardReactions: Uint8Array[]
   roleKinds: RoleKind[]
   op: boolean
+  opAddress: string | null
   opDeleted: boolean
   relNum: number
   refs: readonly PostRef[]
@@ -113,6 +114,7 @@ export function buildPostRecord(input: RecordInput): PostRecord {
   const pp = new PostProjection(post.projection)
   const meta = postMeta(post)
   const sender = pp.sender()
+  const senderAddr = senderAddress(sender.pk)
   const nameHash = pp.name_hash()
   const nameBytes = nameHash ? contentMap.get(toHex(nameHash)) : undefined
   const trip = pp.trip()
@@ -154,7 +156,7 @@ export function buildPostRecord(input: RecordInput): PostRecord {
     banned: pp.banned() !== null,
     bannedLevel: pp.banned() ? toHex(pp.banned()!.level) : null,
     mine,
-    role: input.op ? 'op' : roleForAddress(senderAddress(sender.pk), input.moderators),
+    role: postRole(senderAddr, input.moderators, input.op ? toHex(senderAddr) : input.opAddress),
     canEdit: allowed('edit') && !deleted,
     canDelete: allowed('delete') && !deleted,
     canRestore: allowed('restore') && deleted,

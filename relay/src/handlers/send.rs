@@ -77,8 +77,10 @@ impl IntentPayload for NewBoardPayload {
 }
 
 #[derive(Deserialize)]
-struct NewThreadV2Payload {
+struct NewThreadV3Payload {
     topic_hash: Option<Address>,
+    #[allow(dead_code)]
+    self_admin: bool,
     text_hash: Option<Address>,
     media_hashes: Vec<Address>,
     name_hash: Option<Address>,
@@ -184,7 +186,7 @@ macro_rules! impl_post_payload {
     };
 }
 
-impl_thread_payload!(NewThreadV2Payload);
+impl_thread_payload!(NewThreadV3Payload);
 impl_post_payload!(NewPostV2Payload);
 
 #[derive(Deserialize)]
@@ -488,11 +490,11 @@ pub(crate) async fn handle_send(
             ("forum_apply_intent_uid", "new_board") => Some(Box::new(
                 bcs::from_bytes::<NewBoardPayload>(event_payload).map_err(payload_err)?,
             )),
-            ("board_apply_intent_uid_captcha", "new_thread_v2")
-            | ("board_apply_intent_uid_tripcode_captcha", "new_thread_v2")
-            | ("board_apply_intent_uid_geo_captcha", "new_thread_v2")
-            | ("board_apply_intent_uid_geo_tripcode_captcha", "new_thread_v2") => Some(Box::new(
-                bcs::from_bytes::<NewThreadV2Payload>(event_payload).map_err(payload_err)?,
+            ("board_apply_intent_uid_captcha", "new_thread_v3")
+            | ("board_apply_intent_uid_tripcode_captcha", "new_thread_v3")
+            | ("board_apply_intent_uid_geo_captcha", "new_thread_v3")
+            | ("board_apply_intent_uid_geo_tripcode_captcha", "new_thread_v3") => Some(Box::new(
+                bcs::from_bytes::<NewThreadV3Payload>(event_payload).map_err(payload_err)?,
             )),
             ("board_apply_thread_intent_uid_captcha", "new_post_v2")
             | ("board_apply_thread_intent_uid_tripcode_captcha", "new_post_v2")
@@ -976,10 +978,10 @@ fn validate_target(intent: &IntentV2, event_tag: &str) -> Result<(), error::Rela
         "board_apply_thread_intent_uid_tripcode" => &["new_post_migrate_v2"],
         "board_apply_thread_intent_uid_geo" => &["new_post_migrate_v2"],
         "board_apply_thread_intent_uid_geo_tripcode" => &["new_post_migrate_v2"],
-        "board_apply_intent_uid_captcha" => &["new_thread_v2"],
-        "board_apply_intent_uid_tripcode_captcha" => &["new_thread_v2"],
-        "board_apply_intent_uid_geo_captcha" => &["new_thread_v2"],
-        "board_apply_intent_uid_geo_tripcode_captcha" => &["new_thread_v2"],
+        "board_apply_intent_uid_captcha" => &["new_thread_v3"],
+        "board_apply_intent_uid_tripcode_captcha" => &["new_thread_v3"],
+        "board_apply_intent_uid_geo_captcha" => &["new_thread_v3"],
+        "board_apply_intent_uid_geo_tripcode_captcha" => &["new_thread_v3"],
         "board_apply_thread_intent_uid_captcha" => &["new_post_v2"],
         "board_apply_thread_intent_uid_tripcode_captcha" => &["new_post_v2"],
         "board_apply_thread_intent_uid_geo_captcha" => &["new_post_v2"],

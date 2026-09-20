@@ -27,6 +27,7 @@ export function previewRecord(
     boardReactions: data.ctx.boardReactions,
     roleKinds,
     op: opUid === uid,
+    opAddress: data.opAddress,
     opDeleted: false,
     relNum: 1,
     refs: data.refs ?? [],

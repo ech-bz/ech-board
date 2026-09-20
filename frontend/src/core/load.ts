@@ -2,11 +2,12 @@ import { ensureDefaultRelay, ensureDefaultForumId, resolveRelayUrl } from './con
 import { getBoardReactions, getForumInfo } from './api/cache'
 import { fetchMyReactions } from './api/myReactions'
 import { fetchBoardView, fetchThreadView, fetchPostView } from './api/relay'
-import { BoardView, ThreadView, PostView, BoardProjection, type BoardObject, type ThreadObject, type PostObject, type MediaMetaData, type ModeratorsData } from './bcs/types'
+import { BoardView, ThreadView, PostView, BoardProjection, ThreadProjection, type BoardObject, type ThreadObject, type PostObject, type MediaMetaData, type ModeratorsData } from './bcs/types'
 import { toHex, fromHex } from './intent/crypto'
 import { getSecretKeyBytes } from './keys/storage'
 import { buildDecryptContext, type DecryptContext } from './intent/decrypt'
 import type { PostRef } from './posts'
+import { authorAddressOf } from './posts'
 
 export interface PostCtx {
   relayUrl: string
@@ -122,6 +123,7 @@ export interface TooltipPost {
   threadObj?: ThreadObject
   slug: string
   refs?: PostRef[]
+  opAddress: string | null
 }
 
 export async function loadPostTooltip(relayUrl: string, forumId: string, postUid: string): Promise<TooltipPost> {
@@ -146,5 +148,6 @@ export async function loadPostTooltip(relayUrl: string, forumId: string, postUid
     boardReactions: getBoardReactions(relayUrl, boardUid),
     myReactions,
   }
-  return { post: view.post, threadUid, ctx, threadObj: view.thread, slug: new BoardProjection(view.board.projection).slug() }
+  const opUid = toHex(new ThreadProjection(view.thread.projection).op())
+  return { post: view.post, threadUid, ctx, threadObj: view.thread, slug: new BoardProjection(view.board.projection).slug(), opAddress: opUid === toHex(view.post.root.id) ? authorAddressOf(view.post) : null }
 }

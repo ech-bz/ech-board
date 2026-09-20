@@ -25,6 +25,7 @@ export const en: Dict = {
   'postForm.maxMediaPartial': 'Media limit is {n}. Added: {added}, skipped: {skipped}.',
   'postForm.withFlag': 'With flag',
   'postForm.stripExif': 'Strip EXIF (images only)',
+  'postForm.becomeAdmin': 'Become thread admin',
   'post.secret': 'private text',
   'post.secretDecryptFailed': 'Failed to decrypt',
   'roles.anonymous': 'Anonymous',

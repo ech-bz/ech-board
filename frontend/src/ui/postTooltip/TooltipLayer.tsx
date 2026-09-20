@@ -109,6 +109,10 @@ export function TooltipLayer(props: { entry: Entry; register: (el: HTMLElement |
     const thread = props.entry.result()?.threadObj
     return thread ? new ThreadProjection(thread.projection).closed() : false
   }
+  const broom = () => {
+    const rec = record()
+    return !!rec && rec.op && rec.role === 'mop'
+  }
 
   return (
     <div
@@ -133,6 +137,7 @@ export function TooltipLayer(props: { entry: Entry; register: (el: HTMLElement |
               boardUid: props.entry.result()!.ctx.boardUid,
             }}
             threadClosed={closed()}
+            threadBroom={broom()}
             slug={slug()}
             threadNum={threadNum()}
             tooltip

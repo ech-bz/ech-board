@@ -202,6 +202,7 @@ fun forum_post_ban_unban_allowed_events() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let mut post = post::new(
         &mut ctx,
@@ -266,6 +267,7 @@ fun forum_post_ban_rejects_user() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let mut post = post::new(
         &mut ctx,

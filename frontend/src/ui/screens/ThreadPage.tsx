@@ -173,6 +173,7 @@ function ThreadBody(props: {
                 forumId={props.forumId}
                 threadUid={page()!.uid}
                 threadClosed={page()!.closed}
+                threadBroom={page()!.opAdmin}
                 slug={props.slug}
                 threadNum={props.threadNum}
                 onEdit={props.onEdit}

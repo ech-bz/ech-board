@@ -1,5 +1,9 @@
 import { PostProjection, ThreadProjection, PostPartVec, type PostObject, type PostPartInput } from './bcs/types'
-import { toHex } from './intent/crypto'
+import { senderAddress, toHex } from './intent/crypto'
+
+export function authorAddressOf(post: PostObject): string {
+  return toHex(senderAddress(new PostProjection(post.projection).sender().pk))
+}
 
 export function partsToPlainText(parts: PostPartInput[]): string {
   let out = ''

@@ -97,8 +97,9 @@ public(package) fun apply(
             assert!(*self.closed());
             *self.deleted_mut() = deleted;
         },
-        b"new_thread_v2" => {
+        b"new_thread_v3" => {
             let topic_hash = event.peel_option!(|b| b.peel_u256());
+            let self_admin = event.peel_bool();
             let text_hash = event.peel_option!(|b| b.peel_u256());
             let media_hashes = event.peel_vec!(|b| b.peel_u256());
             let name_hash = event.peel_option!(|b| b.peel_u256());
@@ -116,6 +117,7 @@ public(package) fun apply(
                 self.id(),
                 number,
                 topic_hash,
+                self_admin,
             );
             self.threads_mut().add(number, thread.id());
             let new_post = board::new_post_v2(
@@ -151,6 +153,7 @@ public(package) fun apply(
                 self.id(),
                 number,
                 topic_hash,
+                false,
             );
             self.threads_mut().add(number, thread.id());
             let new_post = board::new_post_migrate_v2(

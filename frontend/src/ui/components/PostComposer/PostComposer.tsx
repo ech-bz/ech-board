@@ -66,6 +66,7 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
   const [secretRefs, setSecretRefs] = createSignal<Map<number, PostPartInput> | null>(null)
   const [withFlag, setWithFlag] = createSignal(draft.withFlag)
   const [stripExifOn, setStripExifOn] = createSignal(draft.stripExifOn)
+  const [selfAdmin, setSelfAdmin] = createSignal(draft.selfAdmin)
   const [dragOver, setDragOver] = createSignal(false)
 
   const submitter = createPostSubmit({
@@ -98,6 +99,12 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
       moderators: info.moderators,
       op,
     })
+  })
+
+  const visibleRoles = () => roles().filter((item) => item.selectable !== false)
+
+  createEffect(() => {
+    if (!visibleRoles().some((item) => item.kind === sendAsKind())) setSendAsKind('anonymous')
   })
 
   const canSend = () =>
@@ -145,6 +152,7 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
       files: files(),
       withFlag: withFlag(),
       stripExifOn: stripExifOn(),
+      selfAdmin: selfAdmin(),
     })
   })
 
@@ -250,7 +258,7 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
         postMap: store.postMap(),
         role,
       },
-      { text: text(), name: name(), withFlag: withFlag(), files: files(), stripExif: stripExifOn() },
+      { text: text(), name: name(), withFlag: withFlag(), files: files(), stripExif: stripExifOn(), selfAdmin: false },
     )
     if (!res) return
     setText('')
@@ -267,7 +275,7 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
     const role = roles().find((item) => item.kind === sendAsKind())
     const res = await submitter.createThread(
       { forumId: info.forumId, nonceShardsId: info.nonceShardsId, relayUrl: info.relayUrl, boardUid: info.boardUid, slug, role },
-      { text: text(), name: name(), withFlag: withFlag(), files: files(), stripExif: stripExifOn() },
+      { text: text(), name: name(), withFlag: withFlag(), files: files(), stripExif: stripExifOn(), selfAdmin: selfAdmin() },
       subject(),
     )
     if (!res) return
@@ -276,6 +284,7 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
     setName('')
     setFiles([])
     setWithFlag(false)
+    setSelfAdmin(false)
     setOptionsOpen(isThread())
   }
 
@@ -342,7 +351,9 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
           onNameChange={setName}
           sendAsKind={sendAsKind()}
           onSendAsKindChange={setSendAsKind}
-          roles={roles()}
+          roles={visibleRoles()}
+          selfAdmin={selfAdmin()}
+          onSelfAdminChange={setSelfAdmin}
           subject={subject()}
           onSubjectChange={setSubject}
           withFlag={withFlag()}

@@ -9,10 +9,11 @@ export interface ComposerDraft {
   files: File[]
   withFlag: boolean
   stripExifOn: boolean
+  selfAdmin: boolean
 }
 
 function emptyDraft(mode: 'reply' | 'thread'): ComposerDraft {
-  return { text: '', subject: '', name: '', sendAsKind: 'anonymous', optionsOpen: mode === 'thread', files: [], withFlag: false, stripExifOn: true }
+  return { text: '', subject: '', name: '', sendAsKind: 'anonymous', optionsOpen: mode === 'thread', files: [], withFlag: false, stripExifOn: true, selfAdmin: false }
 }
 
 const drafts: Record<'reply' | 'thread', ComposerDraft> = {

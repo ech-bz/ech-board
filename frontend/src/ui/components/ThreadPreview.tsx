@@ -76,6 +76,7 @@ export function ThreadPreview(props: {
                   record={view().record}
                   ctx={view().ctx}
                   threadClosed={props.row.closed}
+                  threadBroom={props.row.opAdmin}
                   pinned={props.row.pinned}
                   slug={props.slug}
                   threadNum={props.row.number}
@@ -136,6 +137,7 @@ function ThreadPreviewReply(props: { uid: string; row: ThreadRowRecord; slug?: s
           record={entry().record}
           ctx={entry().ctx}
           threadClosed={props.row.closed}
+          threadBroom={props.row.opAdmin}
           slug={props.slug}
           threadNum={props.row.number}
           boardPage

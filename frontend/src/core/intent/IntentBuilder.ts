@@ -52,8 +52,8 @@ function resolveFunction(desc: EventDesc, tripcode: boolean, geo: boolean, captc
     return postAction && hasPost ? 'forum_apply_post_intent_uid' : 'forum_apply_intent_uid'
   }
   if (desc._ns === 'board') {
-    if (desc.name === 'new_thread' || desc.name === 'new_thread_v2' || desc.name === 'new_thread_migrate_v2') {
-      if (captcha && desc.name === 'new_thread_v2') {
+    if (desc.name === 'new_thread' || desc.name === 'new_thread_v2' || desc.name === 'new_thread_v3' || desc.name === 'new_thread_migrate_v2') {
+      if (captcha && (desc.name === 'new_thread_v2' || desc.name === 'new_thread_v3')) {
         if (tripcode && geo) return 'board_apply_intent_uid_geo_tripcode_captcha'
         if (tripcode) return 'board_apply_intent_uid_tripcode_captcha'
         if (geo) return 'board_apply_intent_uid_geo_captcha'

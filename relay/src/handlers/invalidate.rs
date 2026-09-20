@@ -79,7 +79,7 @@ pub(crate) async fn apply(state: &AppState, intents: &[(IntentV2, Vec<u8>)]) {
         let post = obj_at(&intent.objects, post_idx);
 
         match event {
-            "new_post_v2" | "new_post_migrate_v2" | "new_thread_v2" | "new_thread_migrate_v2" => {
+            "new_post_v2" | "new_post_migrate_v2" | "new_thread_v3" | "new_thread_migrate_v2" => {
                 dels.push(format!("{CACHE_NS}:forum"));
                 scopes.push(format!("{CACHE_NS}:forum"));
             }

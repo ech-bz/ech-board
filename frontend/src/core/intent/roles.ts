@@ -16,6 +16,7 @@ export interface RoleOption {
   addressHex?: string
   tweakArgs?: (Uint8Array | string)[]
   rawTweak?: Uint8Array
+  selectable?: boolean
 }
 
 export function matchesAuthor(master: Uint8Array, forumId: Uint8Array, pk: Uint8Array, tweak: Uint8Array): boolean {
@@ -82,6 +83,18 @@ export function detectRoles(ctx: RoleContext): RoleOption[] {
   if (ctx.threadUidHex) {
     pushRole(roles, 'thread_mod', 'roles.threadMod', mods.thread_mods, roleCandidates(ctx.master, ctx.forumIdBytes, ctx.threadUidHex, 'moder'))
     pushRole(roles, 'thread_admin', 'roles.threadAdmin', adminList(mods.thread_admin), roleCandidates(ctx.master, ctx.forumIdBytes, ctx.threadUidHex, 'admin'))
+    if (!roles.some((role) => role.kind === 'thread_admin') && ctx.op && mods.thread_admin) {
+      const opAddress = senderAddress(ctx.op.pk)
+      if (toHex(opAddress) === toHex(mods.thread_admin)) {
+        roles.push({
+          kind: 'thread_admin',
+          labelKey: 'roles.threadAdmin',
+          addressHex: toHex(opAddress),
+          rawTweak: ctx.op.tweak,
+          selectable: false,
+        })
+      }
+    }
   }
 
   pushRole(roles, 'forum_admin', 'roles.forumAdmin', adminList(mods.forum_admin), roleCandidates(ctx.master, ctx.forumIdBytes, ctx.forumIdHex, 'admin'))
@@ -98,7 +111,15 @@ export function detectRoles(ctx: RoleContext): RoleOption[] {
   return roles
 }
 
-export type PostRole = 'op' | 'thread_mod' | 'thread_admin' | 'board_mod' | 'forum_mod' | 'forum_admin' | null
+export type PostRole = 'op' | 'mop' | 'thread_mod' | 'thread_admin' | 'board_mod' | 'forum_mod' | 'forum_admin' | null
+
+export function postRole(addr: Uint8Array, mods: Moderators, opAddressHex: string | null): PostRole {
+  const hex = toHex(addr)
+  if (opAddressHex !== null && hex === opAddressHex) {
+    return mods.thread_admin && toHex(mods.thread_admin) === hex ? 'mop' : 'op'
+  }
+  return roleForAddress(addr, mods)
+}
 
 export function roleForAddress(addr: Uint8Array, mods: Moderators): PostRole {
   const hex = toHex(addr)
@@ -113,6 +134,7 @@ export function roleForAddress(addr: Uint8Array, mods: Moderators): PostRole {
 
 export const ROLE_STYLE: Record<string, { text: string; color: string; bold: boolean }> = {
   op: { text: '#OP', color: '#008000', bold: false },
+  mop: { text: '#MOP', color: '#ff6600', bold: false },
   thread_mod: { text: '# THREAD MOD #', color: '#ff6600', bold: false },
   thread_admin: { text: '# THREAD ADMIN #', color: '#cc0000', bold: false },
   board_mod: { text: '# BOARD MOD #', color: '#003366', bold: false },

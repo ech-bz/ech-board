@@ -24,6 +24,8 @@ export interface OptionsPanelProps {
   onWithFlagChange: (v: boolean) => void
   stripExifOn: boolean
   onStripExifChange: (v: boolean) => void
+  selfAdmin: boolean
+  onSelfAdminChange: (v: boolean) => void
   onInsertTag: (tag: string) => void
 }
 
@@ -59,6 +61,12 @@ export function OptionsPanel(props: OptionsPanelProps) {
             <input type="checkbox" checked={props.stripExifOn} onChange={(e) => props.onStripExifChange(e.currentTarget.checked)} />
             {t('postForm.stripExif')}
           </label>
+          <Show when={props.isThread}>
+            <label class={checkLabelVariants()}>
+              <input type="checkbox" checked={props.selfAdmin} onChange={(e) => props.onSelfAdminChange(e.currentTarget.checked)} />
+              {t('postForm.becomeAdmin')}
+            </label>
+          </Show>
         </div>
       </Show>
       <BbToolbar onInsertTag={props.onInsertTag} />

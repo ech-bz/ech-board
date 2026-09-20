@@ -310,6 +310,28 @@ public(package) fun new_thread_v2(
         .build()
 }
 
+public(package) fun new_thread_v3(
+    responses: Responses,
+    sender: Sender,
+    topic_hash: Option<u256>,
+    self_admin: bool,
+    text_hash: Option<u256>,
+    media_hashes: vector<u256>,
+    name_hash: Option<u256>,
+    vote_keys: vector<u256>,
+    multi_vote: bool,
+): vector<u8> {
+    event::new("new_thread_v3", responses, sender)
+        .with(&topic_hash)
+        .with(&self_admin)
+        .with(&text_hash)
+        .with(&media_hashes)
+        .with(&name_hash)
+        .with(&vote_keys)
+        .with(&multi_vote)
+        .build()
+}
+
 public(package) fun set_description(
     responses: Responses,
     sender: Sender,

@@ -91,10 +91,11 @@ fun board_allowed_events() {
         &mut ctx,
         &clock,
         &forum,
-        board::new_thread_v2(
+        board::new_thread_v3(
             uid(b"8"),
             actor(USER_PK),
             option::some(300),
+            false,
             option::some(301),
             vector[302],
             option::none(),
@@ -225,6 +226,7 @@ fun board_apply_thread_creates_posts_and_bumps_within_limit() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let thread_id = thread.id();
     let clock = clock::create_for_testing(scenario.ctx());
@@ -304,6 +306,7 @@ fun board_apply_thread_allows_forum_moderator_on_closed_board_and_thread() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let thread_id = thread.id();
 
@@ -362,6 +365,7 @@ fun board_post_ban_unban_allowed_events() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let mut post = post::new(
         &mut ctx,
@@ -470,10 +474,11 @@ fun board_new_thread_requires_media_when_enabled() {
         &mut ctx,
         &clock,
         &forum,
-        board::new_thread_v2(
+        board::new_thread_v3(
             uid(b"2"),
             actor(USER_PK),
             option::none(),
+            false,
             option::some(1),
             vector[],
             option::none(),
@@ -497,6 +502,7 @@ fun board_new_post_rejects_media_over_limit() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let thread_id = thread.id();
     board.apply(
@@ -536,6 +542,7 @@ fun board_new_post_rejects_too_many_vote_options() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let thread_id = thread.id();
     board.apply_thread(
@@ -569,6 +576,7 @@ fun board_new_post_rejects_empty_post() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let thread_id = thread.id();
     board.apply_thread(
@@ -603,6 +611,7 @@ fun board_new_post_rejects_user_when_board_closed() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let thread_id = thread.id();
     board.apply(
@@ -643,6 +652,7 @@ fun board_new_post_rejects_user_when_thread_closed() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let thread_id = thread.id();
     thread.apply(
@@ -682,6 +692,7 @@ fun board_new_post_rejects_event_thread_mismatch() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     board.apply_thread(
         &mut ctx,
@@ -715,6 +726,7 @@ fun board_post_ban_rejects_user() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let mut post = post::new(
         &mut ctx,
@@ -754,6 +766,7 @@ fun board_bump_frees_slot_after_post_delete() {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let thread_id = thread.id();
 

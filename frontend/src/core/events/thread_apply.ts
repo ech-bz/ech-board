@@ -11,6 +11,13 @@ export const genesis = defineEvent('thread', 'genesis', [
   f.optU256('topic_hash'),
 ])
 
+export const genesis_v2 = defineEvent('thread', 'genesis_v2', [
+  f.address('board'),
+  f.u64('number'),
+  f.optU256('topic_hash'),
+  f.optAddress('admin'),
+])
+
 export const upgrade = defineEvent('thread', 'upgrade', [])
 export const add_moderator = defineEvent('thread', 'add_moderator', [f.address('moderator')])
 export const del_moderator = defineEvent('thread', 'del_moderator', [f.address('moderator')])
@@ -27,7 +34,7 @@ export const post_set_deleted = defineEvent('thread', 'post_set_deleted', [f.boo
 export const post_set_text = defineEvent('thread', 'post_set_text', [f.optU256('hash')])
 
 registerEvents('thread', [
-  genesis, upgrade, add_moderator, del_moderator, set_closed, set_deleted, set_topic,
+  genesis, genesis_v2, upgrade, add_moderator, del_moderator, set_closed, set_deleted, set_topic,
   set_admin, new_post, ban, unban, post_set_deleted, post_set_text,
 ])
 
@@ -159,6 +166,7 @@ export function applyThreadGenesis(thread: ThreadObject, ev: DecodedEvent): Thre
         board: fromHex(ev.payload.board),
         number: String(ev.payload.number),
         topic_hash: ev.payload.topic_hash ? fromHex(ev.payload.topic_hash) : null,
+        admin: ev.payload.admin ? fromHex(ev.payload.admin) : null,
       },
     } as unknown as ThreadProjectionData,
   }

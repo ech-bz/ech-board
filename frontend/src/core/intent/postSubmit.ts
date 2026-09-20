@@ -15,6 +15,7 @@ export interface PostFormState {
   withFlag: boolean
   files: File[]
   stripExif: boolean
+  selfAdmin: boolean
 }
 
 export interface PostSubmitCtx {
@@ -75,7 +76,7 @@ export async function submitNewThread(ctx: PostSubmitCtx, form: PostFormState, s
   const { nameText, nameHash, tripcodeSuffix } = parseNameAndTripcode(form.name)
 
   builder = builder
-    .event(IBoardEvent.newThreadV2(topicHash, textHash, mediaHashes, nameHash, [], false))
+    .event(IBoardEvent.newThreadV3(topicHash, form.selfAdmin, textHash, mediaHashes, nameHash, [], false))
     .board(fromHex(ctx.boardUid))
     .captcha()
   if (tripcodeSuffix) builder = builder.tripcode()

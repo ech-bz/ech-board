@@ -39,6 +39,7 @@ fun fixture(ctx: &mut TxContext): (Forum, Board, Thread, Clock) {
         board.id(),
         1,
         option::none(),
+        false,
     );
     let clock = clock::create_for_testing(ctx);
     (forum, board, thread, clock)
@@ -195,6 +196,30 @@ fun thread_user_can_set_topic_during_genesis() {
 }
 
 #[test]
+fun thread_new_accepts_initial_admin() {
+    let mut ctx = tx_context::dummy();
+    let (forum, board, mut thread, clock) = fixture(&mut ctx);
+    let admin = actor(ADMIN_PK);
+    let mut created = thread::new(
+        &mut ctx,
+        uid(b"created"),
+        admin,
+        board.id(),
+        2,
+        option::some(7),
+        true,
+    );
+    assert!(*created.admin() == option::some(admin.addr()));
+    assert!(*created.topic_hash() == option::some(7));
+
+    clock.destroy_for_testing();
+    created.share();
+    thread.share();
+    board.share();
+    forum.share();
+}
+
+#[test]
 fun thread_post_ban_unban_allowed_events() {
     let mut ctx = tx_context::dummy();
     let (forum, board, mut thread, clock) = fixture(&mut ctx);
@@ -302,6 +327,7 @@ fun thread_user_cannot_change_topic_after_genesis() {
         board.id(),
         1,
         option::none(),
+        false,
     ).share();
 
     scenario.next_tx(actor(USER_PK).addr());

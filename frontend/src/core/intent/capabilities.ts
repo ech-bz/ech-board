@@ -36,6 +36,10 @@ export function canUnbanMedia(roles: RoleKind[]): boolean {
   return hasRole(roles, POST_ACTION_ROLES.unban_media)
 }
 
+export function canSelectAllFromAuthor(roles: RoleKind[]): boolean {
+  return hasRole(roles, BOARD_MOD_ROLES)
+}
+
 export function roleForPostAction(action: PostAction, options: RoleOption[]): RoleOption | null {
   const allowed = POST_ACTION_ROLES[action]
   return options.find(o => allowed.includes(o.kind) && o.tweakArgs) ?? null

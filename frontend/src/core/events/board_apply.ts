@@ -18,6 +18,9 @@ export const new_thread = defineEvent('board', 'new_thread', [
 export const new_thread_v2 = defineEvent('board', 'new_thread_v2', [
   f.optU256('topic_hash'), f.optU256('text_hash'), f.vecU256('media_hashes'), f.optU256('name_hash'), f.vecU256('vote_keys'), f.bool('multi_vote'),
 ])
+export const new_thread_v3 = defineEvent('board', 'new_thread_v3', [
+  f.optU256('topic_hash'), f.bool('self_admin'), f.optU256('text_hash'), f.vecU256('media_hashes'), f.optU256('name_hash'), f.vecU256('vote_keys'), f.bool('multi_vote'),
+])
 export const new_thread_migrate_v2 = defineEvent('board', 'new_thread_migrate_v2', [
   f.u64('timestamp_ms'), f.optU256('topic_hash'), f.optU256('text_hash'), f.vecU256('media_hashes'), f.optU256('name_hash'), f.vecU256('vote_keys'), f.bool('multi_vote'),
 ])
@@ -41,7 +44,7 @@ export const unban = defineEvent('board', 'unban', [f.address('level'), f.u8('ma
 
 registerEvents('board', [
   genesis, upgrade, add_moderator, del_moderator, set_max_media, set_bump_limit, set_closed,
-  set_deleted, new_thread, new_thread_v2, new_thread_migrate_v2, set_description,
+  set_deleted, new_thread, new_thread_v2, new_thread_v3, new_thread_migrate_v2, set_description,
   set_ignore_forum_bans, set_reactions, set_pinned, new_post, new_post_v2, new_post_migrate_v2,
   ban, unban,
 ])
@@ -58,6 +61,8 @@ export const BoardEvent = {
     new_thread.encode(topicHash, textHash, mediaHashes, voteKeys, nameHash),
   newThreadV2: (topicHash: Uint8Array | null, textHash: Uint8Array | null, mediaHashes: Uint8Array[], nameHash: Uint8Array | null, voteKeys: Uint8Array[], multiVote: boolean): EventDesc =>
     new_thread_v2.encode(topicHash, textHash, mediaHashes, nameHash, voteKeys, multiVote),
+  newThreadV3: (topicHash: Uint8Array | null, selfAdmin: boolean, textHash: Uint8Array | null, mediaHashes: Uint8Array[], nameHash: Uint8Array | null, voteKeys: Uint8Array[], multiVote: boolean): EventDesc =>
+    new_thread_v3.encode(topicHash, selfAdmin, textHash, mediaHashes, nameHash, voteKeys, multiVote),
   newPost: (threadId: Uint8Array, textHash: Uint8Array | null, mediaHashes: Uint8Array[], voteKeys: Uint8Array[], nameHash: Uint8Array | null): EventDesc =>
     new_post.encode(threadId, textHash, mediaHashes, voteKeys, nameHash),
   newPostV2: (threadId: Uint8Array, textHash: Uint8Array | null, mediaHashes: Uint8Array[], nameHash: Uint8Array | null, voteKeys: Uint8Array[], multiVote: boolean): EventDesc =>
