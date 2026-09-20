@@ -1,0 +1,28 @@
+:root {
+  color-scheme: dark;
+  --color-bg: #15202b;
+  --color-panel1: #1b2e3f;
+  --color-panel2: #182938;
+  --color-panel3: #2C4058;
+  --color-hover: #24384E;
+  --color-active: #294056;
+  --color-mine: #233D58;
+  --color-replied-mine: #373225;
+  --color-spoiler: #3a3a40;
+  --color-fg: #ccc;
+  --color-secondary: rgba(204, 204, 204, 0.62);
+  --color-accent: #88c8ff;
+  --color-accent-hover: #cceeff;
+  --color-success: #30d158;
+  --color-danger: #ff453a;
+  --color-quote: #789922;
+  --color-glass1: rgba(23, 36, 51, 0.85);
+  --color-glass2: rgba(60, 91, 122, 0.5);
+  --color-chip: rgba(255, 255, 255, 0.07);
+  --color-shade: rgba(0, 0, 0, 0.6);
+  --color-track: rgba(255, 255, 255, 0.3);
+  --color-separator: rgba(56, 68, 77, 0.65);
+  --color-reaction: rgba(136, 200, 255, 0.19);
+  --color-toggle-track: rgba(120, 120, 128, 0.32);
+  --color-toggle-on: #34c759;
+}

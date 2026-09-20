@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#1c1c1c" />
+    <title>ЭЧ</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/favicon_dark.png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem('ech-board-theme') === 'light' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', theme);
+          var icon = document.querySelector('link[rel="icon"]');
+          if (icon) icon.href = theme === 'dark' ? '/favicon_dark.png' : '/favicon_light.png';
+          var themeColor = document.querySelector('meta[name="theme-color"]');
+          if (themeColor) themeColor.content = theme === 'dark' ? '#1c1c1c' : '#EEE';
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
