@@ -237,6 +237,10 @@ pub(crate) enum PostPart {
         url: String,
         children: Vec<PostPart>,
     },
+    Fold {
+        title: String,
+        children: Vec<PostPart>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]

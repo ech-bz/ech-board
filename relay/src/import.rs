@@ -1110,6 +1110,20 @@ fn bbcode_to_parts(
                         i = close_idx + "[/link]".len();
                         continue;
                     }
+                } else if let Some(title) = tag.strip_prefix("fold=") {
+                    if let Some(close_idx) = find_str(&chars, "[/fold]", end + 1) {
+                        if !plain.is_empty() {
+                            out.push(PostPart::Plain(std::mem::take(&mut plain)));
+                        }
+                        let inner: String = chars[end + 1..close_idx].iter().collect();
+                        let children = bbcode_to_parts(&inner, forum, board_id, slug, mapping);
+                        out.push(PostPart::Fold {
+                            title: title.to_string(),
+                            children,
+                        });
+                        i = close_idx + "[/fold]".len();
+                        continue;
+                    }
                 }
             }
         }
