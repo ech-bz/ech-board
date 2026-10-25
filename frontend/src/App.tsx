@@ -23,7 +23,6 @@ import { reportError } from './ui/errors'
 import { ThreadPage } from './ui/screens/ThreadPage'
 import { BoardPage } from './ui/screens/BoardPage'
 import { BoardsPage } from './ui/screens/BoardsPage'
-import { ComposePage } from './ui/screens/ComposePage'
 import { SettingsPage } from './ui/screens/SettingsPage'
 import { NavPanel, type Section } from './ui/components/NavPanel'
 import { IconSprite } from './ui/icons/IconSprite'
@@ -56,7 +55,7 @@ interface Context {
 }
 
 function contentPath(route: Route): string | null {
-  if (route.page === 'board' || route.page === 'compose') return `b:${route.forumId ?? ''}:${route.slug}`
+  if (route.page === 'board') return `b:${route.forumId ?? ''}:${route.slug}`
   if (route.page === 'thread') return `t:${route.forumId ?? ''}:${route.slug}:${route.threadNum}`
   return null
 }
@@ -126,19 +125,6 @@ function Shell() {
         setRoles(kinds)
         store.loadBoard(data)
         return
-      }
-      if (route.page === 'compose') {
-        const board = boards().find((item) => item.slug === route.slug)
-        if (!board) {
-          nav.navigate({ page: 'boards', forumId: ctx.forumId })
-          return
-        }
-        const data = await loadBoardViewData(ctx.relayUrl, board.uid)
-        if (mine !== generation) return
-        const kinds = detectViewRoles(data)
-        store.setRoleKinds(kinds.map((role) => role.kind))
-        setRoles(kinds)
-        store.loadBoard(data)
       }
     } catch (e) {
       if (mine === generation) setError(String(e))
@@ -224,10 +210,6 @@ function Shell() {
     const current = route()
     return current.page === 'board' ? current : null
   })
-  const composeRoute = createMemo(() => {
-    const current = route()
-    return current.page === 'compose' ? current : null
-  })
   const section = (): Section => (route().page === 'settings' ? 'settings' : 'boards')
   const setting = () => {
     const current = route()
@@ -235,7 +217,7 @@ function Shell() {
   }
   const currentBoard = () => {
     const current = route()
-    if (current.page === 'board' || current.page === 'thread' || current.page === 'compose') {
+    if (current.page === 'board' || current.page === 'thread') {
       return boards().find((board) => board.slug === current.slug) ?? null
     }
     return null
@@ -327,9 +309,6 @@ function Shell() {
                                 host={currentForum()?.host}
                               />
                             )}
-                          </Show>
-                          <Show when={composeRoute()}>
-                            {(r) => <ComposePage forumId={r().forumId ?? ''} slug={r().slug} heading={boardHeading()} />}
                           </Show>
                           <Show when={route().page === 'boards' ? true : null}>
                             <BoardsPage

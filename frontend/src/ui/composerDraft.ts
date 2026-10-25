@@ -12,8 +12,8 @@ export interface ComposerDraft {
   selfAdmin: boolean
 }
 
-function emptyDraft(mode: 'reply' | 'thread'): ComposerDraft {
-  return { text: '', subject: '', name: '', sendAsKind: 'anonymous', optionsOpen: mode === 'thread', files: [], withFlag: false, stripExifOn: true, selfAdmin: false }
+function emptyDraft(_mode: 'reply' | 'thread'): ComposerDraft {
+  return { text: '', subject: '', name: '', sendAsKind: 'anonymous', optionsOpen: false, files: [], withFlag: false, stripExifOn: true, selfAdmin: false }
 }
 
 const drafts: Record<'reply' | 'thread', ComposerDraft> = {

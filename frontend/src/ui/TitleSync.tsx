@@ -26,10 +26,6 @@ export function TitleSync(props: { boards: BoardInfo[] }) {
       setBaseTitle(`/${route.slug}/ - ${title || `#${route.threadNum}`}`)
       return
     }
-    if (route.page === 'compose') {
-      setBaseTitle(`/${route.slug}/ - ${t('ui.newThread')}`)
-      return
-    }
     if (route.page === 'settings') {
       setBaseTitle(`${forumName} - ${t('ui.settings')}`)
       return

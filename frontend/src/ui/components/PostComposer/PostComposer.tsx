@@ -21,19 +21,40 @@ import { getComposerDraft, saveComposerDraft } from '../../composerDraft'
 import { reportError } from '../../errors'
 import { useRecordSource, useStore } from '../../store'
 import { OptionsPanel } from './OptionsPanel'
+import { BbToolbar } from './BbToolbar'
 import { FilePreview } from './FilePreview'
+import { createOptionsReveal } from './useOptionsReveal'
+import { closeMobileComposer, mobileComposerOpen, openMobileComposer } from '../../composerVisibility'
 
 const spinnerVariants = cva('size-4 animate-spin rounded-full border-2 border-track border-t-fg')
-const composerRootVariants = cva(
-  'glass-fade glass-fade--up sticky bottom-0 left-0 right-0 z-nav mt-auto flex flex-col gap-1.5 px-4 pt-4 pb-[max(16px,env(safe-area-inset-bottom,0px))] min-[900px]:min-h-[var(--global-bar-h)]',
+const composerRootVariants = cva('composer-fixed layout-anim')
+const boxVariants = cva(
+  'relative flex flex-col gap-1.5 rounded-[var(--radius-composer)] bg-panel1 p-2 glass',
 )
 const dropOverlayVariants = cva(
   'pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-accent bg-bg text-accent uppercase [letter-spacing:0.03em]',
 )
-const actionRowVariants = cva('flex items-end gap-2')
-const textareaVariants = cva('min-h-composer max-h-composer min-w-0 flex-1 resize-none overflow-y-hidden rounded-3xl bg-glass2 p-3 text-lg leading-5 text-fg outline-none glass transition-[height] duration-[160ms] ease-out')
-const mirrorVariants = cva('box-border min-h-composer max-h-composer resize-none overflow-hidden p-3 text-lg leading-5')
+const actionRowVariants = cva('flex items-end gap-2.5')
+const textareaVariants = cva(
+  'box-border min-h-[44px] max-h-composer w-full min-w-0 flex-1 resize-none overflow-y-hidden bg-transparent pt-[10px] pb-0 text-left text-[15px] font-normal leading-6 text-fg outline-none',
+)
+const mirrorVariants = cva('box-border min-h-[44px] max-h-composer resize-none overflow-hidden pt-[10px] pb-0 text-[15px] font-normal leading-6')
 const hiddenInputVariants = cva('hidden')
+const toolVariants = cva('grid size-11 flex-none place-items-center rounded-full bg-chip text-secondary transition-colors hover:bg-hover hover:text-fg')
+const sendVariants = cva(
+  'ml-1.5 grid size-11 flex-none place-items-center rounded-full bg-accent text-[#0b1626] transition-colors hover:brightness-110 disabled:bg-chip disabled:text-secondary',
+)
+const filesOverlayVariants = cva('mb-1.5 flex justify-start px-0.5')
+const optionsWrapVariants = cva('min-w-0', {
+  variants: {
+    open: {
+      true: 'block',
+      false: 'hidden',
+    },
+  },
+})
+const optionsInnerVariants = cva('min-w-0')
+const optionsStackVariants = cva('flex flex-col gap-1.5 pb-0.5 pt-2')
 
 function isAllowedMedia(type: string): boolean {
   return (
@@ -46,7 +67,7 @@ function isAllowedMedia(type: string): boolean {
   )
 }
 
-export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; editingUid?: string | null; onEditDone?: () => void; nav?: JSX.Element }) {
+export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; threadNum?: number; editingUid?: string | null; onEditDone?: () => void; nav?: JSX.Element }) {
   const { t } = useI18n()
   const store = useStore()
   const ea = useEntityActions()
@@ -61,7 +82,6 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
   const [subject, setSubject] = createSignal(draft.subject)
   const [name, setName] = createSignal(draft.name)
   const [sendAsKind, setSendAsKind] = createSignal<RoleKind>(draft.sendAsKind)
-  const [optionsOpen, setOptionsOpen] = createSignal(draft.optionsOpen)
   const [files, setFiles] = createSignal<File[]>(draft.files)
   const [maxMedia, setMaxMedia] = createSignal<number | null>(null)
   const [secretRefs, setSecretRefs] = createSignal<Map<number, PostPartInput> | null>(null)
@@ -69,6 +89,30 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
   const [stripExifOn, setStripExifOn] = createSignal(draft.stripExifOn)
   const [selfAdmin, setSelfAdmin] = createSignal(draft.selfAdmin)
   const [dragOver, setDragOver] = createSignal(false)
+  const [optionsOpen, setOptionsOpen] = createSignal(false)
+  const reveal = createOptionsReveal(() => optionsOpen() || isEdit())
+
+  createEffect(() => {
+    const open = mobileComposerOpen() || isEdit() || mode() === 'reply'
+    document.documentElement.classList.toggle('composer-open', open)
+    onCleanup(() => document.documentElement.classList.remove('composer-open'))
+  })
+
+  createEffect(() => {
+    if (!mobileComposerOpen() && !isEdit()) return
+    const onPointer = (e: PointerEvent) => {
+      if (window.innerWidth > 899) return
+      const target = e.target as Node | null
+      if (!target) return
+      if (root?.contains(target)) return
+      if ((target as HTMLElement).closest?.('[data-tabs]')) return
+      if (mode() === 'reply' || isEdit()) return
+      closeMobileComposer()
+      setOptionsOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointer, true)
+    onCleanup(() => document.removeEventListener('pointerdown', onPointer, true))
+  })
 
   const submitter = createPostSubmit({
     onError: (e) => reportError(parseMoveAbort(e)?.message ?? String(e)),
@@ -187,6 +231,7 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
     }
     if (el.selectionEnd === el.value.length) el.scrollTop = el.scrollHeight
   }
+  const BASE_H = 44 
   const syncHeight = () => {
     const value = text()
     const el = textarea
@@ -194,10 +239,10 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
     if (!el || !box) return
     const wasCapped = capped
     box.style.width = `${el.clientWidth}px`
-    box.value = value
+    box.value = value || ' '
     box.style.height = 'auto'
-    const height = box.scrollHeight
-    if (height > 0) el.style.height = `${height}px`
+    const height = Math.max(BASE_H, box.scrollHeight)
+    el.style.height = `${height}px`
     const cap = Number.parseFloat(getComputedStyle(box).maxHeight)
     capped = height > cap + 1
     el.style.overflowY = capped ? 'auto' : 'hidden'
@@ -223,6 +268,7 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
     setText(src)
     setSecretRefs(secrets)
     setOptionsOpen(true)
+    openMobileComposer()
   })
 
   const insertTag = (tag: string) => {
@@ -294,7 +340,7 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
     setName('')
     setFiles([])
     setWithFlag(false)
-    setOptionsOpen(isThread())
+    setOptionsOpen(false)
   }
 
   const createThread = async () => {
@@ -314,7 +360,7 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
     setFiles([])
     setWithFlag(false)
     setSelfAdmin(false)
-    setOptionsOpen(isThread())
+    setOptionsOpen(false)
   }
 
   const submitEdit = async () => {
@@ -368,37 +414,23 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
         }
       }}
     >
-      {props.nav}
-      <div class="pointer-events-none invisible absolute left-0 top-0 h-0 w-0 overflow-hidden">
-        <textarea ref={mirror} class={mirrorVariants()} rows={1} tabIndex={-1} aria-hidden="true" />
-      </div>
-      <Show when={dragOver()}>
-        <div class={dropOverlayVariants()}>{t('postForm.dropHere')}</div>
-      </Show>
-      <Show when={optionsOpen()}>
-        <OptionsPanel
-          isEdit={isEdit()}
-          isThread={isThread()}
-          name={name()}
-          onNameChange={setName}
-          sendAsKind={sendAsKind()}
-          onSendAsKindChange={setSendAsKind}
-          roles={visibleRoles()}
-          selfAdmin={selfAdmin()}
-          onSelfAdminChange={setSelfAdmin}
-          subject={subject()}
-          onSubjectChange={setSubject}
-          withFlag={withFlag()}
-          onWithFlagChange={setWithFlag}
-          stripExifOn={stripExifOn()}
-          onStripExifChange={setStripExifOn}
-          onInsertTag={insertTag}
-        />
-      </Show>
-      <Show when={files().length > 0}>
-        <FilePreview files={files()} previewUrls={previewUrls()} onRemove={removeFile} />
-      </Show>
-      <div class={actionRowVariants()}>
+      <div class="relative w-full">
+        <div ref={reveal.setAbove} class="absolute inset-x-0 bottom-full">
+          {props.nav}
+          <Show when={files().length > 0}>
+            <div class={filesOverlayVariants()}>
+              <FilePreview files={files()} previewUrls={previewUrls()} onRemove={removeFile} />
+            </div>
+          </Show>
+        </div>
+      <div ref={reveal.setBox} class={boxVariants()} style={{ position: 'relative' }}>
+        <div class="pointer-events-none invisible absolute left-0 top-0 h-0 w-0 overflow-hidden">
+          <textarea ref={mirror} class={mirrorVariants()} rows={1} tabIndex={-1} aria-hidden="true" />
+        </div>
+        <Show when={dragOver()}>
+          <div class={dropOverlayVariants()}>{t('postForm.dropHere')}</div>
+        </Show>
+
         <input
           ref={fileInput}
           type="file"
@@ -407,52 +439,133 @@ export function PostComposer(props: { mode?: 'reply' | 'thread'; slug?: string; 
           class={hiddenInputVariants()}
           onChange={(e) => {
             const selected = e.currentTarget.files
-            if (selected) addFiles(selected)
-          }}
-        />
-        <Show when={!isEdit() && !isThread()}>
-          <IconButton size="lg" variant="glass" active={optionsOpen()} title={t('postForm.options')} onClick={() => setOptionsOpen(!optionsOpen())}>
-            <Show when={optionsOpen()} fallback={<ChevronUpIcon />}>
-              <ChevronDownIcon />
-            </Show>
-          </IconButton>
-        </Show>
-        <Show when={!isEdit()}>
-          <IconButton size="lg" variant="glass" title={t('postForm.addFile')} onClick={() => fileInput?.click()}>
-            <ClipIcon />
-          </IconButton>
-        </Show>
-        <textarea
-          ref={textarea}
-          class={textareaVariants()}
-          placeholder={isThread() ? t('postForm.commentOp') : t('postForm.comment')}
-          rows={1}
-          value={text()}
-          onScroll={keepScrollTop}
-          onInput={(e) => setText(e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-              e.preventDefault()
-              if (canSend()) submit()
+            if (selected) {
+              addFiles(selected)
+              openMobileComposer()
             }
           }}
         />
-        <Show when={isEdit()}>
-          <IconButton size="lg" variant="glass" title={t('mod.cancel')} onClick={() => props.onEditDone?.()}>
-            <XIcon width={18} height={18} />
-          </IconButton>
-        </Show>
-        <IconButton
-          size="lg"
-          variant="glass"
-          disabled={!canSend()}
-          onClick={submit}
-          title={isEdit() ? t('mod.save') : t('postForm.submit')}
-        >
-          <Show when={isEdit() ? ea.busy() : submitter.creating()} fallback={<SendIcon />}>
-            <span class={spinnerVariants()} />
+
+        <div ref={reveal.setOptions} class={optionsWrapVariants({ open: reveal.shown() })}>
+          <div class={optionsInnerVariants()}>
+            <div class={optionsStackVariants()}>
+              <Show when={isThread() && !isEdit()}>
+                <input
+                  class="h-9 w-full min-w-0 rounded-full border-0 bg-panel2 px-3 text-left text-[15px] text-fg outline-none placeholder:text-secondary"
+                  value={subject()}
+                  onInput={(e) => setSubject(e.currentTarget.value)}
+                  placeholder={t('postForm.subject')}
+                />
+              </Show>
+
+              <div class="flex w-full min-w-0 flex-col gap-1.5 min-[900px]:flex-row min-[900px]:items-center min-[900px]:gap-2">
+                <Show when={isEdit()}>
+                  <IconButton size="md" class={toolVariants()} title={t('mod.cancel')} onClick={() => props.onEditDone?.()}>
+                    <XIcon width={24} height={24} />
+                  </IconButton>
+                </Show>
+                <div class="order-2 min-w-0 min-[900px]:order-1 min-[900px]:min-w-0 min-[900px]:flex-1">
+                  <BbToolbar onInsertTag={insertTag} />
+                </div>
+                <Show when={!isEdit()}>
+                  <div class="order-1 w-full min-[900px]:order-2 min-[900px]:w-auto min-[900px]:flex-none">
+                    <OptionsPanel
+                      variant="meta"
+                      isEdit={false}
+                      isThread={isThread()}
+                      name={name()}
+                      onNameChange={setName}
+                      sendAsKind={sendAsKind()}
+                      onSendAsKindChange={setSendAsKind}
+                      roles={visibleRoles()}
+                      selfAdmin={selfAdmin()}
+                      onSelfAdminChange={setSelfAdmin}
+                      subject={subject()}
+                      onSubjectChange={setSubject}
+                      withFlag={withFlag()}
+                      onWithFlagChange={setWithFlag}
+                      stripExifOn={stripExifOn()}
+                      onStripExifChange={setStripExifOn}
+                    />
+                  </div>
+                </Show>
+              </div>
+
+              <Show when={!isEdit()}>
+                <OptionsPanel
+                  variant="checks"
+                  isEdit={false}
+                  isThread={isThread()}
+                  name={name()}
+                  onNameChange={setName}
+                  sendAsKind={sendAsKind()}
+                  onSendAsKindChange={setSendAsKind}
+                  roles={visibleRoles()}
+                  selfAdmin={selfAdmin()}
+                  onSelfAdminChange={setSelfAdmin}
+                  subject={subject()}
+                  onSubjectChange={setSubject}
+                  withFlag={withFlag()}
+                  onWithFlagChange={setWithFlag}
+                  stripExifOn={stripExifOn()}
+                  onStripExifChange={setStripExifOn}
+                />
+              </Show>
+            </div>
+          </div>
+        </div>
+
+        <div class={actionRowVariants()}>
+          <Show when={!isEdit()}>
+            <IconButton
+              size="md"
+              class={toolVariants()}
+              title={optionsOpen() ? t('postForm.collapse') : t('postForm.expand')}
+              aria-label={optionsOpen() ? t('postForm.collapse') : t('postForm.expand')}
+              onClick={() => setOptionsOpen(!optionsOpen())}
+            >
+              <Show when={optionsOpen()} fallback={<ChevronUpIcon width={24} height={24} />}>
+                <ChevronDownIcon width={24} height={24} />
+              </Show>
+            </IconButton>
+            <IconButton size="md" class={toolVariants()} title={t('postForm.addFile')} onClick={() => fileInput?.click()}>
+              <ClipIcon width={24} height={24} />
+            </IconButton>
           </Show>
-        </IconButton>
+          <textarea
+            ref={textarea}
+            class={textareaVariants()}
+            placeholder={
+              isThread()
+                ? t('postForm.newThread')
+                : isEdit()
+                  ? t('postForm.comment')
+                  : t('postForm.newMessage')
+            }
+            rows={1}
+            value={text()}
+            onScroll={keepScrollTop}
+            onInput={(e) => setText(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault()
+                if (canSend()) submit()
+              }
+            }}
+          />
+          <IconButton
+            size="md"
+            class={sendVariants()}
+            disabled={!canSend()}
+            onClick={submit}
+            title={isEdit() ? t('mod.save') : t('postForm.submit')}
+          >
+            <Show when={isEdit() ? ea.busy() : submitter.creating()} fallback={<SendIcon width={24} height={24} />}>
+              <span class={spinnerVariants()} />
+            </Show>
+          </IconButton>
+        </div>
+      </div>
       </div>
     </div>
   )

@@ -1,10 +1,8 @@
 import { createEffect, For, onCleanup, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
 import { ThreadPreview } from '../components/ThreadPreview'
-import { IconButton } from '../components/IconButton'
 import { PageHeader } from '../components/PageHeader'
 import { TabBar } from '../components/TabBar'
-import { SquarePenIcon } from '../icons/SquarePenIcon'
 import { DropdownMenu, type MenuItem } from '../components/Menu/DropdownMenu'
 import { useBoardInfo, useLoadingMore, useRows, useStore } from '../store'
 import { useI18n } from '../i18n'
@@ -13,12 +11,13 @@ import { useIsMobile } from '../components/Gallery/useIsMobile'
 import { useMobileTabs } from '../mobileNav'
 import { canBanByUid, canBoardSettings } from '../../core/intent/capabilities'
 import { useNav } from '../nav'
+import { PostComposer } from '../components/PostComposer/PostComposer'
+import { openMobileComposer } from '../composerVisibility'
 
 const pageVariants = cva('flex min-h-screen min-w-0 flex-col')
 const screenVariants = cva('flex min-h-dvh flex-col')
-const headerIconBtnVariants = cva('px-1 py-2 hover:bg-hover')
 const boardMenuTriggerVariants = cva('px-1 py-2 hover:bg-hover')
-const listVariants = cva('px-6 pb-12 pt-4')
+const listVariants = cva('px-6 pb-28 pt-4')
 const listMobileVariants = cva('pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1.25rem+env(safe-area-inset-right,0px))] pb-[calc(var(--mobile-tab)+80px)] pt-2.5')
 const sentinelVariants = cva('h-px')
 const moreVariants = cva('py-3 text-center text-md text-secondary')
@@ -33,7 +32,6 @@ export function BoardPage(props: { forumId: string; slug: string; heading: strin
   const ea = useEntityActions()
   const store = useStore()
   const nav = useNav()
-  const compose = () => nav.navigate({ page: 'compose', forumId: props.forumId, slug: props.slug })
   let sentinel: HTMLDivElement | undefined
   createEffect(() => {
     const board = info()
@@ -64,14 +62,7 @@ export function BoardPage(props: { forumId: string; slug: string; heading: strin
         title={props.heading}
         subtitle={props.host ?? ''}
         onBack={mobile() ? () => nav.back() : undefined}
-        trailing={
-          <>
-            <IconButton size="lg" variant="glass" class={headerIconBtnVariants()} onClick={compose}>
-              <SquarePenIcon width={20} height={20} />
-            </IconButton>
-            <DropdownMenu items={boardMenu()} triggerVariant="glass" class={boardMenuTriggerVariants()} />
-          </>
-        }
+        trailing={<DropdownMenu items={boardMenu()} triggerVariant="glass" class={boardMenuTriggerVariants()} />}
       />
       <div class={mobile() ? listMobileVariants() : listVariants()}>
         <For each={rows()}>
@@ -89,8 +80,9 @@ export function BoardPage(props: { forumId: string; slug: string; heading: strin
           <div class={moreVariants()}>{t('common.loading')}</div>
         </Show>
       </div>
+      <PostComposer mode="thread" slug={props.slug} />
       <Show when={mobile()}>
-        <TabBar boardsActive settingsActive={false} onGoHome={tabs.goHome} onOpenSettings={tabs.openSettings} />
+        <TabBar boardsActive settingsActive={false} onGoHome={tabs.goHome} onOpenSettings={tabs.openSettings} onOpenComposer={openMobileComposer} />
       </Show>
     </section>
   )
