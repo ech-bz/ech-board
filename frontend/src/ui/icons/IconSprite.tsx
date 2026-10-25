@@ -4,6 +4,12 @@ export function IconSprite() {
   return (
     <svg xmlns={NS} width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
       <defs>
+        <g id="icon-gavel"><path d="m14 13 7 7"/><path d="m5 21 6-6"/><path d="m9 17 4 4"/><path d="m3 7 4-4 7 7-4 4z"/><path d="m13 3 4 4-4 4-4-4z"/><path d="m11 13 3 3"/></g>
+        <g id="icon-image"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></g>
+        <g id="icon-scan-eye"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12s2-3 5-3 5 3 5 3-2 3-5 3-5-3-5-3z"/><circle cx="12" cy="12" r="1"/></g>
+        <g id="icon-shield"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z"/></g>
+        <g id="icon-undo"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></g>
+        <g id="icon-flag-off"><path d="m2 2 20 20"/><path d="M4 22V4"/><path d="M4 4h6l2 4h7l-2 4h-4"/><path d="M4 14h5"/></g>
         <g id="icon-send"><path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z"/><path d="M6 12h16"/></g>
         <g id="icon-clip"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></g>
         <g id="icon-square-pen"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></g>

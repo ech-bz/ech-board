@@ -181,3 +181,23 @@ export function useI18n(): I18nValue {
   if (!value) throw new Error('useI18n must be used within I18nProvider')
   return value
 }
+
+export function I18nLocaleScope(props: { lang: Lang; active?: Accessor<boolean>; children: JSX.Element }) {
+  const parent = useI18n()
+  const locale = () => (props.active ? (props.active() ? props.lang : parent.lang()) : props.lang)
+  const t = (key: MessageKey, vars?: Record<string, string | number>) => {
+    let s = dicts[locale()][key]
+    if (vars) {
+      for (const k of Object.keys(vars)) s = s.replace(`{${k}}`, String(vars[k]))
+    }
+    return s
+  }
+  const value: I18nValue = {
+    ...parent,
+    lang: locale,
+    t,
+    days: () => dicts[locale()].days,
+    months: () => dicts[locale()].months,
+  }
+  return <I18nContext.Provider value={value}>{props.children}</I18nContext.Provider>
+}

@@ -8,14 +8,26 @@ import type { PostRecord } from '../../store/records'
 import { canSelectAllFromAuthor, canBanByUid, type BanScope } from '../../core/intent/capabilities'
 import type { ThreadObject } from '../../core/bcs/types'
 
-export function PostMenu(props: { record: PostRecord; closed: boolean; threadObject?: ThreadObject; onEdit?: (uid: string) => void }) {
+export function PostMenu(props: {
+  record: PostRecord
+  closed: boolean
+  threadObject?: ThreadObject
+  onEdit?: (uid: string) => void
+  slug?: string
+  threadNum?: number
+}) {
   const { t } = useI18n()
   const actions = useEntityActions()
   const store = useStore()
   const selection = usePostSelection()
   const items = (): MenuItem[] => {
     const rec = props.record
-    const result: MenuItem[] = []
+    const result: MenuItem[] = [
+      {
+        label: t('report.title'),
+        onClick: () => actions.openReport({ board: props.slug ?? '', threadNum: props.threadNum ?? 0, postNum: rec.number }),
+      },
+    ]
     if (props.onEdit && rec.canEdit) result.push({ label: t('mod.edit'), onClick: () => props.onEdit?.(rec.uid) })
     const author = (): MenuItem => ({ label: t('mod.selectAllFromAuthor'), onClick: () => selection?.selectAllFromAuthor(rec.post, rec.threadUid) })
     if (rec.op) {

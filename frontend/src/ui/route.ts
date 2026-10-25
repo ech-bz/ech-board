@@ -18,12 +18,16 @@ export function settingSlugToKey(slug: string): SettingKey | null {
   return found ? found.key : null
 }
 
+export type ModTab = 'overboard' | 'reports' | 'actions' | 'gallery'
+
+export const MOD_TAB_SLUGS: readonly ModTab[] = ['overboard', 'reports', 'actions', 'gallery']
+
 export type Route =
   | { page: 'boards'; forumId?: string }
   | { page: 'board'; forumId: string; slug: string }
   | { page: 'thread'; forumId: string; slug: string; threadNum: number; replyTo?: number; scrollTo?: 'top' | 'bottom'; postNum?: number }
   | { page: 'compose'; forumId: string; slug: string }
-  | { page: 'settings'; setting?: SettingSlug }
+  | { page: 'settings'; setting?: SettingSlug }  | { page: 'mod'; tab: ModTab }
 
 function isDefaultForum(forumId: string): boolean {
   const def = getCachedDefaultForumId()
@@ -32,6 +36,10 @@ function isDefaultForum(forumId: string): boolean {
   const a = norm(forumId)
   const b = norm(def)
   return a === b || a.startsWith(b) || b.startsWith(a)
+}
+
+export function modPath(tab: ModTab): string {
+  return `/mod/${tab}`
 }
 
 export function boardsPath(forumId: string): string {
@@ -55,6 +63,12 @@ export function parseRoute(path: string, defaultForumId: string | null): Route {
   const [pathname, hash] = path.split('#')
   const parts = pathname.split('/').filter(Boolean)
   if (parts.length === 0) return { page: 'boards' }
+  if (parts[0] === 'mod') {
+    if (parts.length === 1) return { page: 'mod', tab: 'overboard' }
+    const tab = MOD_TAB_SLUGS.find((slug) => slug === parts[1])
+    if (parts.length === 2 && tab) return { page: 'mod', tab }
+    return { page: 'boards' }
+  }
   if (parts[0] === 'settings') {
     if (parts.length === 1) return { page: 'settings' }
     if (parts.length === 2 && settingSlugToKey(parts[1])) return { page: 'settings', setting: parts[1] as SettingSlug }
@@ -90,6 +104,7 @@ export function routeToPath(r: Route): string {
   if (r.page === 'board') return boardPath(r.forumId, r.slug)
   if (r.page === 'thread') return threadPath(r.forumId, r.slug, r.threadNum, r.postNum)
   if (r.page === 'compose') return composePath(r.forumId, r.slug)
+  if (r.page === 'mod') return modPath(r.tab)
   return r.setting ? `/settings/${r.setting}` : '/settings'
 }
 
@@ -97,14 +112,16 @@ export function depthOf(r: Route): number {
   if (r.page === 'boards') return 0
   if (r.page === 'board') return 1
   if (r.page === 'thread') return 2
+  if (r.page === 'mod') return 1
   if (r.page === 'compose') return 3
   return r.setting ? 2 : 1
 }
 
 export function parentRoute(r: Route): Route | null {
   if (r.page === 'thread') return { page: 'board', forumId: r.forumId, slug: r.slug }
-  if (r.page === 'compose') return { page: 'board', forumId: r.forumId, slug: r.slug }
   if (r.page === 'board') return { page: 'boards', forumId: r.forumId }
   if (r.page === 'settings' && r.setting) return { page: 'settings' }
+  if (r.page === 'compose') return { page: 'board', forumId: r.forumId, slug: r.slug }
+  if (r.page === 'mod') return { page: 'boards' }
   return null
 }

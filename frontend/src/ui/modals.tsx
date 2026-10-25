@@ -9,6 +9,8 @@ import { BoardSettingsModal } from './components/BoardSettingsModal'
 import { LogsModal, type LogsTab } from './components/LogsModal/LogsModal'
 import { ModeratorsModal } from './components/ModeratorsModal'
 import { ThreadTopicModal } from './components/ThreadTopicModal'
+import { ReportModal } from './components/ReportModal'
+import { modData } from './mod/modData'
 import type { EntityObject } from './components/debug/EntityDebugBody'
 import type { PostObject, ModeratorsData } from '../core/bcs/types'
 import type { RoleKind, RoleOption } from '../core/intent/roles'
@@ -20,7 +22,14 @@ interface BanTarget {
   deletePosts?: boolean
 }
 
+export interface ReportTarget {
+  board: string
+  threadNum: number
+  postNum: number
+}
+
 export interface ModalsApi {
+  openReport: (target: ReportTarget) => void
   openThreadTopic: (threadUid: string) => void
   openThreadModerators: (threadUid: string) => void
   openBoardModerators: () => void
@@ -42,12 +51,14 @@ export function ModalsProvider(props: { roles: RoleOption[]; relayUrl: string; c
   const [banTarget, setBanTarget] = createSignal<BanTarget | null>(null)
   const [banUidOpen, setBanUidOpen] = createSignal(false)
   const [bans, setBans] = createSignal<{ title: string; uid: string } | null>(null)
+  const [reportTarget, setReportTarget] = createSignal<ReportTarget | null>(null)
   const [boardSettings, setBoardSettings] = createSignal(false)
   const [logs, setLogs] = createSignal<{ tab: LogsTab; object: EntityObject | null } | null>(null)
 
   const roleKinds = (): RoleKind[] => props.roles.map((role) => role.kind)
 
   const api: ModalsApi = {
+    openReport: (target) => setReportTarget(target),
     openThreadTopic: (threadUid) => setTopic({ threadUid, topic: store.threadTopic(threadUid) }),
     openThreadModerators: (threadUid) => setModerators(store.moderatorsOf(threadUid)),
     openBoardModerators: () => setModerators(store.info()?.moderators ?? null),
@@ -106,6 +117,14 @@ export function ModalsProvider(props: { roles: RoleOption[]; relayUrl: string; c
             setBanTarget(null)
           }}
         />
+      </Show>
+      <Show when={reportTarget()}>
+        {(target) => (
+          <ReportModal
+            onClose={() => setReportTarget(null)}
+            onSubmit={(reason) => modData.submitReport(reason, target())}
+          />
+        )}
       </Show>
       <Show when={bans()}>
         {(value) => <BansModal title={value().title} relayUrl={props.relayUrl} uid={value().uid} onClose={() => setBans(null)} />}

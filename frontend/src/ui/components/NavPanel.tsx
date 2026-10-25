@@ -1,7 +1,8 @@
 import { createSignal, For, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
 import { useI18n } from '../i18n'
-import { boardPath, settingKeyToSlug, type SettingSlug } from '../route'
+import { boardPath, settingKeyToSlug, type ModTab, type SettingSlug } from '../route'
+import { MOD_TABS, closeModTabs, modTabsOpen, openModTabs } from '../modTabs'
 import type { Section } from '../nav'
 import { CheckIcon } from '../icons/CheckIcon'
 import { ChevronDownIcon } from '../icons/ChevronDownIcon'
@@ -11,6 +12,8 @@ import { PanelLeftCloseIcon } from '../icons/PanelLeftCloseIcon'
 import { PanelLeftOpenIcon } from '../icons/PanelLeftOpenIcon'
 import { BoardsIcon } from '../icons/BoardsIcon'
 import { SettingsIcon } from '../icons/SettingsIcon'
+import { ShieldIcon } from '../icons/ShieldIcon'
+import { ChevronLeftIcon } from '../icons/ChevronLeftIcon'
 import { Capsule } from './Capsule'
 import { IconButton } from './IconButton'
 import { settingLabel } from '../settings'
@@ -67,7 +70,7 @@ const globalBarCapsuleVariants = cva('sticky bottom-3 z-header mt-auto gap-2 p-2
     },
   },
 })
-const spacerVariants = cva('flex-1')
+const barRowVariants = cva('flex w-full items-center justify-between', { variants: { collapsed: { true: 'flex-col', false: '' } } })
 
 export type { Section }
 
@@ -82,6 +85,8 @@ export function NavPanel(props: {
   boards: BoardInfo[]
   board: BoardInfo | null
   setting: SettingSlug | null
+  modTab: ModTab | null
+  onOpenMod: (tab: ModTab) => void
   onToggleCollapsed: () => void
   onSelectForum: (forum: ForumInfo) => void
   onSelectBoard: (board: BoardInfo) => void
@@ -224,21 +229,51 @@ export function NavPanel(props: {
           </div>
         </section>
         <div class={globalBarCapsuleVariants({ collapsed: props.collapsed })}>
-          <IconButton
-            size="xl"
-            variant={props.section === 'boards' ? 'glass' : undefined}
-            onClick={() => props.onNavigateSection('boards')}
+          <Show
+            when={modTabsOpen()}
+            fallback={
+              <div class={barRowVariants({ collapsed: props.collapsed })}>
+                <IconButton
+                  size="lg"
+                  variant={props.section === 'boards' ? 'glass' : undefined}
+                  onClick={() => props.onNavigateSection('boards')}
+                  aria-label={t('ui.boards')}
+                >
+                  <BoardsIcon width={24} height={24} />
+                </IconButton>
+                <IconButton
+                  size="lg"
+                  variant={props.section === 'settings' ? 'glass' : undefined}
+                  onClick={() => props.onNavigateSection('settings')}
+                  aria-label={t('ui.settings')}
+                >
+                  <SettingsIcon width={24} height={24} />
+                </IconButton>
+                <IconButton size="lg" onClick={openModTabs} aria-label={t('ui.moderation')} title={t('ui.moderation')}>
+                  <ShieldIcon width={24} height={24} />
+                </IconButton>
+              </div>
+            }
           >
-            <BoardsIcon width={24} height={24} />
-          </IconButton>
-          <div class={spacerVariants()} />
-          <IconButton
-            size="xl"
-            variant={props.section === 'settings' ? 'glass' : undefined}
-            onClick={() => props.onNavigateSection('settings')}
-          >
-            <SettingsIcon width={24} height={24} />
-          </IconButton>
+            <div class={barRowVariants({ collapsed: props.collapsed })}>
+              <For each={MOD_TABS}>
+                {(item) => (
+                  <IconButton
+                    size="lg"
+                    variant={props.modTab === item.tab ? 'glass' : undefined}
+                    onClick={() => props.onOpenMod(item.tab)}
+                    aria-label={t(item.label)}
+                    title={t(item.label)}
+                  >
+                    <item.Icon width={24} height={24} />
+                  </IconButton>
+                )}
+              </For>
+              <IconButton size="lg" onClick={closeModTabs} aria-label={t('ui.back')} title={t('ui.back')}>
+                <ChevronLeftIcon width={24} height={24} />
+              </IconButton>
+            </div>
+          </Show>
         </div>
       </div>
     </div>

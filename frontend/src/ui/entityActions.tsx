@@ -1,6 +1,6 @@
 import { createContext, useContext, type Accessor, type JSX } from 'solid-js'
 import { useMod } from './mod'
-import { useModals } from './modals'
+import { useModals, type ReportTarget } from './modals'
 import { useStore } from './store'
 import { roleForThreadAction, canBan, canBanAny, type BanScope, type ThreadAction } from '../core/intent/capabilities'
 import { withThreadRoles, type RoleKind, type RoleOption } from '../core/intent/roles'
@@ -42,6 +42,7 @@ export interface EntityActions {
   threadUid: () => string | null
   selectedPosts: (uids: Set<string>) => PostObject[]
   deletedCount: (uids: Set<string>) => number
+  openReport: (target: ReportTarget) => void
   openThreadTopic: (threadUid: string) => void
   openThreadModerators: (threadUid: string) => void
   openBoardModerators: () => void
@@ -109,6 +110,7 @@ export function EntityActionsProvider(props: { roles: RoleOption[]; children: JS
       for (const uid of uids) if (store.get(uid)?.deleted) count++
       return count
     },
+    openReport: (target) => modals.openReport(target),
     openThreadTopic: (threadUid) => modals.openThreadTopic(threadUid),
     openThreadModerators: (threadUid) => modals.openThreadModerators(threadUid),
     openBoardModerators: () => modals.openBoardModerators(),

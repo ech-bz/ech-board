@@ -32,7 +32,7 @@ export function NavProvider(props: { children: JSX.Element }) {
     if (routeToPath(from) === to) return
     const fromSettings = from.page === 'settings'
     const toSettings = route.page === 'settings'
-    const replace = fromSettings ? true : toSettings ? false : depthOf(route) <= depthOf(from)
+    const replace = fromSettings ? true : toSettings ? false : route.page === 'mod' ? from.page === 'mod' : depthOf(route) <= depthOf(from)
     if (!replace) canGoBack = true
     router(to, { replace })
   }

@@ -9,6 +9,9 @@ import { VolumeIcon } from '../../icons/VolumeIcon'
 import { VolumeOffIcon } from '../../icons/VolumeOffIcon'
 import { MusicIcon } from '../../icons/MusicIcon'
 import { useIsMobile } from './useIsMobile'
+import { useI18n } from '../../i18n'
+import { useModFormat } from '../mod/format'
+import { formatMime, formatSize } from '../MediaBox'
 
 const galleryOverlayVariants = cva('fixed inset-0 z-overlay flex flex-col bg-scrim transition-colors duration-200')
 const galleryStageVariants = cva('pointer-events-auto min-h-0 flex-1 overflow-hidden [touch-action:none]')
@@ -58,6 +61,11 @@ const galleryThumbPlayVariants = cva('pointer-events-none absolute left-1/2 top-
 const galleryThumbAudioVariants = cva('flex size-full items-center justify-center bg-bg text-fg [&_svg]:size-5')
 const galleryThumbPdfVariants = cva('flex size-full items-center justify-center bg-bg text-xs font-bold text-fg')
 const galleryPdfCardVariants = cva('pointer-events-auto flex max-h-full max-w-full flex-col items-center justify-center rounded-lg bg-panel1 px-10 py-8 text-2xl font-bold text-accent no-underline')
+
+const galleryInfoVariants = cva(
+  'pointer-events-none absolute z-control flex flex-col break-words bg-shade px-3 py-1.5 text-lg leading-snug text-scrim-fg max-[899px]:text-md',
+)
+const galleryInfoLinkVariants = cva('pointer-events-auto cursor-pointer font-semibold text-accent no-underline hover:text-accent-hover hover:underline')
 
 const MUTED_KEY = 'ech-board-video-muted'
 const VOLUME_KEY = 'ech-board-video-volume'
@@ -140,7 +148,11 @@ function fmtTime(s: number): string {
 
 export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sourceRect: SourceRect | null; onClose: () => void }) {
   const mobile = useIsMobile()
+  const { t } = useI18n()
+  const fmt = useModFormat()
   const [cur, setCur] = createSignal(props.index)
+  const [infoBox, setInfoBox] = createSignal<{ left: number; width: number; bottom: number } | null>(null)
+  const canHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches
   const [thumbs, setThumbs] = createSignal(true)
   const [playing, setPlaying] = createSignal(false)
   const [muted, setMuted] = createSignal(loadMediaPrefs().muted)
@@ -768,6 +780,31 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
   })
 
   const currentItem = () => props.items[cur()]
+  const info = () => currentItem()?.info
+  const updateInfoBox = (e?: MouseEvent) => {
+    const el = activeMedia
+    if (!info() || !el || !stage) return setInfoBox(null)
+    const m = el.getBoundingClientRect()
+    const st = stage.getBoundingClientRect()
+    if (canHover) {
+      if (!e || e.clientX < m.left || e.clientX > m.right || e.clientY < m.top || e.clientY > m.bottom) return setInfoBox(null)
+      const left = Math.max(m.left, st.left)
+      const right = Math.min(m.right, st.right)
+      setInfoBox({ left, width: right - left, bottom: window.innerHeight - Math.min(m.bottom, st.bottom) })
+    } else {
+      setInfoBox({ left: st.left, width: st.width, bottom: window.innerHeight - st.bottom })
+    }
+  }
+  createEffect(
+    on(
+      cur,
+      () => {
+        setInfoBox(null)
+        if (!canHover) requestAnimationFrame(() => updateInfoBox())
+      },
+      { defer: canHover },
+    ),
+  )
   const isPlayable = () => {
     const item = currentItem()
     return !!item && (item.mime.startsWith('video/') || item.mime.startsWith('audio/'))
@@ -781,6 +818,9 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
       onClick={(e) => {
         if (e.target === e.currentTarget) props.onClose()
       }}
+      onMouseMove={(e) => canHover && updateInfoBox(e)}
+      onMouseLeave={() => canHover && setInfoBox(null)}
+      onWheel={(e) => canHover && requestAnimationFrame(() => updateInfoBox(e))}
     >
       <div
         class={galleryStageVariants()}
@@ -861,6 +901,31 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
           </For>
         </div>
       </div>
+      <Show when={info() && infoBox()}>
+        <div class={galleryInfoVariants()} style={{ left: `${infoBox()!.left}px`, width: `${infoBox()!.width}px`, bottom: `${infoBox()!.bottom}px` }}>
+          <div>
+            {t('gallery.poster')}: {info()!.posterUid} • {t('gallery.postNum')}:{' '}
+            <Show when={info()!.onOpenPost} fallback={<span class="font-semibold text-accent">№{info()!.postNum}</span>}>
+              <a
+                class={galleryInfoLinkVariants()}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const go = info()!.onOpenPost!
+                  props.onClose()
+                  go()
+                }}
+              >
+                №{info()!.postNum}
+              </a>
+            </Show>{' '}
+            • {t('gallery.board')}: <span class="font-semibold text-accent">/{info()!.board}/</span>
+          </div>
+          <div>
+            {t('gallery.format')}: {formatMime(currentItem().mime)} • {t('gallery.size')}: {formatSize(currentItem().size)} • {t('gallery.placedAt')}: {fmt.full(info()!.ts)}
+          </div>
+        </div>
+      </Show>
       <div data-gallery-bottom="" class={galleryBottomVariants()}>
         <Show when={isPlayable()}>
           <Capsule visible={thumbs()} class={galleryControlsVariants()}>

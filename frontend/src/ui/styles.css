@@ -298,4 +298,15 @@
 }
 }
 
+@keyframes composer-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
+.fade-in {
+  animation: composer-reveal 0.16s ease-out;
+}

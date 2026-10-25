@@ -481,6 +481,8 @@ export function PostBody(props: {
             closed={props.threadClosed}
             threadObject={props.record.op ? (store.threadObject(props.record.threadUid) ?? undefined) : undefined}
             onEdit={props.onEdit}
+            slug={props.slug}
+            threadNum={props.threadNum}
           />
         </Show>
       </div>
