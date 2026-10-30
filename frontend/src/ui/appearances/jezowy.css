@@ -1,0 +1,94 @@
+:root {
+  color-scheme: dark;
+
+  /* Palette adapted from Jezowy to the application's theme tokens. */
+  --color-bg: #3a3852;
+  --color-panel1: #3a3852;
+  --color-panel2: #2e2d3a;
+  --color-panel3: #454362;
+  --color-hover: #454362;
+  --color-active: #504d6c;
+  --color-mine: #46435f;
+  --color-replied-mine: #4a455f;
+  --color-spoiler: #2e2d3a;
+  --color-fg: #e8e1e1;
+  --color-secondary: #9a94a8;
+  --color-accent: #d5ae96;
+  --color-accent-hover: #826e5f;
+  --color-success: #228854;
+  --color-danger: #d05c5c;
+  --color-warn: #d5ae96;
+  --color-quote: #ff9130;
+  --color-glass1: rgba(58, 56, 82, 0.88);
+  --color-glass2: rgba(96, 96, 96, 0.55);
+  --color-chip: rgba(213, 174, 150, 0.12);
+  --color-shade: rgba(0, 0, 0, 0.5);
+  --color-scrim: rgba(0, 0, 0, 0.8);
+  --color-scrim-fg: #e8e1e1;
+  --color-track: rgba(213, 174, 150, 0.3);
+  --color-separator: #606060;
+  --color-reaction: rgba(213, 174, 150, 0.18);
+  --color-toggle-track: rgba(154, 148, 168, 0.32);
+  --color-toggle-on: #228854;
+
+  /* Original Jezowy tokens retained for compatible components. */
+  --color-surface: #3a3852;
+  --color-surface-2: #454362;
+  --color-header: #3a3852;
+  --color-border: #606060;
+  --color-accent-ink: #3a3852;
+  --color-trip: #228854;
+  --color-capcode: #c0392b;
+  --color-subject: #ffffff;
+  --form-field-bg: #2e2d3a;
+  --form-border: #424449;
+  --form-border-focus: #54565b;
+  --form-text: #ffffff;
+  --font-base: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --radius: 5px;
+  --radius-lg: 8px;
+  --shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --transition: 0.3s ease;
+  --header-h: 64px;
+  --sidebar-w: 280px;
+
+  /* Map Jezowy's radii to the application's adjustable radius scale. */
+  --radius-xs: calc(2px * var(--corner-scale, 1));
+  --radius-sm: calc(5px * var(--corner-scale, 1));
+  --radius-md: calc(8px * var(--corner-scale, 1));
+  --radius-lg: calc(8px * var(--corner-scale, 1));
+  --radius-xl: calc(8px * var(--corner-scale, 1));
+}
+
+
+/* Jezowy outlines individual posts; OP posts use a left accent rail only. */
+:root[data-appearance='jezowy'] [data-post] {
+  box-sizing: border-box;
+  border: 1px solid var(--color-accent) !important;
+}
+
+:root[data-appearance='jezowy'] [data-post][data-op-post] {
+  border: 0 !important;
+  border-left: 1px solid var(--color-accent) !important;
+  border-radius: 0 !important;
+}
+
+:root[data-appearance='jezowy'][data-ui-style='modern'] .link-card,
+:root[data-appearance='jezowy'][data-ui-style='modern'] [class~='btn'][class~='inline-flex'][class~='items-center'][class~='justify-center'][class~='gap-1'][class~='rounded-md'][class~='bg-panel2'][class~='text-md'][class~='text-accent'][class~='cursor-pointer'][class~='border-0'][class~='no-underline'] {
+  border: 1px solid var(--color-accent);
+}
+
+/* Potato renders these controls as plain text links, without Jezowy button frames. */
+:root[data-appearance='jezowy'][data-ui-style='potato'] .link-card,
+:root[data-appearance='jezowy'][data-ui-style='potato'] [class~='btn'][class~='inline-flex'][class~='items-center'][class~='justify-center'][class~='gap-1'][class~='rounded-md'][class~='bg-panel2'][class~='text-md'][class~='text-accent'][class~='cursor-pointer'][class~='border-0'][class~='no-underline'] {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}

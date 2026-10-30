@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, onCleanup, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, onCleanup, Show, type JSX } from 'solid-js'
 import { Router, Route as RouterRoute, useLocation } from '@solidjs/router'
 import { cva } from 'class-variance-authority'
 import { ensureDefaultContext, loadBoardViewData, loadPostTooltip, loadThreadViewData } from './core/load'
@@ -17,7 +17,9 @@ import { EntityActionsProvider } from './ui/entityActions'
 import { ComposerBridgeProvider } from './ui/composerBridge'
 import { GalleryProvider } from './ui/components/Gallery/GalleryProvider'
 import { PostTooltipProvider } from './ui/postTooltip/PostTooltipProvider'
-import { I18nProvider } from './ui/i18n'
+import { I18nProvider, useIsPotato } from './ui/i18n'
+import { RestartProvider } from './ui/restart'
+import { PotatoLayout } from './ui/components/PotatoLayout'
 import { TitleSync } from './ui/TitleSync'
 import { reportError } from './ui/errors'
 import { ThreadPage } from './ui/screens/ThreadPage'
@@ -59,6 +61,15 @@ function contentPath(route: Route): string | null {
   if (route.page === 'board' || route.page === 'compose') return `b:${route.forumId ?? ''}:${route.slug}`
   if (route.page === 'thread') return `t:${route.forumId ?? ''}:${route.slug}:${route.threadNum}`
   return null
+}
+
+function LayoutSwitch(props: { modern: () => JSX.Element; potato: () => JSX.Element }) {
+  const potato = useIsPotato()
+  return (
+    <Show when={potato()} fallback={props.modern()}>
+      {props.potato()}
+    </Show>
+  )
 }
 
 function Shell() {
@@ -286,72 +297,103 @@ function Shell() {
     />
   )
 
+  const minHeight = () => (loading() || refreshing() ? `${heldHeight()}px` : '')
+
+  const content = () => (
+    <Show when={context() && !loading()} fallback={<StateScreen error={error()} />}>
+      <Show when={!error()} fallback={<StateScreen error={error()} />}>
+        <Show when={threadRoute()}>
+          {(r) => <ThreadPage forumId={r().forumId ?? ''} slug={r().slug} threadNum={r().threadNum} />}
+        </Show>
+        <Show when={boardRoute()}>
+          {(r) => (
+            <BoardPage
+              forumId={r().forumId ?? ''}
+              slug={r().slug}
+              heading={boardHeading()}
+              host={currentForum()?.host}
+            />
+          )}
+        </Show>
+        <Show when={composeRoute()}>
+          {(r) => <ComposePage forumId={r().forumId ?? ''} slug={r().slug} heading={boardHeading()} />}
+        </Show>
+        <Show when={route().page === 'boards' ? true : null}>
+          <BoardsPage
+            forumId={context()!.forumId}
+            boards={boards()}
+            forums={forums()}
+            onSelectForum={selectForum}
+          />
+        </Show>
+        <Show when={route().page === 'settings' ? true : null}>
+          <SettingsPage setting={setting()} baseHref="/settings" />
+        </Show>
+      </Show>
+    </Show>
+  )
+
+  const modernLayout = () => (
+    <>
+      <aside class={asideVariants({ collapsed: collapsed() })}>{panel()}</aside>
+      <main class={mainVariants({ offset: collapsed() ? 'collapsed' : 'nav' })} style={{ 'min-height': minHeight() }}>
+        {content()}
+      </main>
+    </>
+  )
+
+  const potatoLayout = () => (
+    <PotatoLayout
+      page={route().page}
+      forums={forums()}
+      forum={currentForum()}
+      boards={boards()}
+      board={currentBoard()}
+      setting={setting()}
+      minHeight={minHeight()}
+      onSection={goSection}
+      onSelectForum={selectForum}
+      onSelectBoard={(board) => nav.navigate({ page: 'board', forumId: context()!.forumId, slug: board.slug })}
+      onOpenSetting={(slug) => nav.navigate({ page: 'settings', setting: slug })}
+    >
+      {content()}
+    </PotatoLayout>
+  )
+
   return (
     <I18nProvider>
-      <StoreProvider store={store}>
-        <ModProvider roles={roles()} onError={reportError}>
-          <ModalsProvider roles={roles()} relayUrl={context()?.relayUrl ?? ''}>
-            <EntityActionsProvider roles={roles()}>
-            <ComposerBridgeProvider>
-              <GalleryProvider>
-                <PostTooltipProvider
-                  boardPage={boardRoute() != null}
-                  resolve={(uid) => {
-                    const current = route()
-                    const slug = current && 'slug' in current ? current.slug : ''
-                    const local = slug ? store.tooltipPost(uid, slug) : null
-                    if (local) return Promise.resolve(local)
-                    const info = store.info()
-                    return info ? loadPostTooltip(info.relayUrl, info.forumId, uid) : Promise.resolve(null)
-                  }}
-                >
-                  <div class={rootVariants()}>
-                    <IconSprite />
-                    <TitleSync boards={boards()} />
-                    <aside class={asideVariants({ collapsed: collapsed() })}>{panel()}</aside>
-                    <main class={mainVariants({ offset: collapsed() ? 'collapsed' : 'nav' })} style={{ 'min-height': loading() || refreshing() ? `${heldHeight()}px` : '' }}>
-                      <Show
-                        when={context() && !loading()}
-                        fallback={<StateScreen error={error()} />}
-                      >
-                        <Show when={!error()} fallback={<StateScreen error={error()} />}>
-                          <Show when={threadRoute()}>
-                            {(r) => <ThreadPage forumId={r().forumId ?? ''} slug={r().slug} threadNum={r().threadNum} />}
-                          </Show>
-                          <Show when={boardRoute()}>
-                            {(r) => (
-                              <BoardPage
-                                forumId={r().forumId ?? ''}
-                                slug={r().slug}
-                                heading={boardHeading()}
-                                host={currentForum()?.host}
-                              />
-                            )}
-                          </Show>
-                          <Show when={composeRoute()}>
-                            {(r) => <ComposePage forumId={r().forumId ?? ''} slug={r().slug} heading={boardHeading()} />}
-                          </Show>
-                          <Show when={route().page === 'boards' ? true : null}>
-                            <BoardsPage
-                              forumId={context()!.forumId}
-                              boards={boards()}
-                              forums={forums()}
-                              onSelectForum={selectForum}
-                            />
-                          </Show>
-                          <Show when={route().page === 'settings' ? true : null}>
-                            <SettingsPage setting={setting()} baseHref="/settings" />
-                          </Show>
-                        </Show>
-                      </Show>
-                    </main>
-                    <StatusPill reconnecting={reconnecting()} refreshing={refreshing()} />
-                  </div>
-                </PostTooltipProvider>
-              </GalleryProvider>
-            </ComposerBridgeProvider>
-          </EntityActionsProvider>          </ModalsProvider>        </ModProvider>
-      </StoreProvider>
+      <RestartProvider restart={() => setReloadKey((key) => key + 1)}>
+        <StoreProvider store={store}>
+          <ModProvider roles={roles()} onError={reportError}>
+            <ModalsProvider roles={roles()} relayUrl={context()?.relayUrl ?? ''}>
+              <EntityActionsProvider roles={roles()}>
+                <ComposerBridgeProvider>
+                  <GalleryProvider>
+                    <PostTooltipProvider
+                      boardPage={boardRoute() != null}
+                      resolve={(uid) => {
+                        const current = route()
+                        const slug = current && 'slug' in current ? current.slug : ''
+                        const local = slug ? store.tooltipPost(uid, slug) : null
+                        if (local) return Promise.resolve(local)
+                        const info = store.info()
+                        return info ? loadPostTooltip(info.relayUrl, info.forumId, uid) : Promise.resolve(null)
+                      }}
+                    >
+                      <div class={rootVariants()}>
+                        <IconSprite />
+                        <TitleSync boards={boards()} />
+                        <LayoutSwitch modern={modernLayout} potato={potatoLayout} />
+                        <StatusPill reconnecting={reconnecting()} refreshing={refreshing()} />
+                      </div>
+                    </PostTooltipProvider>
+                  </GalleryProvider>
+                </ComposerBridgeProvider>
+              </EntityActionsProvider>
+            </ModalsProvider>
+          </ModProvider>
+        </StoreProvider>
+      </RestartProvider>
     </I18nProvider>
   )
 }

@@ -1,8 +1,13 @@
+import { Show } from 'solid-js'
+import { useIsPotato } from '../i18n'
+
 const NS = 'http://www.w3.org/2000/svg'
 
 export function IconSprite() {
+  const potato = useIsPotato()
   return (
-    <svg xmlns={NS} width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+    <Show when={!potato()}>
+      <svg xmlns={NS} width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
       <defs>
         <g id="icon-send"><path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z"/><path d="M6 12h16"/></g>
         <g id="icon-clip"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></g>
@@ -33,6 +38,7 @@ export function IconSprite() {
         <g id="icon-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></g>
         <g id="icon-broom"><path d="M13.5 10.5 22 2"/><path d="M14.734 13.841a2 2 0 00-.314-2.42L12.58 9.58a2 2 0 00-2.421-.314l-7.657 4.461A1 1 0 002.3 15.3l6.403 6.403a1 1 0 001.571-.204z"/><path d="m5 18 2-2"/><path d="m7.699 10.7 5.602 5.601"/></g>
       </defs>
-    </svg>
+      </svg>
+    </Show>
   )
 }

@@ -8,16 +8,21 @@ import { PlayIcon } from '../../icons/PlayIcon'
 import { VolumeIcon } from '../../icons/VolumeIcon'
 import { VolumeOffIcon } from '../../icons/VolumeOffIcon'
 import { MusicIcon } from '../../icons/MusicIcon'
+import { ChevronLeftIcon } from '../../icons/ChevronLeftIcon'
+import { ChevronRightIcon } from '../../icons/ChevronRightIcon'
+import { useI18n, useIsPotato } from '../../i18n'
 import { useIsMobile } from './useIsMobile'
 
-const galleryOverlayVariants = cva('fixed inset-0 z-overlay flex flex-col bg-scrim transition-colors duration-200')
+const galleryOverlayVariants = cva('fixed inset-0 z-overlay flex flex-col transition-colors duration-200', {
+  variants: { gallery: { true: 'bg-scrim', false: 'bg-transparent' } },
+})
 const galleryStageVariants = cva('pointer-events-auto min-h-0 flex-1 overflow-hidden [touch-action:none]')
 const galleryTrackVariants = cva('pointer-events-none flex h-full w-full gap-4 transition-transform duration-200')
 const gallerySlideVariants = cva('pointer-events-none flex h-full flex-[0_0_100%] items-center justify-center')
 const galleryMediaVariants = cva('pointer-events-auto max-h-full max-w-full touch-none select-none object-contain [transform-origin:center]')
 const galleryBottomVariants = cva('pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-3')
 const galleryControlsVariants = cva('gap-3 px-4 opacity-0 transition-opacity duration-200')
-const galleryCtrlBtnVariants = cva('[&_svg]:size-4 [&_svg]:text-scrim-fg')
+const galleryCtrlBtnVariants = cva('[&_svg]:size-4 [&_svg]:text-scrim-fg [&_.potato-ascii-icon]:size-4 [&_.potato-ascii-icon]:text-scrim-fg')
 const gallerySeekBarVariants = cva('relative h-1 w-seek flex-none cursor-pointer rounded-sm bg-track [touch-action:none] before:absolute before:-inset-x-2.5 before:-inset-y-2 before:content-[""]')
 const gallerySeekFillVariants = cva('absolute inset-y-0 left-0 rounded-sm bg-scrim-fg')
 const galleryTimeVariants = cva('flex-none whitespace-nowrap text-sm text-scrim-fg [font-variant-numeric:tabular-nums]')
@@ -41,7 +46,7 @@ const galleryThumbsVariants = cva('flex w-full gap-2 overflow-x-auto bg-shade px
   variants: {
     visible: {
       true: 'pointer-events-auto opacity-100',
-      false: 'pointer-events-none',
+      false: 'hidden',
     },
   },
 })
@@ -54,10 +59,13 @@ const galleryThumbVariants = cva('relative h-14 w-14 flex-none cursor-pointer ov
   },
 })
 const galleryThumbImgVariants = cva('size-full object-cover')
-const galleryThumbPlayVariants = cva('pointer-events-none absolute left-1/2 top-1/2 flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-shade text-scrim-fg [&_svg]:ml-0.5 [&_svg]:size-3.5')
-const galleryThumbAudioVariants = cva('flex size-full items-center justify-center bg-bg text-fg [&_svg]:size-5')
+const galleryThumbPlayVariants = cva('pointer-events-none absolute left-1/2 top-1/2 flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-shade text-scrim-fg [&_svg]:ml-0.5 [&_svg]:size-3.5 [&_.potato-ascii-icon]:ml-0.5 [&_.potato-ascii-icon]:size-3.5')
+const galleryThumbAudioVariants = cva('flex size-full items-center justify-center bg-bg text-fg [&_svg]:size-5 [&_.potato-ascii-icon]:size-5')
 const galleryThumbPdfVariants = cva('flex size-full items-center justify-center bg-bg text-xs font-bold text-fg')
 const galleryPdfCardVariants = cva('pointer-events-auto flex max-h-full max-w-full flex-col items-center justify-center rounded-lg bg-panel1 px-10 py-8 text-2xl font-bold text-accent no-underline')
+const galleryNavButtonVariants = cva('absolute top-1/2 z-[1001] flex -translate-y-1/2 items-center gap-1.5 rounded-md border border-separator bg-panel2 px-3 py-2 text-sm text-fg hover:bg-panel3', {
+  variants: { side: { left: 'left-3', right: 'right-3' } },
+})
 
 const MUTED_KEY = 'ech-board-video-muted'
 const VOLUME_KEY = 'ech-board-video-volume'
@@ -113,6 +121,9 @@ function clamp(v: number, min: number, max: number): number {
 
 const TRACK_GAP = 16
 const FLY_MS = 150
+const MIN_MEDIA_SCALE = 0.1
+const INITIAL_MEDIA_SCALE = 0.75
+const MAX_MEDIA_SCALE = 8
 
 function touchDist(t: TouchList): number {
   const dx = t[0].clientX - t[1].clientX
@@ -140,8 +151,10 @@ function fmtTime(s: number): string {
 
 export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sourceRect: SourceRect | null; onClose: () => void }) {
   const mobile = useIsMobile()
+  const { t, showGalleryOnOpen } = useI18n()
+  const potato = useIsPotato()
   const [cur, setCur] = createSignal(props.index)
-  const [thumbs, setThumbs] = createSignal(true)
+  const [thumbs, setThumbs] = createSignal(mobile() || showGalleryOnOpen())
   const [playing, setPlaying] = createSignal(false)
   const [muted, setMuted] = createSignal(loadMediaPrefs().muted)
   const [vol, setVol] = createSignal(loadMediaPrefs().vol)
@@ -149,6 +162,10 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
   const [vdur, setVdur] = createSignal(0)
   const [volOpen, setVolOpen] = createSignal(false)
   const [scrubT, setScrubT] = createSignal<number | null>(null)
+
+  createEffect(() => {
+    if (mobile()) setThumbs(true)
+  })
 
   let overlay: HTMLDivElement | undefined
   let stage: HTMLDivElement | undefined
@@ -158,7 +175,7 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
   let activeMedia: HTMLElement | null = null
   let carouselFirst = true
 
-  let transform = { scale: 1, x: 0, y: 0 }
+  let transform = { scale: INITIAL_MEDIA_SCALE, x: 0, y: 0 }
   let pinch: { dist: number; scale: number; tx: number; ty: number; fx: number; fy: number; lfx: number; lfy: number } | null = null
   let drag: {
     x: number
@@ -204,7 +221,9 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
   const setOverlayDim = (progress: number) => {
     if (!overlay) return
     overlay.style.transition = 'none'
-    overlay.style.background = `rgba(0, 0, 0, ${Math.max(0, 0.9 * (1 - Math.min(1, 2.0 * progress)))})`
+    overlay.style.background = thumbs()
+      ? `rgba(0, 0, 0, ${Math.max(0, 0.9 * (1 - Math.min(1, 2.0 * progress)))})`
+      : 'transparent'
   }
 
   const setCarouselDim = (progress: number) => {
@@ -218,7 +237,7 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
       settleAnim.cancel()
       settleAnim = null
     }
-    transform = { scale: 1, x: 0, y: 0 }
+    transform = { scale: INITIAL_MEDIA_SCALE, x: 0, y: 0 }
     applyTransform()
   }
 
@@ -241,7 +260,7 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
 
   const settleTransform = (px?: number, py?: number) => {
     const { scale, x, y } = transform
-    const ns = clamp(scale, 1, 8)
+    const ns = clamp(scale, MIN_MEDIA_SCALE, MAX_MEDIA_SCALE)
     let tx = x
     let ty = y
     if (px !== undefined && py !== undefined && stage) {
@@ -310,8 +329,8 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
     const cx = rect.left + rect.width / 2
     const cy = rect.top + rect.height / 2
     const current = transform
-    if (current.scale > 1) {
-      animateTo(1, 0, 0, 250)
+    if (Math.abs(current.scale - INITIAL_MEDIA_SCALE) > 0.001) {
+      animateTo(INITIAL_MEDIA_SCALE, 0, 0, 250)
       return
     }
     const target = 2.5
@@ -334,11 +353,9 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
       doubleTapZoom(x, y)
       return
     }
+    // A single click on the media must not toggle the thumbnail gallery.
+    // Keep the tap timestamp only to detect a double-click for zooming.
     tap = { t: now, x, y }
-    tapTimer = window.setTimeout(() => {
-      tapTimer = null
-      setThumbs(!thumbs())
-    }, 280)
   }
 
   const select = (i: number) => setCur(i)
@@ -415,7 +432,7 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
       const cy = Math.min(maxY, Math.max(-maxY, ty))
       const oy = ty - cy
       const shrink = stage ? Math.max(0, oy) / stage.clientHeight : 0
-      const newScale = Math.max(0.3, d.scale * (1 - shrink))
+      const newScale = Math.max(MIN_MEDIA_SCALE, d.scale * (1 - shrink))
       const rect = stage ? stage.getBoundingClientRect() : null
       if (rect) {
         const centerX = rect.left + rect.width / 2
@@ -588,9 +605,7 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
     if (e.touches.length === 2 && pinch) {
       const p = pinch
       if (!stage) return
-      let newScale = (p.scale * touchDist(e.touches)) / p.dist
-      if (newScale < 1) newScale = 1 - (1 - newScale) * 0.5
-      else if (newScale > 8) newScale = 8 + (newScale - 8) * 0.5
+      const newScale = clamp((p.scale * touchDist(e.touches)) / p.dist, MIN_MEDIA_SCALE, MAX_MEDIA_SCALE)
       const rect = stage.getBoundingClientRect()
       const cx = rect.left + rect.width / 2
       const cy = rect.top + rect.height / 2
@@ -601,7 +616,8 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
       const ratio = newScale / p.scale
       const tx = fx - cx - (p.fx - cx - p.tx) * ratio
       const ty = fy - cy - (p.fy - cy - p.ty) * ratio
-      transform = { scale: newScale, x: tx, y: ty }
+      const bounded = clampPan(tx, ty, newScale)
+      transform = { scale: newScale, x: bounded.x, y: bounded.y }
       applyTransform()
       return
     }
@@ -731,11 +747,11 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
       const cy = rect.top + rect.height / 2
       const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12
       const current = transform
-      const newScale = clamp(current.scale * factor, 1, 8)
+      const newScale = clamp(current.scale * factor, MIN_MEDIA_SCALE, MAX_MEDIA_SCALE)
       const ratio = newScale / current.scale
       let tx = e.clientX - cx - (e.clientX - cx - current.x) * ratio
       let ty = e.clientY - cy - (e.clientY - cy - current.y) * ratio
-      if (newScale === 1) {
+      if (newScale <= INITIAL_MEDIA_SCALE) {
         tx = 0
         ty = 0
       }
@@ -776,7 +792,7 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
 
   return (
     <div
-      class={galleryOverlayVariants()}
+      class={galleryOverlayVariants({ gallery: thumbs() })}
       ref={overlay}
       onClick={(e) => {
         if (e.target === e.currentTarget) props.onClose()
@@ -861,9 +877,33 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
           </For>
         </div>
       </div>
+      <Show when={!thumbs() && props.items.length > 1}>
+        <button
+          type="button"
+          class={galleryNavButtonVariants({ side: 'left' })}
+          aria-label={t('gallery.previous')}
+          onClick={(e) => {
+            e.stopPropagation()
+            select((cur() + props.items.length - 1) % props.items.length)
+          }}
+        >
+          <Show when={potato()} fallback={<ChevronLeftIcon width={16} height={16} />}>{'<-'}</Show>
+        </button>
+        <button
+          type="button"
+          class={galleryNavButtonVariants({ side: 'right' })}
+          aria-label={t('gallery.next')}
+          onClick={(e) => {
+            e.stopPropagation()
+            select((cur() + 1) % props.items.length)
+          }}
+        >
+          <Show when={potato()} fallback={<ChevronRightIcon width={16} height={16} />}>{'->'}</Show>
+        </button>
+      </Show>
       <div data-gallery-bottom="" class={galleryBottomVariants()}>
         <Show when={isPlayable()}>
-          <Capsule visible={thumbs()} class={galleryControlsVariants()}>
+          <Capsule visible={isPlayable()} class={galleryControlsVariants()}>
             <IconButton
               size="sm"
               class={galleryCtrlBtnVariants()}
@@ -875,8 +915,8 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
                 else v.pause()
               }}
             >
-              <Show when={playing()} fallback={<PlayIcon />}>
-                <PauseIcon />
+              <Show when={playing()} fallback={<PlayIcon width={16} height={16} />}>
+                <PauseIcon width={16} height={16} />
               </Show>
             </IconButton>
             <div
@@ -981,12 +1021,12 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
                   }
                 >
                   <span class={galleryThumbAudioVariants()}>
-                    <MusicIcon />
+                    <MusicIcon width={20} height={20} />
                   </span>
                 </Show>
                 <Show when={m.mime.startsWith('video/')}>
                   <span class={galleryThumbPlayVariants()}>
-                    <PlayIcon />
+                    <PlayIcon width={14} height={14} />
                   </span>
                 </Show>
               </button>

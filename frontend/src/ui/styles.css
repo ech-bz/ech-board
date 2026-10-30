@@ -117,7 +117,18 @@
   --global-bar-h: 65px;
   --post-max-w: 1000px;
   --post-bg: var(--color-panel1);
+  --corner-scale: 1;
+  --radius-xs: calc(2px * var(--corner-scale));
+  --radius-sm: calc(6px * var(--corner-scale));
+  --radius-md: calc(10px * var(--corner-scale));
+  --radius-lg: calc(14px * var(--corner-scale));
+  --radius-xl: calc(16px * var(--corner-scale));
   background: var(--color-bg);
+}
+
+
+.post-sequence-num {
+  color: var(--color-postnum, var(--color-quote, #789922));
 }
 
 @layer base {
@@ -178,6 +189,66 @@
 *::-webkit-scrollbar-thumb:hover {
   background: var(--color-track);
 }
+
+:root .rounded-full {
+  border-radius: calc(32px * var(--corner-scale));
+}
+
+:root .settings-checkbox.rounded-full {
+  border-radius: calc(16px * var(--toggle-corner-scale));
+}
+
+:root[data-corner-radius='0'] *,
+:root[data-corner-radius='0'] *::before,
+:root[data-corner-radius='0'] *::after {
+  border-radius: 0 !important;
+}
+
+.reaction-image {
+  width: var(--reaction-size, 24px);
+  height: var(--reaction-size, 24px);
+  object-fit: contain;
+}
+
+.corner-radius-slider {
+  appearance: none;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.corner-radius-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: calc(2px * var(--corner-scale));
+  background: linear-gradient(to right, var(--color-accent) 0%, var(--color-accent) 100%);
+  box-shadow: 0 -3px 0 -1px var(--color-panel1), 0 3px 0 -1px var(--color-panel1);
+}
+
+.corner-radius-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border: 2px solid var(--color-bg);
+  border-radius: calc(8px * var(--corner-scale));
+  background: var(--color-accent);
+}
+
+.corner-radius-slider::-moz-range-track {
+  height: 4px;
+  border-radius: calc(2px * var(--corner-scale));
+  background: var(--color-accent);
+}
+
+.corner-radius-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--color-bg);
+  border-radius: calc(8px * var(--corner-scale));
+  background: var(--color-accent);
+}
+
 
 [data-composer] textarea::-webkit-scrollbar-track,
 [data-composer] textarea::-webkit-scrollbar-thumb {
@@ -263,9 +334,9 @@
   left: 4px;
   top: 1px;
   width: 4px;
-  height: 8px;
+  height: 7px;
   border: solid #fff;
-  border-width: 0 2px 2px 0;
+  border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);
 }
 
@@ -276,7 +347,7 @@
   left: 2px;
   width: 27px;
   height: 27px;
-  border-radius: 50%;
+  border-radius: calc(13.5px * var(--toggle-corner-scale));
   background: #fff;
   transition: transform 0.2s ease;
 }
@@ -287,15 +358,621 @@
 
 .post-reactions::before {
   content: '';
-  width: 16px;
-  height: 16px;
+  width: var(--reaction-glyph-size, 16px);
+  height: var(--reaction-glyph-size, 16px);
   border-radius: var(--radius-sm);
   filter: grayscale(1) brightness(1.5) contrast(0.5);
   background-image: var(--glyph);
-  background-size: 16px 16px;
+  background-size: var(--reaction-glyph-size, 16px) var(--reaction-glyph-size, 16px);
   background-repeat: no-repeat;
   background-position: center;
 }
 }
 
 
+
+/* ===== Potato: плоский стиль старых имиджбордов ===== */
+/* Без прозрачности, блюра, теней, анимаций и скруглений. */
+:root[data-ui-style='potato'] {
+  --color-glass1: var(--color-bg);
+  --color-glass2: var(--color-panel3);
+  --color-chip: var(--color-panel2);
+  --color-shade: #000;
+  --color-scrim: #000;
+  --color-track: var(--color-panel3);
+  --color-reaction: var(--color-active);
+  --color-toggle-track: var(--color-panel3);
+  --post-max-w: 1000px;
+  --potato-topbar-height: 40px;
+}
+
+:root[data-ui-style='potato'] *,
+:root[data-ui-style='potato'] *::before,
+:root[data-ui-style='potato'] *::after {
+  transition: none !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  will-change: auto !important;
+}
+
+:root[data-ui-style='potato'] .glass-fade {
+  background: var(--color-bg);
+}
+
+:root[data-ui-style='potato'] .glass-fade::before {
+  display: none;
+}
+
+:root[data-ui-style='potato'] .post-text.collapsed {
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+/* Любая кнопка (Button) превращается в текстовую гиперссылку */
+:root[data-ui-style='potato'] .btn {
+  display: inline;
+  padding: 0;
+  background: transparent;
+  color: var(--color-accent);
+  cursor: pointer;
+  border-radius: 0;
+}
+
+:root[data-ui-style='potato'] .btn:hover {
+  background: transparent;
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+:root[data-ui-style='potato'] .btn.text-danger,
+:root[data-ui-style='potato'] .btn:is(.text-danger):hover {
+  color: var(--color-danger);
+}
+
+/* link-card (ссылки в постах) -> обычная гиперссылка */
+:root[data-ui-style='potato'] .link-card {
+  display: inline;
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: transparent;
+  font-weight: inherit;
+  text-align: left;
+  text-decoration: underline;
+}
+
+:root[data-ui-style='potato'] .link-card:hover {
+  background: transparent;
+}
+
+:root[data-ui-style='potato'] .nav-up {
+  position: fixed;
+  top: 48px;
+  right: 16px;
+}
+
+/* Fold: без плавной анимации */
+:root[data-ui-style='potato'] .fold-rail {
+  display: none;
+}
+
+/* Potato desktop layout: keep the top controls and board menu in view. */
+:root[data-ui-style='potato'] [data-potato-topbar] {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  min-height: var(--potato-topbar-height);
+  background: var(--color-bg);
+  padding-block: 8px;
+}
+
+:root[data-ui-style='potato'] [data-potato-nav] {
+  position: sticky;
+  top: var(--potato-topbar-height);
+  align-self: flex-start;
+  max-height: calc(100dvh - var(--potato-topbar-height));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  background: var(--color-bg);
+  z-index: 20;
+}
+
+/* Center boards is independent from thread centering: place the slug row directly under the topbar. */
+@media (min-width: 900px) {
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+  }
+
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-topbar] {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-columns] {
+    display: contents;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-nav] {
+    position: sticky;
+    top: var(--potato-topbar-height);
+    z-index: 25;
+    grid-column: 1;
+    grid-row: 2;
+    align-self: stretch;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    padding: 0 12px 8px;
+    border-bottom: 1px solid var(--color-separator);
+    background: var(--color-bg);
+  }
+
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-nav] > div:first-child {
+    display: none;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-nav] > div:nth-child(2) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    overflow: visible;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-nav] a {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 0;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  /* The centered board row shows only board slugs, without names or counts. */
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-nav] a > span:nth-child(2),
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-nav] a > span:nth-child(3) {
+    display: none;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-nav] a > span:first-child {
+    display: inline;
+    font-weight: 700;
+    color: var(--color-accent);
+  }
+
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-nav] a:hover {
+    background: transparent;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-nav] a.bg-active {
+    background: transparent;
+    color: var(--color-accent);
+  }
+
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-head] {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-main] {
+    grid-column: 1;
+    grid-row: 4;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Keep settings centered when thread-centering is enabled, independently of board navigation. */
+  :root[data-ui-style='potato'] [data-potato-main][data-potato-center-threads] .max-w-settings {
+    width: min(100%, 560px);
+    margin-inline: auto;
+  }
+}
+
+/* Threads use most of the content column; individual posts remain content-sized. */
+:root[data-ui-style='potato'] [data-potato-thread] {
+  box-sizing: border-box;
+  width: 90%;
+  max-width: none;
+  margin-inline: 0;
+}
+
+:root[data-ui-style='potato'] [data-potato-thread-list] {
+  box-sizing: border-box;
+  width: 90%;
+  max-width: none;
+  margin-inline: 0;
+}
+
+@media (min-width: 900px) {
+  :root[data-ui-style='potato'] [data-potato-main][data-potato-center-threads] [data-potato-thread],
+  :root[data-ui-style='potato'] [data-potato-main][data-potato-center-threads] [data-potato-thread-list] {
+    box-sizing: border-box;
+    width: min(90%, var(--post-max-w));
+    max-width: var(--post-max-w);
+    margin-inline: auto;
+  }
+
+  /* Center the full thread frame, rather than the intrinsic w-fit posts column. */
+  :root[data-ui-style='potato'] [data-potato-main][data-potato-center-threads] [data-potato-posts-column] {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    align-self: stretch;
+  }
+}
+
+:root[data-ui-style='potato'] [data-potato-posts-column] {
+  width: 100%;
+  max-width: 100%;
+}
+
+:root[data-ui-style='potato'] [data-potato-post] {
+  box-sizing: border-box;
+  max-width: min(var(--post-max-w), 100%);
+  min-height: 100px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 6px !important;
+}
+
+:root[data-ui-style='potato'] .potato-reactions-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Keep the Potato reaction picker circular even when the global corner scale is zero. */
+:root[data-ui-style='potato'] .reaction-trigger {
+  border-radius: 50% !important;
+}
+
+/* Give post text its own breathing room below the metadata/media header. */
+:root[data-ui-style='potato'] [data-potato-post] > .post-text {
+  margin-top: 12px;
+  padding: 0 10px 0 12px;
+}
+
+
+/* On phones, follow the Modern single-column rhythm and compact navigation. */
+@media (max-width: 899px) {
+  :root[data-ui-style='potato'] {
+    --potato-topbar-height: 40px;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-topbar] {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    scrollbar-width: none;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-topbar]::-webkit-scrollbar {
+    display: none;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-head] {
+    padding: 8px 12px 10px;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-head] > img {
+    display: none;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-columns] {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-nav] {
+    position: sticky;
+    top: var(--potato-topbar-height);
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    padding: 0 12px 8px;
+    border-bottom: 1px solid var(--color-separator);
+  }
+
+  :root[data-ui-style='potato'] [data-potato-nav] > div:first-child {
+    display: none;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-nav] > div:nth-child(2) {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-nav] > div:nth-child(2)::-webkit-scrollbar {
+    display: none;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-nav] a {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 6px 10px;
+    border: 1px solid var(--color-separator);
+    border-radius: 6px;
+    background: var(--color-panel1);
+    white-space: nowrap;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-nav] a.bg-active {
+    background: var(--color-active);
+  }
+
+  :root[data-ui-style='potato'] [data-potato-main] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-thread],
+  :root[data-ui-style='potato'] [data-potato-thread-list] {
+    width: 100%;
+    max-width: 100%;
+    padding-inline: 12px;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-post] {
+    width: 100%;
+    min-height: 100px;
+    margin-bottom: 12px;
+    padding: 12px;
+    border-radius: 8px !important;
+    background: var(--post-bg, var(--color-panel1));
+  }
+
+}
+
+/* Potato desktop board links behave like plain underlined links, not boxed tabs. */
+@media (min-width: 900px) {
+  :root[data-ui-style='potato'] [data-potato-nav] a {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    text-decoration: none;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-nav] a:hover {
+    color: var(--color-accent-hover);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  :root[data-ui-style='potato'] [data-potato-nav] a.bg-active {
+    background: transparent;
+  }
+}
+
+:root[data-ui-style='potato'] .potato-ascii-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  color: currentColor;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 700;
+  line-height: 1;
+  white-space: pre;
+  text-align: center;
+  font-size: 0.82em;
+}
+
+:root[data-ui-style='potato'] .potato-ascii-icon[data-icon-size='12x12'] { width: 12px; height: 12px; font-size: 10px; }
+:root[data-ui-style='potato'] .potato-ascii-icon[data-icon-size='14x14'] { width: 14px; height: 14px; font-size: 11px; }
+:root[data-ui-style='potato'] .potato-ascii-icon[data-icon-size='16x16'] { width: 16px; height: 16px; font-size: 13px; }
+:root[data-ui-style='potato'] .potato-ascii-icon[data-icon-size='18x18'] { width: 18px; height: 18px; font-size: 14px; }
+:root[data-ui-style='potato'] .potato-ascii-icon[data-icon-size='20x20'] { width: 20px; height: 20px; font-size: 16px; }
+:root[data-ui-style='potato'] .potato-ascii-icon[data-icon-size='22x22'] { width: 22px; height: 22px; font-size: 18px; }
+:root[data-ui-style='potato'] .potato-ascii-icon[data-icon-size='24x24'] { width: 24px; height: 24px; font-size: 20px; }
+:root[data-ui-style='potato'] .potato-ascii-icon[data-icon-size='40x40'] { width: 40px; height: 40px; font-size: 32px; }
+
+:root[data-ui-style='potato'] .post-reactions::before {
+  width: var(--reaction-glyph-size, 24px);
+  height: var(--reaction-glyph-size, 24px);
+  background-size: var(--reaction-glyph-size, 24px) var(--reaction-glyph-size, 24px);
+}
+
+
+
+/* Potato interaction affordances stay attached to the individual post card. */
+:root[data-ui-style='potato'] [data-potato-post] {
+  position: relative;
+}
+
+:root[data-ui-style='potato'] [data-potato-post] > .reaction-trigger {
+  position: absolute !important;
+  top: auto !important;
+  right: 8px !important;
+  bottom: 8px !important;
+  left: auto !important;
+  transform: translateY(3px) scale(0.88) !important;
+  translate: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+  visibility: hidden;
+  pointer-events: none !important;
+  transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease !important;
+}
+
+/* Only the actual hovered/focused post reveals its own picker. Do not use the
+   surrounding thread/list hover state: that would reveal every child picker. */
+:root[data-ui-style='potato'] [data-potato-post]:hover > .reaction-trigger,
+:root[data-ui-style='potato'] [data-potato-post] > .reaction-trigger:focus-visible,
+:root[data-ui-style='potato'] [data-potato-post] > .reaction-trigger[aria-expanded='true'] {
+  opacity: 1 !important;
+  visibility: visible;
+  transform: translateY(0) scale(1) !important;
+  pointer-events: auto !important;
+}
+
+:root[data-ui-style='potato'] [data-potato-post] > .reaction-trigger::before {
+  width: var(--reaction-glyph-size, 24px) !important;
+  height: var(--reaction-glyph-size, 24px) !important;
+  background-size: var(--reaction-glyph-size, 24px) var(--reaction-glyph-size, 24px) !important;
+}
+
+:root[data-ui-style='potato'] .potato-hide-thread,
+:root[data-ui-style='potato'] .potato-menu-trigger {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  vertical-align: middle;
+  position: relative;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 1px !important;
+  background: #777 !important;
+  color: #fff !important;
+  font: 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+:root[data-ui-style='potato'] .potato-hide-thread:hover,
+:root[data-ui-style='potato'] .potato-menu-trigger:hover {
+  background: #999 !important;
+  color: #fff !important;
+}
+
+:root[data-ui-style='potato'] .potato-menu-glyph {
+  color: #fff !important;
+  font: 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+:root[data-ui-style='potato'] .potato-state-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: currentColor;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Segoe UI Symbol", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+:root[data-ui-style='potato'] .potato-closed-icon { color: var(--color-danger); }
+:root[data-ui-style='potato'] .potato-pinned-icon { color: var(--color-success); }
+
+@media (hover: none), (pointer: coarse) {
+  :root[data-ui-style='potato'] [data-potato-post] > .reaction-trigger {
+    opacity: 1 !important;
+    visibility: visible;
+    transform: none !important;
+    pointer-events: auto !important;
+    transition: none !important;
+  }
+}
+
+
+:root[data-ui-style='potato'] .potato-select-checkbox {
+  appearance: auto !important;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin: 0 2px 0 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+:root .reaction-picker-image {
+  width: var(--reaction-picker-size, 20px);
+  height: var(--reaction-picker-size, 20px);
+}
+
+
+/* Keep the sticky reply composer aligned with the centered Potato thread frame. */
+@media (min-width: 900px) {
+  :root[data-ui-style='potato'] [data-potato-main][data-potato-center-threads] [data-composer] {
+    box-sizing: border-box;
+    width: min(90%, var(--post-max-w));
+    max-width: var(--post-max-w);
+    margin-inline: auto;
+  }
+}
+
+:root[data-ui-style='potato'] .potato-selection-trigger {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 1px !important;
+  background: #777 !important;
+  color: #fff !important;
+  cursor: pointer;
+}
+
+:root[data-ui-style='potato'] .potato-selection-trigger:hover {
+  background: #999 !important;
+  color: #fff !important;
+}
+
+:root[data-ui-style='potato'] .potato-selection-glyph {
+  color: #fff !important;
+  font: 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.post-selection-glyph {
+  color: currentColor;
+  font: 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.post-selection-trigger {
+  color: var(--color-fg);
+}
+
+/* Align Potato reaction chips with the post text's left edge. */
+:root[data-ui-style='potato'] .potato-reactions-row {
+  padding-left: 12px;
+}

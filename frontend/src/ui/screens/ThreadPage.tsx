@@ -6,7 +6,8 @@ import { PostComposer } from '../components/PostComposer/PostComposer'
 import { ThreadNavDown, ThreadNavUp } from '../components/ThreadNav'
 import { PageHeader } from '../components/PageHeader'
 import { usePage, usePosts, useStore } from '../store'
-import { useI18n } from '../i18n'
+import { useI18n, useIsPotato } from '../i18n'
+import { useRestart } from '../restart'
 import { useEntityActions } from '../entityActions'
 import { useIsMobile } from '../components/Gallery/useIsMobile'
 import { PostSelectionProvider } from '../postSelection/PostSelectionProvider'
@@ -19,8 +20,8 @@ import { canBanByUid, canPostAction } from '../../core/intent/capabilities'
 
 const pageVariants = cva('flex min-h-screen min-w-0 flex-col')
 const screenVariants = cva('flex min-h-dvh flex-col')
-const menuTriggerVariants = cva('ml-auto px-1 py-2 hover:bg-hover')
 const listVariants = cva('pl-4 pr-3.5')
+const potatoListVariants = cva('px-3 pb-4')
 const listMobileVariants = cva('pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] pb-0 pt-2.5')
 const markerVariants = cva('my-3 w-full border-t-2 border-dashed border-accent will-change-transform')
 
@@ -69,7 +70,10 @@ function ThreadBody(props: {
   const { t } = useI18n()
   const store = useStore()
   const nav = useNav()
-  const mobile = useIsMobile()
+  const potato = useIsPotato()
+  const phone = useIsMobile()
+  const mobile = () => phone() && !potato()
+  const restart = useRestart()
   const page = usePage()
   const location = useLocation()
   const posts = props.posts
@@ -208,9 +212,10 @@ function ThreadBody(props: {
         title={heading()}
         subtitle={sub()}
         onBack={back}
+        onTitle={restart}
         trailing={
           <Show when={page()}>
-            <ThreadSelectionMenu items={props.threadMenu()} variant="glass" class={menuTriggerVariants()} />
+            <ThreadSelectionMenu items={props.threadMenu()} size="lg" label={potato() ? t('ui.menu') : undefined} />
           </Show>
         }
         below={
@@ -219,7 +224,12 @@ function ThreadBody(props: {
           </Show>
         }
       />
-      <div data-thread-scroll="" data-post-column="" class={mobile() ? listMobileVariants() : listVariants()}>
+      <div
+        data-thread-scroll=""
+        data-post-column=""
+        data-potato-thread-list={potato() ? '' : undefined}
+        class={potato() ? potatoListVariants() : mobile() ? listMobileVariants() : listVariants()}
+      >
         <For each={posts()}>
           {(uid, index) => (
             <>

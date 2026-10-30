@@ -7,7 +7,7 @@ import { TabBar } from '../components/TabBar'
 import { ChevronRightIcon } from '../icons/ChevronRightIcon'
 import type { MenuItem } from '../components/Menu/DropdownMenu'
 import { useEntityActions } from '../entityActions'
-import { useI18n } from '../i18n'
+import { useI18n, useIsPotato } from '../i18n'
 import { useIsMobile } from '../components/Gallery/useIsMobile'
 import { useMobileTabs } from '../mobileNav'
 import { boardPath } from '../route'
@@ -42,7 +42,9 @@ export function BoardsPage(props: {
 }) {
   const { t } = useI18n()
   const ea = useEntityActions()
-  const mobile = useIsMobile()
+  const potato = useIsPotato()
+  const phone = useIsMobile()
+  const mobile = () => phone() && !potato()
   const tabs = useMobileTabs()
   const forumMenu = (): MenuItem[] => [
     { label: t('mod.debug'), onClick: () => ea.openLogs('forum') },
@@ -52,7 +54,15 @@ export function BoardsPage(props: {
   const totalPosts = () => props.boards.reduce((sum, board) => sum + board.count, 0)
   const forumPage = () => <ForumPage boardsCount={props.boards.length} totalPosts={totalPosts()} menu={forumMenu()} />
   return (
-    <Show when={mobile()} fallback={<section class={pageVariants()}>{forumPage()}</section>}>
+    <Show when={mobile()} fallback={
+        <section class={pageVariants()}>
+          <Show when={potato()}>
+            <PageHeader title={t('ui.boards')} />
+          </Show>
+          {forumPage()}
+        </section>
+      }
+    >
       <section class={screenVariants()}>
         <PageHeader title={t('ui.boards')} />
         <div class={chipsRowVariants()}>

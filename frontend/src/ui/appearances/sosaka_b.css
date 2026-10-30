@@ -1,0 +1,95 @@
+:root {
+  color-scheme: dark;
+
+  /* Sosaka B: night palette mapped to the application's color tokens. */
+  --color-bg: rgb(21, 32, 43);
+  --color-panel1: #192734;
+  --color-panel2: #192734;
+  --color-panel3: #192734;
+  --color-hover: rgb(21, 32, 43);
+  --color-active: rgb(19, 29, 40);
+  --color-mine: rgb(19, 29, 40);
+  --color-replied-mine: rgb(19, 29, 40);
+  --color-spoiler: #000;
+  --color-fg: #ccc;
+  --color-secondary: #7d7d7d;
+  --color-accent: #c3672a;
+  --color-accent-hover: #a74300;
+  --color-accent-ink: #ccc;
+  --color-success: #789922;
+  --color-danger: #d05c5c;
+  --color-warn: #c3672a;
+  --color-quote: #789922;
+  --color-glass1: rgba(21, 32, 43, 0.9);
+  --color-glass2: rgba(56, 68, 77, 0.45);
+  --color-chip: rgba(204, 204, 204, 0.06);
+  --color-shade: rgba(0, 0, 0, 0.6);
+  --color-scrim: rgba(0, 0, 0, 0.82);
+  --color-scrim-fg: #ccc;
+  --color-track: rgb(76, 96, 116);
+  --color-separator: #38444d66;
+  --color-reaction: rgba(195, 103, 42, 0.18);
+  --color-toggle-track: #333d46;
+  --color-toggle-on: #c3672a;
+
+  /* Extra Sosaka source tokens used by controls and legacy widgets. */
+  --color-surface: rgb(21, 32, 43);
+  --color-surface-2: #192734;
+  --color-header: rgb(21, 32, 43);
+  --color-border: #38444d66;
+  --color-subject: #6995c5;
+  --color-postnum: #789922;
+  --color-special-text: #800080;
+  --color-drag: rgb(76, 96, 116);
+  --color-icon: #565656;
+  --color-media-border: rgb(13, 20, 27);
+  --color-muted-button: #333d46;
+  --form-field-bg: #192734;
+  --form-border: rgb(56, 68, 77);
+  --form-border-focus: #c3672a;
+  --form-text: #ccc;
+  --report-modal-border: rgba(255, 255, 255, 0.2);
+  --theme_default_bg: rgb(21, 32, 43);
+  --theme_default_postbg: #192734;
+  --theme_default_postbghighlight: rgb(19, 29, 40);
+  --theme_default_spectext: #800080;
+  --theme_default_postnum: #789922;
+  --theme_default_border: #38444d66;
+  --theme_default_text: #ccc;
+  --theme_default_alttext: #7d7d7d;
+  --theme_default_link: #c3672a;
+  --theme_default_hover: #a74300;
+  --theme_default_title: #6995c5;
+  --theme_default_drag: rgb(76, 96, 116);
+  --theme_default_spoiler: #000;
+  --theme_default_icon: #565656;
+  --theme_default_btntext: #ccc;
+  --theme_default_btnbg: #192734;
+  --theme_default_btnborder: rgb(56, 68, 77);
+  --theme_default_altbtnbg: #192734;
+  --theme_default_btnbghover: rgb(21, 32, 43);
+  --theme_default_altbtnbghover: rgb(21, 32, 43);
+  --theme_default_inputtext: #ccc;
+  --theme_nmswitch: #c3672a;
+  --theme_mpborder: rgb(13, 20, 27);
+  --theme_mubtn: #333d46;
+  --theme_sbthumb: #223546;
+  --theme_sbtrack: rgb(21, 32, 43);
+  --report_modal_border: rgba(255, 255, 255, 0.2);
+}
+
+
+/* The in-thread sequence (1–500) is green; the global № post ID keeps its link color. */
+/* The in-thread sequence (1–500) is green; the global № post ID keeps its link color. */
+:root[data-appearance='sosaka_dark'] .post-sequence-num {
+  color: var(--color-postnum, #789922) !important;
+}
+
+/* Posts authored by the current user get a solid accent rail; replies to them get a dashed rail. */
+:root[data-appearance='sosaka_dark'] [data-post][data-mine-post] {
+  border-left: 2px solid var(--color-accent) !important;
+}
+
+:root[data-appearance='sosaka_dark'] [data-post][data-replied-mine-post] {
+  border-left: 2px dashed var(--color-accent) !important;
+}

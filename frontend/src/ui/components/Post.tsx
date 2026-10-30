@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
 import { cva } from 'class-variance-authority'
 import { A } from '@solidjs/router'
 import { ROLE_STYLE } from '../../core/intent/roles'
@@ -19,9 +19,10 @@ import { PostRefLink } from '../postTooltip/PostRefLink'
 import { reportError } from '../errors'
 import { threadPath } from '../route'
 import { useNav } from '../nav'
-import { useI18n } from '../i18n'
+import { useI18n, useIsPotato } from '../i18n'
 import { useRecord, useStaticInfo, useStore } from '../store'
 import { usePostSelection } from '../postSelection/PostSelectionProvider'
+import { SelectedPostMenu } from '../postSelection/SelectedPostMenu'
 import { useComposerBridge } from '../composerBridge'
 import type { PostRecord } from '../../store/records'
 import type { DecryptContext } from '../../core/intent/decrypt'
@@ -69,13 +70,38 @@ const flagVariants = cva('h-3.5 w-auto flex-none rounded-xs')
 const checkboxWrapVariants = cva('relative flex flex-none cursor-pointer items-center')
 const checkboxVariants = cva('relative size-4 cursor-pointer appearance-none rounded-sm border border-separator bg-panel2 checked:border-accent checked:bg-accent')
 const numVariants = cva('post-num bg-transparent p-0 cursor-pointer whitespace-nowrap text-accent [font:inherit]')
-const numTextVariants = cva('whitespace-nowrap text-accent')
-const relNumVariants = cva('text-quote')
+const numTextVariants = cva('post-num-text whitespace-nowrap text-accent')
+const relNumVariants = cva('post-sequence-num')
 const deletedVariants = cva('text-xs font-semibold uppercase tracking-wide text-danger')
 const bannedNoteVariants = cva('mt-5 text-warn italic')
 const lockIconVariants = cva('inline-flex size-4 flex-none align-middle text-danger')
 const pinIconVariants = cva('inline-flex size-4 flex-none align-middle text-success')
 const broomIconVariants = cva('inline-flex size-4 flex-none align-middle text-[#ff6600]')
+const potatoPostVariants = cva('relative max-w-post text-fg', {
+  variants: {
+    variant: {
+      default: 'mb-1 w-fit bg-panel1 [--post-bg:var(--color-panel1)] px-2 py-2',
+      op: 'mb-1 w-fit bg-transparent [--post-bg:transparent] px-2 py-2',
+      mine: 'mb-1 w-fit bg-mine [--post-bg:var(--color-mine)] px-2 py-2',
+      repliedMine: 'mb-1 w-fit bg-replied-mine [--post-bg:var(--color-replied-mine)] px-2 py-2',
+    },
+    selected: {
+      true: 'outline outline-accent -outline-offset-[1.5px] outline-[1.5px]',
+    },
+    tooltip: {
+      true: 'outline outline-secondary -outline-offset-[1px] outline-[1px]',
+    },
+  },
+  defaultVariants: { variant: 'default' },
+})
+const potatoHeadVariants = cva('mb-0.5 flex flex-wrap items-center gap-x-1.5 text-md text-secondary')
+const potatoMediaRowVariants = cva('mb-1 ml-0.5 flex flex-wrap items-start gap-x-4 gap-y-2')
+const potatoReactionVariants = cva('inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-sm text-fg [font:inherit] hover:text-accent disabled:cursor-default', {
+  variants: { active: { true: 'font-bold text-accent', false: '' } },
+  defaultVariants: { active: false },
+})
+const potatoReactionsRowVariants = cva('potato-reactions-row mt-2 flex flex-wrap items-center gap-2.5')
+const potatoExpandVariants = cva('block cursor-pointer border-0 bg-transparent p-0 text-left text-accent [font:inherit] hover:text-accent-hover hover:underline')
 const MEDIA_FADE = 48
 const MEDIA_THUMB_MIN = 24
 const mediaWrapVariants = cva('mb-2')
@@ -100,7 +126,7 @@ const reactionVariants = cva('inline-flex cursor-pointer items-center justify-ce
   },
   defaultVariants: { active: false },
 })
-const reactionImgVariants = cva('size-4')
+const reactionImgVariants = cva('reaction-image')
 const refsRowVariants = cva('mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-secondary')
 const refVariants = cva('cursor-pointer text-accent')
 
@@ -116,11 +142,14 @@ export function PostBody(props: {
   tooltip?: boolean
   onEdit?: (uid: string) => void
   menu?: boolean
+  headerActions?: JSX.Element
+  onOpenThread?: () => void
 }) {
   const store = useStore()
+  const potato = useIsPotato()
   const staticInfo = useStaticInfo()
   const nav = useNav()
-  const { t, months, expandFolds } = useI18n()
+  const { t, months, expandFolds, hideReactions } = useI18n()
   const { openMedia } = useGallery()
   const selection = usePostSelection()
   const composer = useComposerBridge()
@@ -158,7 +187,7 @@ export function PostBody(props: {
   })
   createEffect(() => {
     const element = postEl
-    if (!element || props.tooltip) return
+    if (!element || props.tooltip || potato()) return
     let primed = false
     let height = 0
     const observer = new ResizeObserver(() => {
@@ -294,7 +323,7 @@ export function PostBody(props: {
       element.style.transform = ''
     }
   }
-  const swipeAllowed = () => mobile() && !props.tooltip && !props.boardPage
+  const swipeAllowed = () => mobile() && !potato() && !props.tooltip && !props.boardPage
   const onTouchStart = (e: TouchEvent) => {
     swipe = null
     if (!swipeAllowed()) return
@@ -389,10 +418,198 @@ export function PostBody(props: {
       setReactBusy(false)
     }
   }
-  return (
+  const body = () => (
+    <div class={postTextVariants({ state: long() && !expanded() ? 'collapsed' : 'expanded' })}>
+      <Show when={props.record.parts} fallback={<span>{props.record.plain}</span>}>
+        {(parts) => (
+          <PostContent
+            parts={parts()}
+            senderTweak={props.record.senderTweak}
+            senderPub={props.record.senderPk}
+            decryptCtx={props.ctx.decryptCtx}
+            relayUrl={props.ctx.relayUrl}
+            forumId={props.ctx.forumId}
+            boardUid={props.ctx.boardUid}
+            slug={props.slug}
+            threadNum={props.threadNum}
+          />
+        )}
+      </Show>
+    </div>
+  )
+  const banned = () => (
+    <Show when={props.record.banned}>
+      <div class={bannedNoteVariants()}>{t('post.authorBanned')}</div>
+    </Show>
+  )
+  const refs = () => (
+    <Show when={props.record.refs.length > 0}>
+      <div class={refsRowVariants()}>
+        <For each={props.record.refs}>
+          {(ref) => (
+            <Show when={link(ref.number)} fallback={<span class={refVariants()}>{`>>${ref.number}`}</span>}>
+              {(href) => (
+                <PostRefLink
+                  class={refVariants()}
+                  href={href()}
+                  label={`>>${ref.number}`}
+                  target={{ postUid: ref.postUid, number: ref.number }}
+                  onClick={(e) => gotoPost(e, ref.number)}
+                />
+              )}
+            </Show>
+          )}
+        </For>
+      </div>
+    </Show>
+  )
+  const potatoView = () => (
     <article
       id={`post-${props.record.number}`}
       data-post=""
+      data-op-post={props.record.op ? '' : undefined}
+      data-mine-post={props.record.mine ? '' : undefined}
+      data-replied-mine-post={props.record.repliedMine && !props.record.mine ? '' : undefined}
+      data-potato-post=""
+      class={potatoPostVariants({
+        variant: props.record.op ? 'op' : props.record.mine ? 'mine' : props.record.repliedMine ? 'repliedMine' : 'default',
+        selected: selected(),
+        tooltip: !!props.tooltip,
+      })}
+    >
+      <div class={potatoHeadVariants()}>
+        <Show when={selectable()}>
+          <input
+            type="checkbox"
+            checked={selected()}
+            class="potato-select-checkbox"
+            onClick={(e) => {
+              e.stopPropagation()
+              selection?.toggle(props.record.uid, e.shiftKey)
+            }}
+          />
+        </Show>
+        <Show when={props.record.role}>
+          {(role) => (
+            <span style={{ color: ROLE_STYLE[role()!].color, 'font-weight': ROLE_STYLE[role()!].bold ? 700 : 400 }}>{ROLE_STYLE[role()!].text}</span>
+          )}
+        </Show>
+        <span>
+          {props.record.name ?? t('post.anon')}
+          <Show when={props.record.tripText}>
+            {(trip) => (
+              <span class={tripcodeVariants()}>
+                {props.record.tripSecured ? '!!' : '!'}
+                {trip()}
+              </span>
+            )}
+          </Show>
+        </span>
+        <Show when={props.record.flagUrl}>{(url) => <img class={flagVariants()} src={url()} alt="" />}</Show>
+        <span>{fullTime()}</span>
+        <Show when={link(props.record.number)} fallback={<span class={numTextVariants()}>№{props.record.number}</span>}>
+          {(href) => (
+            <Show
+              when={props.boardPage}
+              fallback={
+                <span class={numTextVariants()}>
+                  <A class={numVariants()} href={href()} noScroll onClick={(e) => gotoPost(e, props.record.number)}>
+                    №
+                  </A>
+                  <button type="button" class={numVariants()} onClick={insertNo}>
+                    {props.record.number}
+                  </button>
+                </span>
+              }
+            >
+              <A class={numVariants()} href={href()} noScroll onClick={(e) => gotoPost(e, props.record.number)}>
+                №{props.record.number}
+              </A>
+            </Show>
+          )}
+        </Show>
+        {/* Thread-level actions belong immediately after the thread number, before the reply index/status markers. */}
+        {props.headerActions}
+        <Show when={props.menu !== false}>
+          <PostMenu
+            record={props.record}
+            closed={props.threadClosed}
+            threadObject={props.record.op ? (store.threadObject(props.record.threadUid) ?? undefined) : undefined}
+            onEdit={props.onEdit}
+            onOpenThread={props.onOpenThread}
+            potato={potato()}
+            label={t('postForm.options')}
+          />
+        </Show>
+        <Show when={selectable() && selected()}>
+          <SelectedPostMenu record={props.record} potato />
+        </Show>
+        <Show when={!props.record.deleted && props.record.relNum !== null}>
+          <span class={relNumVariants()}>{props.record.relNum}</span>
+        </Show>
+        <Show when={props.record.deleted}>
+          <span class={deletedVariants()}>{t('post.deleted')}</span>
+        </Show>
+        <Show when={props.record.op && props.threadBroom}>
+          <BroomIcon width={14} height={14} class={broomIconVariants()} />
+        </Show>
+        <Show when={props.record.op && props.threadClosed}>
+          <span class="potato-state-icon potato-closed-icon" title={t('thread.closed')} aria-label={t('thread.closed')}>🛇</span>
+        </Show>
+        <Show when={props.pinned}>
+          <span class="potato-state-icon potato-pinned-icon" title={t('thread.pinned')} aria-label={t('thread.pinned')}>⚲</span>
+        </Show>
+      </div>
+      <Show when={props.record.media.length > 0}>
+        <div class={potatoMediaRowVariants()}>
+          <For each={props.record.media}>{(item) => <MediaBox m={item} record={props.record} onOpen={openMedia} />}</For>
+        </div>
+      </Show>
+      {body()}
+      <Show when={long()}>
+        <button type="button" class={potatoExpandVariants()} onClick={() => setExpanded(!expanded())}>
+          {expanded() ? t('post.collapse') : t('post.expand', { n: lineCount() })}
+        </button>
+      </Show>
+      {banned()}
+      <Show when={!hideReactions() && props.record.reactions.length > 0}>
+        <div class={potatoReactionsRowVariants()}>
+          <For each={props.record.reactions}>
+            {(item) => (
+              <button
+                type="button"
+                disabled={reactBusy()}
+                onClick={() => void react(item.hex)}
+                class={potatoReactionVariants({ active: item.hex === props.record.myReaction })}
+              >
+                <img src={item.url} alt="" class="reaction-image" />
+                {item.count}
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
+      {refs()}
+      <Show when={!hideReactions()}>
+        <ReactionPicker
+          glyph={props.record.reactionGlyph}
+          relayUrl={props.ctx.relayUrl}
+          boardUid={props.ctx.boardUid}
+          reactions={staticInfo()?.boardReactions ?? []}
+          busy={reactBusy()}
+          onPick={(hex) => void react(hex)}
+        />
+      </Show>
+    </article>
+  )
+  return (
+    <Show when={!potato()} fallback={potatoView()}>
+    <article
+      id={`post-${props.record.number}`}
+      data-post=""
+      data-op-post={props.record.op ? '' : undefined}
+      data-mine-post={props.record.mine ? '' : undefined}
+      data-replied-mine-post={props.record.repliedMine && !props.record.mine ? '' : undefined}
       ref={postEl}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
@@ -514,23 +731,7 @@ export function PostBody(props: {
           </Show>
         </div>
       </Show>
-      <div class={postTextVariants({ state: long() && !expanded() ? 'collapsed' : 'expanded' })}>
-        <Show when={props.record.parts} fallback={<span>{props.record.plain}</span>}>
-          {(parts) => (
-            <PostContent
-              parts={parts()}
-              senderTweak={props.record.senderTweak}
-              senderPub={props.record.senderPk}
-              decryptCtx={props.ctx.decryptCtx}
-              relayUrl={props.ctx.relayUrl}
-              forumId={props.ctx.forumId}
-              boardUid={props.ctx.boardUid}
-              slug={props.slug}
-              threadNum={props.threadNum}
-            />
-          )}
-        </Show>
-      </div>
+      {body()}
       <Show when={long()}>
         <div class={expandRowVariants()}>
           <button type="button" class={expandBtnVariants()} onClick={() => setExpanded(!expanded())}>
@@ -538,10 +739,8 @@ export function PostBody(props: {
           </button>
         </div>
       </Show>
-      <Show when={props.record.banned}>
-        <div class={bannedNoteVariants()}>{t('post.authorBanned')}</div>
-      </Show>
-      <Show when={props.record.reactions.length > 0}>
+      {banned()}
+      <Show when={!hideReactions() && props.record.reactions.length > 0}>
         <div class={reactionsRowVariants()}>
           <For each={props.record.reactions}>
             {(item) => (
@@ -558,7 +757,7 @@ export function PostBody(props: {
           </For>
         </div>
       </Show>
-      <Show when={staticInfo()}>
+      <Show when={!hideReactions() && staticInfo()}>
         {(info) => (
           <ReactionPicker
             glyph={props.record.reactionGlyph}
@@ -570,26 +769,9 @@ export function PostBody(props: {
           />
         )}
       </Show>
-      <Show when={props.record.refs.length > 0}>
-        <div class={refsRowVariants()}>
-          <For each={props.record.refs}>
-            {(ref) => (
-              <Show when={link(ref.number)} fallback={<span class={refVariants()}>{`>>${ref.number}`}</span>}>
-                {(href) => (
-                  <PostRefLink
-                    class={refVariants()}
-                    href={href()}
-                    label={`>>${ref.number}`}
-                    target={{ postUid: ref.postUid, number: ref.number }}
-                    onClick={(e) => gotoPost(e, ref.number)}
-                  />
-                )}
-              </Show>
-            )}
-          </For>
-        </div>
-      </Show>
+      {refs()}
     </article>
+    </Show>
   )
 }
 

@@ -2,11 +2,19 @@ import { createEffect, createSignal, For, onCleanup, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { cva } from 'class-variance-authority'
 import { IconButton } from './IconButton'
-import { useI18n } from '../i18n'
+import { useI18n, useIsPotato } from '../i18n'
 import { reactionUrl } from '../../core/media'
 import { toHex } from '../../core/intent/crypto'
 
-const triggerVariants = cva('post-reactions absolute -bottom-1.5 -right-3 z-control bg-panel3 opacity-50 aria-expanded:z-50 aria-expanded:opacity-100')
+const triggerVariants = cva('post-reactions reaction-trigger z-control inline-flex items-center justify-center rounded-full border-0 bg-transparent p-0 opacity-100 aria-expanded:z-50 aria-expanded:opacity-100 hover:bg-transparent', {
+  variants: {
+    potato: {
+      true: 'absolute right-0 top-1/2 z-10 !size-6 !min-h-6 !min-w-6 flex-none rounded-full !bg-transparent !p-0 opacity-0 pointer-events-none -translate-y-1/2',
+      false: 'absolute -bottom-1.5 -right-3',
+    },
+  },
+  defaultVariants: { potato: false },
+})
 const panelVariants = cva('absolute grid w-fit max-w-picker max-h-picker grid-cols-5 overflow-y-auto rounded-lg glass bg-glass2 p-2')
 const itemVariants = cva('cursor-pointer rounded-md bg-transparent p-1 hover:bg-reaction')
 
@@ -19,6 +27,7 @@ export function ReactionPicker(props: {
   onPick: (hex: string) => void
 }) {
   const { t } = useI18n()
+  const potato = useIsPotato()
   const [open, setOpen] = createSignal(false)
   const [pos, setPos] = createSignal<{ top: number; right: number } | null>(null)
   let button: HTMLButtonElement | undefined
@@ -82,7 +91,7 @@ export function ReactionPicker(props: {
             ref={button}
             size="sm"
             data-overhang=""
-            class={triggerVariants()}
+            class={triggerVariants({ potato: potato() })}
             aria-label={t('post.reactions')}
             aria-expanded={open()}
             style={{ '--glyph': `url("${glyph()}")` }}
@@ -124,7 +133,7 @@ export function ReactionPicker(props: {
                           props.onPick(hex)
                         }}
                       >
-                        <img src={reactionUrl(props.relayUrl, props.boardUid, hex)} alt="" class="size-5" />
+                        <img src={reactionUrl(props.relayUrl, props.boardUid, hex)} alt="" class="reaction-picker-image" />
                       </button>
                     )
                   }}
