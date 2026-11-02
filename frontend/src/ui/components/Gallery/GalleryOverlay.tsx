@@ -353,8 +353,6 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
       doubleTapZoom(x, y)
       return
     }
-    // A single click on the media must not toggle the thumbnail gallery.
-    // Keep the tap timestamp only to detect a double-click for zooming.
     tap = { t: now, x, y }
   }
 

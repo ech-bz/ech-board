@@ -141,7 +141,6 @@ export function I18nProvider(props: { children: JSX.Element }) {
   writeString(CORNER_RADIUS_VERSION_KEY, '2')
   if (savedRadius !== null && radiusVersion !== '2') writeString(CORNER_RADIUS_KEY, String(storedRadius))
   const [modernCornerRadius, setModernCornerRadiusSignal] = createSignal<number>(storedRadius)
-  // Potato uses a fixed 10% corner scale; only Simple exposes the radius slider.
   const cornerRadius: Accessor<number> = () => uiStyle() === 'potato' ? 10 : modernCornerRadius()
   const savedReactionSize = readString(REACTION_SIZE_KEY)
   const reactionSizeValue = savedReactionSize === null ? 100 : Number(savedReactionSize)

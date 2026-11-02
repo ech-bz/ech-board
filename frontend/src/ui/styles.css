@@ -369,10 +369,6 @@
 }
 }
 
-
-
-/* ===== Potato: плоский стиль старых имиджбордов ===== */
-/* Без прозрачности, блюра, теней, анимаций и скруглений. */
 :root[data-ui-style='potato'] {
   --color-glass1: var(--color-bg);
   --color-glass2: var(--color-panel3);
@@ -409,7 +405,6 @@
   -webkit-mask-image: none;
 }
 
-/* Любая кнопка (Button) превращается в текстовую гиперссылку */
 :root[data-ui-style='potato'] .btn {
   display: inline;
   padding: 0;
@@ -430,7 +425,6 @@
   color: var(--color-danger);
 }
 
-/* link-card (ссылки в постах) -> обычная гиперссылка */
 :root[data-ui-style='potato'] .link-card {
   display: inline;
   width: auto;
@@ -452,12 +446,10 @@
   right: 16px;
 }
 
-/* Fold: без плавной анимации */
 :root[data-ui-style='potato'] .fold-rail {
   display: none;
 }
 
-/* Potato desktop layout: keep the top controls and board menu in view. */
 :root[data-ui-style='potato'] [data-potato-topbar] {
   position: sticky;
   top: 0;
@@ -478,7 +470,6 @@
   z-index: 20;
 }
 
-/* Center boards is independent from thread centering: place the slug row directly under the topbar. */
 @media (min-width: 900px) {
   :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] {
     display: grid;
@@ -535,7 +526,6 @@
     white-space: nowrap;
   }
 
-  /* The centered board row shows only board slugs, without names or counts. */
   :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-nav] a > span:nth-child(2),
   :root[data-ui-style='potato'] [data-potato-layout][data-potato-center-boards] [data-potato-nav] a > span:nth-child(3) {
     display: none;
@@ -570,14 +560,12 @@
     min-width: 0;
   }
 
-  /* Keep settings centered when thread-centering is enabled, independently of board navigation. */
   :root[data-ui-style='potato'] [data-potato-main][data-potato-center-threads] .max-w-settings {
     width: min(100%, 560px);
     margin-inline: auto;
   }
 }
 
-/* Threads use most of the content column; individual posts remain content-sized. */
 :root[data-ui-style='potato'] [data-potato-thread] {
   box-sizing: border-box;
   width: 90%;
@@ -601,7 +589,6 @@
     margin-inline: auto;
   }
 
-  /* Center the full thread frame, rather than the intrinsic w-fit posts column. */
   :root[data-ui-style='potato'] [data-potato-main][data-potato-center-threads] [data-potato-posts-column] {
     display: flex;
     width: 100%;
@@ -632,19 +619,15 @@
   margin-top: 10px;
 }
 
-/* Keep the Potato reaction picker circular even when the global corner scale is zero. */
 :root[data-ui-style='potato'] .reaction-trigger {
   border-radius: 50% !important;
 }
 
-/* Give post text its own breathing room below the metadata/media header. */
 :root[data-ui-style='potato'] [data-potato-post] > .post-text {
   margin-top: 12px;
   padding: 0 10px 0 12px;
 }
 
-
-/* On phones, follow the Modern single-column rhythm and compact navigation. */
 @media (max-width: 899px) {
   :root[data-ui-style='potato'] {
     --potato-topbar-height: 40px;
@@ -744,7 +727,6 @@
 
 }
 
-/* Potato desktop board links behave like plain underlined links, not boxed tabs. */
 @media (min-width: 900px) {
   :root[data-ui-style='potato'] [data-potato-nav] a {
     border: 0;
@@ -795,9 +777,6 @@
   background-size: var(--reaction-glyph-size, 24px) var(--reaction-glyph-size, 24px);
 }
 
-
-
-/* Potato interaction affordances stay attached to the individual post card. */
 :root[data-ui-style='potato'] [data-potato-post] {
   position: relative;
 }
@@ -828,8 +807,6 @@
   transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease !important;
 }
 
-/* Only the actual hovered/focused post reveals its own picker. Do not use the
-   surrounding thread/list hover state: that would reveal every child picker. */
 :root[data-ui-style='potato'] [data-potato-post]:hover > .reaction-trigger,
 :root[data-ui-style='potato'] [data-potato-post] > .reaction-trigger:focus-visible,
 :root[data-ui-style='potato'] [data-potato-post] > .reaction-trigger[aria-expanded='true'] {
@@ -923,8 +900,6 @@
   height: var(--reaction-picker-size, 20px);
 }
 
-
-/* Keep the sticky reply composer aligned with the centered Potato thread frame. */
 @media (min-width: 900px) {
   :root[data-ui-style='potato'] [data-potato-main][data-potato-center-threads] [data-composer] {
     box-sizing: border-box;
@@ -972,7 +947,6 @@
   color: var(--color-fg);
 }
 
-/* Align Potato reaction chips with the post text's left edge. */
 :root[data-ui-style='potato'] .potato-reactions-row {
   padding-left: 12px;
 }

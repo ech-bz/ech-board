@@ -1,7 +1,5 @@
 :root {
   color-scheme: dark;
-
-  /* Palette adapted from Jezowy to the application's theme tokens. */
   --color-bg: #3a3852;
   --color-panel1: #3a3852;
   --color-panel2: #2e2d3a;
@@ -30,8 +28,6 @@
   --color-reaction: rgba(213, 174, 150, 0.18);
   --color-toggle-track: rgba(154, 148, 168, 0.32);
   --color-toggle-on: #228854;
-
-  /* Original Jezowy tokens retained for compatible components. */
   --color-surface: #3a3852;
   --color-surface-2: #454362;
   --color-header: #3a3852;
@@ -58,8 +54,6 @@
   --transition: 0.3s ease;
   --header-h: 64px;
   --sidebar-w: 280px;
-
-  /* Map Jezowy's radii to the application's adjustable radius scale. */
   --radius-xs: calc(2px * var(--corner-scale, 1));
   --radius-sm: calc(5px * var(--corner-scale, 1));
   --radius-md: calc(8px * var(--corner-scale, 1));
@@ -67,8 +61,6 @@
   --radius-xl: calc(8px * var(--corner-scale, 1));
 }
 
-
-/* Jezowy outlines individual posts; OP posts use a left accent rail only. */
 :root[data-appearance='jezowy'] [data-post] {
   box-sizing: border-box;
   border: 1px solid var(--color-accent) !important;
@@ -85,7 +77,6 @@
   border: 1px solid var(--color-accent);
 }
 
-/* Potato renders these controls as plain text links, without Jezowy button frames. */
 :root[data-appearance='jezowy'][data-ui-style='potato'] .link-card,
 :root[data-appearance='jezowy'][data-ui-style='potato'] [class~='btn'][class~='inline-flex'][class~='items-center'][class~='justify-center'][class~='gap-1'][class~='rounded-md'][class~='bg-panel2'][class~='text-md'][class~='text-accent'][class~='cursor-pointer'][class~='border-0'][class~='no-underline'] {
   border: 0 !important;

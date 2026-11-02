@@ -6,7 +6,6 @@ import { DropdownMenu } from '../components/Menu/DropdownMenu'
 import { ProgressPill } from './ProgressPill'
 import type { PostRecord } from '../../store/records'
 
-/** A per-post counterpart of the moderator actions shown by ThreadSelectionMenu. */
 export function SelectedPostMenu(props: { record: PostRecord; potato?: boolean }) {
   const { t } = useI18n()
   const ea = useEntityActions()

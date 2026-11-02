@@ -1,7 +1,5 @@
 :root {
   color-scheme: dark;
-
-  /* Sosaka B: night palette mapped to the application's color tokens. */
   --color-bg: rgb(21, 32, 43);
   --color-panel1: #192734;
   --color-panel2: #192734;
@@ -31,8 +29,6 @@
   --color-reaction: rgba(195, 103, 42, 0.18);
   --color-toggle-track: #333d46;
   --color-toggle-on: #c3672a;
-
-  /* Extra Sosaka source tokens used by controls and legacy widgets. */
   --color-surface: rgb(21, 32, 43);
   --color-surface-2: #192734;
   --color-header: rgb(21, 32, 43);
@@ -78,14 +74,10 @@
   --report_modal_border: rgba(255, 255, 255, 0.2);
 }
 
-
-/* The in-thread sequence (1–500) is green; the global № post ID keeps its link color. */
-/* The in-thread sequence (1–500) is green; the global № post ID keeps its link color. */
 :root[data-appearance='sosaka_dark'] .post-sequence-num {
   color: var(--color-postnum, #789922) !important;
 }
 
-/* Posts authored by the current user get a solid accent rail; replies to them get a dashed rail. */
 :root[data-appearance='sosaka_dark'] [data-post][data-mine-post] {
   border-left: 2px solid var(--color-accent) !important;
 }

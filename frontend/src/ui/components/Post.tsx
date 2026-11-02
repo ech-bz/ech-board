@@ -528,7 +528,6 @@ export function PostBody(props: {
             </Show>
           )}
         </Show>
-        {/* Thread-level actions belong immediately after the thread number, before the reply index/status markers. */}
         {props.headerActions}
         <Show when={props.menu !== false}>
           <PostMenu
