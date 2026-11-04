@@ -5,3 +5,4 @@ traces
 Cargo.lock
 node_modules
 dist
+frontend/frontend.zip

@@ -456,6 +456,7 @@
 :root[data-ui-style='vista'] aside.collapsed [data-nav='list'] > a {
   min-height: 42px;
   padding: 4px 0;
+  border-bottom: none;
 }
 
 :root[data-ui-style='vista'] [data-nav='bar'] {
@@ -772,9 +773,29 @@
 }
 
 :root[data-ui-style='vista'] .link-card {
-  background: var(--vista-color-f1f5fb);
-  border: 1px solid var(--vista-color-b4c6e0);
+  color: #222;
+  background: linear-gradient(to bottom, #f8f8f8 0%, #eeeeee 45%, #e0e0e0 50%, #eeeeee 100%);
+  border: 1px solid #8e8e8e;
   border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 1px rgba(0, 0, 0, 0.12);
+  text-shadow: none;
+  transition: none;
+}
+
+:root[data-ui-style='vista'] .link-card:hover {
+  color: #000;
+  background: linear-gradient(
+    to bottom,
+    #eaf6fd 0%,
+    #c5e6f8 45%,
+    #7ec5ef 50%,
+    #b8def6 100%
+  );
+  border-color: #3c7fb1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 0 1px 1px rgba(60, 127, 177, 0.35),
+    0 1px 2px rgba(0, 60, 120, 0.2);
 }
 
 :root[data-ui-style='vista'] [class*='min-w-menu'] {
@@ -906,13 +927,36 @@
 :root[data-ui-style='vista'] aside.collapsed [data-nav='list'] > a {
   background: transparent;
   box-shadow: none;
+  border-bottom: none;
+  border-radius: 3px;
 }
 
-:root[data-ui-style='vista'] aside.collapsed [data-nav='list'] > a:hover,
+:root[data-ui-style='vista'] aside.collapsed [data-nav='list'] > a:hover {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(180, 220, 255, 0.18) 45%,
+    rgba(120, 190, 255, 0.28) 50%,
+    rgba(180, 220, 255, 0.16) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 0 6px rgba(100, 180, 255, 0.35);
+  border-bottom: none;
+}
+
 :root[data-ui-style='vista'] aside.collapsed [data-nav='list'] > a.bg-active,
 :root[data-ui-style='vista'] aside.collapsed [data-nav='list'] > a[aria-current] {
-  background: linear-gradient(to bottom, var(--vista-color-eaf4ff), var(--vista-color-c6e0fa));
-  box-shadow: inset 0 0 0 1px var(--vista-color-7da2ce), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: linear-gradient(
+    to bottom,
+    rgba(200, 230, 255, 0.35) 0%,
+    rgba(140, 200, 255, 0.28) 50%,
+    rgba(100, 180, 255, 0.32) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+    0 0 8px rgba(80, 160, 255, 0.45);
+  border-bottom: none;
 }
 
 :root[data-ui-style='vista'] .vista-client:has([data-media-row]) {
