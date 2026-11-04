@@ -9,7 +9,7 @@ import { threadPath } from '../route'
 import type { ThreadRowRecord } from '../../store/rows'
 
 const sectionVariants = cva('', {
-  variants: { potato: { true: 'border-t border-separator py-1', false: 'mb-6 pr-3.5' } },
+  variants: { potato: { true: 'border-t border-separator py-1 first:border-t-0 first:pt-0', false: 'mb-6 pr-3.5' } },
   defaultVariants: { potato: false },
 })
 const hiddenLabelVariants = cva('cursor-pointer px-0.5 py-1 text-lg italic text-secondary')
@@ -17,7 +17,7 @@ const separatorVariants = cva('mt-6 h-px bg-separator opacity-50')
 const topicRowVariants = cva('flex items-center gap-2 px-1 pt-2')
 const topicVariants = cva('min-w-0 flex-1 text-xl font-bold [overflow-wrap:anywhere]')
 const postsColumnVariants = cva('flex w-fit max-w-full flex-col')
-const potatoSkippedVariants = cva('pb-1 text-sm text-secondary')
+const potatoSkippedVariants = cva('flex items-center gap-1.5 pb-1 text-sm text-secondary')
 const actionRowVariants = cva('flex items-center gap-2 pb-2 max-w-post')
 const skippedVariants = cva('text-sm text-secondary')
 const vistaSkippedVariants = cva('text-sm text-secondary mb-4')
@@ -119,6 +119,9 @@ export function ThreadPreview(props: {
               fallback={
                 <Show when={props.row.skipped > 0}>
                   <div class={vista() ? vistaSkippedVariants() : potatoSkippedVariants()} data-on-wallpaper={vista() ? '' : undefined}>
+                    <Show when={potato()}>
+                      <button type="button" class="potato-menu-trigger" title={t('thread.open')} aria-label={t('thread.open')} onClick={() => props.onOpen()}>⤢</button>
+                    </Show>
                     {t('thread.skipped', { n: props.row.skipped })}
                   </div>
                 </Show>

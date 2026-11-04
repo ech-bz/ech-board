@@ -11,21 +11,19 @@ import type { BoardInfo, ForumInfo } from '../../core/views'
 
 const barVariants = cva('flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-separator px-3 py-1.5 text-md')
 const barLinkVariants = cva('cursor-pointer border-0 bg-transparent p-0 text-accent [font:inherit] hover:text-accent-hover hover:underline')
-const forumSelectVariants = cva('max-w-full border border-[#555] bg-[#1a1a1a] px-1 py-0.5 text-sm text-[#aaa] [font:inherit]')
+const forumSelectVariants = cva('max-w-full border border-panel3 bg-bg px-1 py-0.5 text-sm text-fg [font:inherit]')
 const headVariants = cva('px-3 pb-3 pt-4 text-center')
 const logoVariants = cva('mx-auto mb-3 block h-[88px] w-auto')
 const columnsVariants = cva('flex items-start max-[899px]:flex-col')
 const navVariants = cva('w-[260px] flex-none px-3 pb-4 max-[899px]:w-full')
 const navLabelVariants = cva('py-1 text-lg text-secondary')
-const navListVariants = cva('max-[899px]:flex max-[899px]:flex-wrap max-[899px]:gap-x-3')
-const navItemVariants = cva('grid grid-cols-[56px_1fr_auto] items-baseline gap-x-1.5 py-1 text-fg no-underline max-[899px]:flex', {
+const navListVariants = cva('max-[899px]:flex max-[899px]:flex-wrap max-[899px]:gap-x-3 pt-2')
+const navItemVariants = cva('block py-1 pl-5 text-md text-accent no-underline [overflow-wrap:anywhere]', {
   variants: { active: { true: 'bg-active', false: '' } },
   defaultVariants: { active: false },
 })
-const navSlugVariants = cva('font-bold text-accent')
-const navTitleVariants = cva('min-w-0 [overflow-wrap:anywhere] max-[899px]:hidden')
-const navCountVariants = cva('text-sm text-secondary max-[899px]:hidden')
-const mainVariants = cva('min-w-0 flex-1 max-[899px]:w-full')
+const navTitleVariants = cva('max-[899px]:hidden')
+const mainVariants = cva('min-w-0 flex-1 pl-1 max-[899px]:w-full')
 
 const SETTINGS: string[] = ['Master Key', 'Appearance']
 
@@ -43,7 +41,7 @@ export function PotatoLayout(props: {
   onOpenSetting: (setting: SettingSlug) => void
   children: JSX.Element
 }) {
-  const { t, centerPotatoThreads, centerPotatoBoards } = useI18n()
+  const { t, centerPotatoThreads, centerPotatoBoards, potatoBoardsBar, potatoHeader } = useI18n()
   const ea = useEntityActions()
   const store = useStore()
   const [head, setHead] = createSignal<HTMLElement>()
@@ -61,7 +59,7 @@ export function PotatoLayout(props: {
   const forumId = () => props.forum?.forumId ?? ''
   return (
     <PotatoHeadContext.Provider value={head}>
-      <div data-potato-layout="" data-potato-center-boards={centerPotatoBoards() && props.page !== 'settings' ? '' : undefined}>
+      <div data-potato-layout="" data-potato-header={potatoHeader()} data-potato-center-boards={centerPotatoBoards() && props.page !== 'settings' ? '' : undefined} data-potato-boards-bar={potatoBoardsBar()}>
         <header data-potato-topbar="" class={barVariants()}>
           <a
             class={barLinkVariants()}
@@ -124,7 +122,7 @@ export function PotatoLayout(props: {
                       {(board) => (
                         <a
                           class={navItemVariants({ active: !!props.board && board.uid === props.board.uid })}
-                          title={board.title}
+                          title={`${board.title} (${board.count.toLocaleString()})`}
                           href={boardPath(forumId(), board.slug)}
                           onClick={(e) => {
                             if (!plain(e)) return
@@ -132,9 +130,8 @@ export function PotatoLayout(props: {
                             props.onSelectBoard(board)
                           }}
                         >
-                          <span class={navSlugVariants()}>/{board.slug}/</span>
-                          <span class={navTitleVariants()}>{board.title}</span>
-                          <span class={navCountVariants()}>{board.count.toLocaleString()}</span>
+                          {`/${board.slug}/`}
+                          <span class={navTitleVariants()}>{` - ${board.title}`}</span>
                         </a>
                       )}
                     </For>
@@ -157,7 +154,7 @@ export function PotatoLayout(props: {
                           props.onOpenSetting(slug)
                         }}
                       >
-                        <span class={navSlugVariants()}>{settingLabel(name, t)}</span>
+                        {settingLabel(name, t)}
                       </a>
                     )
                   }}

@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
-import { useI18n, type Lang, type UiStyle } from '../i18n'
+import { useI18n, type Lang, type PotatoBoardsBar, type PotatoHeader, type UiStyle } from '../i18n'
 import { haptic } from '../haptic'
 import { Field } from './Field'
 import { useStaticInfo } from '../store'
@@ -29,6 +29,10 @@ export function AppearanceView() {
     setCenterPotatoThreads,
     centerPotatoBoards,
     setCenterPotatoBoards,
+    potatoHeader,
+    setPotatoHeader,
+    potatoBoardsBar,
+    setPotatoBoardsBar,
     showGalleryOnOpen,
     setShowGalleryOnOpen,
     appearance,
@@ -184,6 +188,23 @@ export function AppearanceView() {
             <input type="checkbox" class={toggleVariants()} checked={centerPotatoBoards()} readOnly />
           </span>
         </label>
+        <div class={settingRowVariants()}>
+          <span>{t('settings.potatoHeader')}</span>
+          <Field as="select" bordered select value={potatoHeader()} onInput={(e) => setPotatoHeader(e.currentTarget.value as PotatoHeader)}>
+            <option value="peek">{t('settings.potatoHeaderPeek')}</option>
+            <option value="hidden">{t('settings.potatoHeaderHidden')}</option>
+            <option value="fixed">{t('settings.potatoHeaderFixed')}</option>
+          </Field>
+        </div>
+        <Show when={centerPotatoBoards()}>
+          <div class={`${settingRowVariants()} max-[899px]:hidden`}>
+            <span>{t('settings.potatoBoardsBar')}</span>
+            <Field as="select" bordered select value={potatoBoardsBar()} onInput={(e) => setPotatoBoardsBar(e.currentTarget.value as PotatoBoardsBar)}>
+              <option value="pinned">{t('settings.potatoBoardsBarPinned')}</option>
+              <option value="scroll">{t('settings.potatoBoardsBarScroll')}</option>
+            </Field>
+          </div>
+        </Show>
       </Show>
       <Show when={uiStyle() === 'vista'}>
         <div class={`${settingRowVariants()} max-[520px]:flex-wrap`}>

@@ -7,6 +7,8 @@ import { setTitleTheme } from '../title'
 export type Lang = 'ru' | 'en'
 export type Theme = 'light' | 'dark'
 export type UiStyle = 'modern' | 'potato' | 'vista'
+export type PotatoHeader = 'peek' | 'hidden' | 'fixed'
+export type PotatoBoardsBar = 'pinned' | 'scroll'
 
 export const APPEARANCES: { id: string; label: string; file?: string; theme: Theme; enabled?: boolean }[] = [
   { id: 'default_dark', label: 'Default D', file: 'default_dark.css', theme: 'dark' },
@@ -39,6 +41,8 @@ const EXPAND_FOLDS_KEY = 'ech-board-expand-folds'
 const HIDE_REACTIONS_KEY = 'ech-board-hide-reactions'
 const POTATO_CENTER_THREADS_KEY = 'ech-board-potato-center-threads'
 const POTATO_CENTER_BOARDS_KEY = 'ech-board-potato-center-boards'
+const POTATO_HEADER_KEY = 'ech-board-potato-header'
+const POTATO_BOARDS_BAR_KEY = 'ech-board-potato-boards-bar'
 const SHOW_GALLERY_ON_OPEN_KEY = 'ech-board-show-gallery-on-open'
 const UI_STYLE_KEY = 'ech-board-ui-style'
 const CORNER_RADIUS_KEY = 'ech-board-corner-radius'
@@ -104,6 +108,10 @@ export interface I18nValue {
   setCenterPotatoThreads: (v: boolean) => void
   centerPotatoBoards: Accessor<boolean>
   setCenterPotatoBoards: (v: boolean) => void
+  potatoHeader: Accessor<PotatoHeader>
+  setPotatoHeader: (v: PotatoHeader) => void
+  potatoBoardsBar: Accessor<PotatoBoardsBar>
+  setPotatoBoardsBar: (v: PotatoBoardsBar) => void
   showGalleryOnOpen: Accessor<boolean>
   setShowGalleryOnOpen: (v: boolean) => void
   t: (key: MessageKey, vars?: Record<string, string | number>) => string
@@ -133,6 +141,17 @@ export function I18nProvider(props: { children: JSX.Element }) {
   const [hideReactions, setHideReactions] = boolPref(HIDE_REACTIONS_KEY, false)
   const [centerPotatoThreads, setCenterPotatoThreads] = boolPref(POTATO_CENTER_THREADS_KEY, false)
   const [centerPotatoBoards, setCenterPotatoBoards] = boolPref(POTATO_CENTER_BOARDS_KEY, false)
+  const storedHeader = readString(POTATO_HEADER_KEY)
+  const [potatoHeader, setPotatoHeaderSignal] = createSignal<PotatoHeader>(storedHeader === 'hidden' || storedHeader === 'fixed' ? storedHeader : 'peek')
+  const setPotatoHeader = (v: PotatoHeader) => {
+    writeString(POTATO_HEADER_KEY, v)
+    setPotatoHeaderSignal(v)
+  }
+  const [potatoBoardsBar, setPotatoBoardsBarSignal] = createSignal<PotatoBoardsBar>(readString(POTATO_BOARDS_BAR_KEY) === 'scroll' ? 'scroll' : 'pinned')
+  const setPotatoBoardsBar = (v: PotatoBoardsBar) => {
+    writeString(POTATO_BOARDS_BAR_KEY, v)
+    setPotatoBoardsBarSignal(v)
+  }
   const [showGalleryOnOpen, setShowGalleryOnOpen] = boolPref(SHOW_GALLERY_ON_OPEN_KEY, false)
   const storedStyle = readString(UI_STYLE_KEY)
   const [uiStyle, setUiStyleSignal] = createSignal<UiStyle>(storedStyle === 'potato' || storedStyle === 'vista' ? storedStyle : 'modern')
@@ -284,6 +303,10 @@ export function I18nProvider(props: { children: JSX.Element }) {
     setCenterPotatoThreads,
     centerPotatoBoards,
     setCenterPotatoBoards,
+    potatoHeader,
+    setPotatoHeader,
+    potatoBoardsBar,
+    setPotatoBoardsBar,
     showGalleryOnOpen,
     setShowGalleryOnOpen,
     t,

@@ -96,7 +96,10 @@ const potatoPostVariants = cva('relative max-w-post text-fg', {
   defaultVariants: { variant: 'default' },
 })
 const potatoHeadVariants = cva('mb-0.5 flex flex-wrap items-center gap-x-1.5 text-md text-secondary')
-const potatoMediaRowVariants = cva('mb-1 ml-0.5 flex flex-wrap items-start gap-x-4 gap-y-2')
+const potatoMediaRowVariants = cva('ml-(--potato-media-indent) flex items-start gap-x-4 gap-y-2', {
+  variants: { single: { true: 'float-left mr-4 mb-2 flex-nowrap', false: 'mb-1 flex-wrap' } },
+  defaultVariants: { single: false },
+})
 const potatoReactionVariants = cva('inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-sm text-fg [font:inherit] hover:text-accent disabled:cursor-default', {
   variants: { active: { true: 'font-bold text-accent', false: '' } },
   defaultVariants: { active: false },
@@ -548,24 +551,24 @@ export function PostBody(props: {
         <Show when={selectable() && selected()}>
           <SelectedPostMenu record={props.record} potato />
         </Show>
+        <Show when={props.record.op && props.threadBroom}>
+          <BroomIcon width={14} height={14} class={broomIconVariants()} />
+        </Show>
+        <Show when={props.record.op && props.threadClosed}>
+          <span class="potato-state-icon" title={t('thread.closed')} aria-label={t('thread.closed')}>🛇</span>
+        </Show>
+        <Show when={props.pinned}>
+          <span class="potato-state-icon" title={t('thread.pinned')} aria-label={t('thread.pinned')}>⚲</span>
+        </Show>
         <Show when={!props.record.deleted && props.record.relNum !== null}>
           <span class={relNumVariants()}>{props.record.relNum}</span>
         </Show>
         <Show when={props.record.deleted}>
           <span class={deletedVariants()}>{t('post.deleted')}</span>
         </Show>
-        <Show when={props.record.op && props.threadBroom}>
-          <BroomIcon width={14} height={14} class={broomIconVariants()} />
-        </Show>
-        <Show when={props.record.op && props.threadClosed}>
-          <span class="potato-state-icon potato-closed-icon" title={t('thread.closed')} aria-label={t('thread.closed')}>🛇</span>
-        </Show>
-        <Show when={props.pinned}>
-          <span class="potato-state-icon potato-pinned-icon" title={t('thread.pinned')} aria-label={t('thread.pinned')}>⚲</span>
-        </Show>
       </div>
       <Show when={props.record.media.length > 0}>
-        <div class={potatoMediaRowVariants()}>
+        <div class={potatoMediaRowVariants({ single: props.record.media.length === 1 })} data-potato-single-media={props.record.media.length === 1 ? '' : undefined}>
           <For each={props.record.media}>{(item) => <MediaBox m={item} record={props.record} onOpen={openMedia} />}</For>
         </div>
       </Show>
