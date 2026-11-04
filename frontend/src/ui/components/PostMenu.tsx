@@ -8,7 +8,7 @@ import type { PostRecord } from '../../store/records'
 import { canSelectAllFromAuthor, canBanByUid, type BanScope } from '../../core/intent/capabilities'
 import type { ThreadObject } from '../../core/bcs/types'
 
-export function PostMenu(props: { record: PostRecord; closed: boolean; threadObject?: ThreadObject; onEdit?: (uid: string) => void; onOpenThread?: () => void; potato?: boolean; label?: string }) {
+export function PostMenu(props: { record: PostRecord; closed: boolean; threadObject?: ThreadObject; onEdit?: (uid: string) => void; onOpenThread?: () => void; potato?: boolean; vista?: boolean; label?: string }) {
   const { t } = useI18n()
   const actions = useEntityActions()
   const store = useStore()
@@ -52,9 +52,9 @@ export function PostMenu(props: { record: PostRecord; closed: boolean; threadObj
       items={items()}
       triggerSize="xs"
       iconSize={14}
-      triggerShape={props.potato ? 'square' : 'rounded'}
-      icon={props.potato ? <span class="potato-menu-glyph">▶</span> : undefined}
-      class={props.potato ? 'potato-menu-trigger' : 'ml-auto self-start'}
+      triggerShape={props.potato || props.vista ? 'square' : 'rounded'}
+      icon={props.potato ? <span class="potato-menu-glyph">▶</span> : props.vista ? <span class="vista-cap-glyph" data-glyph="menu" /> : undefined}
+      class={props.potato ? 'potato-menu-trigger' : props.vista ? 'vista-cap' : 'ml-auto self-start'}
       label={props.potato ? undefined : props.label}
     />
   )

@@ -72,7 +72,7 @@ export function SettingsPage(props: { setting: SettingSlug | null; baseHref: str
       <section class={screenVariants()}>
         <PageHeader title={label()} onBack={props.setting ? () => nav.navigate({ page: 'settings' }) : undefined} />
         <Show when={key()} fallback={<SettingsList baseHref={props.baseHref} />}>
-          <div class={mobilePadVariants()}>{view()}</div>
+          <div class={`${mobilePadVariants()} settings-mobile-content`}>{view()}</div>
         </Show>
         <TabBar boardsActive={false} settingsActive onGoHome={tabs.goHome} onOpenSettings={tabs.openSettings} />
       </section>

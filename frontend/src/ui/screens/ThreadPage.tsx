@@ -25,7 +25,7 @@ const potatoListVariants = cva('px-3 pb-4')
 const listMobileVariants = cva('pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] pb-0 pt-2.5')
 const markerVariants = cva('my-3 w-full border-t-2 border-dashed border-accent will-change-transform')
 
-export function ThreadPage(props: { forumId: string; slug: string; threadNum: number }) {
+export function ThreadPage(props: { forumId: string; slug: string; threadNum: number; boardTitle?: string }) {
   const { showDeleted, t } = useI18n()
   const [editingUid, setEditingUid] = createSignal<string | null>(null)
   const posts = usePosts(showDeleted)
@@ -47,6 +47,7 @@ export function ThreadPage(props: { forumId: string; slug: string; threadNum: nu
         forumId={props.forumId}
         slug={props.slug}
         threadNum={props.threadNum}
+        boardTitle={props.boardTitle}
         posts={posts}
         threadMenu={threadMenu}
         editingUid={editingUid()}
@@ -61,6 +62,7 @@ function ThreadBody(props: {
   forumId: string
   slug: string
   threadNum: number
+  boardTitle?: string
   posts: () => readonly string[]
   threadMenu: () => ReturnType<typeof threadModItems>
   editingUid: string | null
@@ -244,6 +246,7 @@ function ThreadBody(props: {
                 threadBroom={page()!.opAdmin}
                 slug={props.slug}
                 threadNum={props.threadNum}
+                boardTitle={props.boardTitle}
                 onEdit={props.onEdit}
               />
             </>

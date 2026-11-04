@@ -27,7 +27,7 @@ const chipVariants = cva('flex cursor-pointer items-center gap-1.5 whitespace-no
 })
 const chipLogoVariants = cva('inline-flex h-logo-mobile items-center')
 const contentPadVariants = cva('pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] pb-[calc(var(--mobile-tab)+18px)] pt-2.5')
-const listVariants = cva('overflow-hidden rounded-lg bg-panel1')
+const listVariants = cva('overflow-hidden rounded-lg bg-panel1 vista-surface')
 const rowVariants = cva('mx-4 grid min-h-row cursor-pointer grid-cols-[64px_1fr_auto_auto] items-center gap-2 border-b border-separator py-2.5 text-fg last:border-b-0 no-underline')
 const slugVariants = cva('text-xl font-semibold text-accent leading-none')
 const nameVariants = cva('text-xl text-fg leading-none')

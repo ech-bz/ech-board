@@ -1,0 +1,1392 @@
+:root[data-ui-style='vista'] {
+  --vista-hue-shift: 0;
+  --vista-color-rgb-20-50-120-0d22: hsl(from rgb(20 50 120 / 0.22) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-2a364d: hsl(from #2a364d calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-8fb4e8: hsl(from #8fb4e8 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-5f8fd2: hsl(from #5f8fd2 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-9dbbe8: hsl(from #9dbbe8 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-3d9be8: hsl(from #3d9be8 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-3161b0: hsl(from #3161b0 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-f1f5fb: hsl(from #f1f5fb calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-d6e2f3: hsl(from #d6e2f3 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-e3eefb: hsl(from #e3eefb calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-d3e6fb: hsl(from #d3e6fb calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-eaf3ff: hsl(from #eaf3ff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-8a97a8: hsl(from #8a97a8 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-6a7280: hsl(from #6a7280 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-1b6fd0: hsl(from #1b6fd0 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-0a4aa3: hsl(from #0a4aa3 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-b8c4d4: hsl(from #b8c4d4 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-3aa0e8: hsl(from #3aa0e8 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-e9eef6: hsl(from #e9eef6 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-f8fafd: hsl(from #f8fafd calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-c4d6ee: hsl(from #c4d6ee calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-9bb9e0: hsl(from #9bb9e0 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-b3cbe9: hsl(from #b3cbe9 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-6f93c4: hsl(from #6f93c4 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-d8eaff: hsl(from #d8eaff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-8cc4f5: hsl(from #8cc4f5 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-bfe0ff: hsl(from #bfe0ff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-5a96cc: hsl(from #5a96cc calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-4b86bf: hsl(from #4b86bf calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-3b78b5: hsl(from #3b78b5 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-5fb0ea: hsl(from #5fb0ea calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-d0ffff: hsl(from #d0ffff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-8fa8c8: hsl(from #8fa8c8 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-7f9dc4: hsl(from #7f9dc4 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-f4faff: hsl(from #f4faff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-d8eafb: hsl(from #d8eafb calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-7da2ce: hsl(from #7da2ce calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-aab8cc: hsl(from #aab8cc calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-f7fbff: hsl(from #f7fbff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-dcecfc: hsl(from #dcecfc calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-b4d3f3: hsl(from #b4d3f3 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-eaf4ff: hsl(from #eaf4ff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-c6e0fa: hsl(from #c6e0fa calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-50596b: hsl(from #50596b calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-8db1d6: hsl(from #8db1d6 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-5d93c4: hsl(from #5d93c4 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-3c75a8: hsl(from #3c75a8 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-3f79ae: hsl(from #3f79ae calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-a7c0d8: hsl(from #a7c0d8 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-14213a: hsl(from #14213a calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-4a5d80: hsl(from #4a5d80 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-17223a: hsl(from #17223a calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-d6e9ff: hsl(from #d6e9ff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-8fbdf2: hsl(from #8fbdf2 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-4f92e0: hsl(from #4f92e0 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-8cc5ff: hsl(from #8cc5ff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-f3f9ff: hsl(from #f3f9ff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-00cfff: hsl(from #00cfff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-8fdcff: hsl(from #8fdcff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-d8f4ff: hsl(from #d8f4ff calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-b4c6e0: hsl(from #b4c6e0 calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-d5e8fb: hsl(from #d5e8fb calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-9cc4ee: hsl(from #9cc4ee calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-177-194-225-0d85: hsl(from rgb(177 194 225 / 0.85) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-40-110-200-0d1: hsl(from rgb(40 110 200 / 0.1) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-10-30-70-0d6: hsl(from rgb(10 30 70 / 0.6) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-30-80-150-0d35: hsl(from rgb(30 80 150 / 0.35) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-61-155-232-0d25: hsl(from rgb(61 155 232 / 0.25) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-0-20-70-0d75: hsl(from rgb(0 20 70 / 0.75) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-0-40-100-0d8: hsl(from rgb(0 40 100 / 0.8) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-0-30-80-0d35: hsl(from rgb(0 30 80 / 0.35) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-80-190-255-0d85: hsl(from rgb(80 190 255 / 0.85) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-0-30-80-0d5: hsl(from rgb(0 30 80 / 0.5) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-30-60-110-0d2: hsl(from rgb(30 60 110 / 0.2) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-61-155-232-0d7: hsl(from rgb(61 155 232 / 0.7) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-20-50-100-0d3: hsl(from rgb(20 50 100 / 0.3) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-90-180-255-0d9: hsl(from rgb(90 180 255 / 0.9) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-214-232-247-0d95: hsl(from rgb(214 232 247 / 0.95) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-214-232-247-0: hsl(from rgb(214 232 247 / 0) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-110-200-255-0d95: hsl(from rgb(110 200 255 / 0.95) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-110-200-255-0d8: hsl(from rgb(110 200 255 / 0.8) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-0-30-80-0d6: hsl(from rgb(0 30 80 / 0.6) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-226-236-250-0d78: hsl(from rgb(226 236 250 / 0.78) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-168-188-224-0d72: hsl(from rgb(168 188 224 / 0.72) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-177-194-225-0d8: hsl(from rgb(177 194 225 / 0.8) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-20-50-120-0d45: hsl(from rgb(20 50 120 / 0.45) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-0-20-70-0d3: hsl(from rgb(0 20 70 / 0.3) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-190-220-250-0d7: hsl(from rgb(190 220 250 / 0.7) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-170-205-245-0d8: hsl(from rgb(170 205 245 / 0.8) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-220-238-255-0d8: hsl(from rgb(220 238 255 / 0.8) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-150-185-235-0d92: hsl(from rgb(150 185 235 / 0.92) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-104-146-212-0d9: hsl(from rgb(104 146 212 / 0.9) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-110-154-216-0d9: hsl(from rgb(110 154 216 / 0.9) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-20-50-120-0d4: hsl(from rgb(20 50 120 / 0.4) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-0-20-70-0d4: hsl(from rgb(0 20 70 / 0.4) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-0-20-70-0d5: hsl(from rgb(0 20 70 / 0.5) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-40-90-170-0d12: hsl(from rgb(40 90 170 / 0.12) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-0-30-90-0d3: hsl(from rgb(0 30 90 / 0.3) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-120-200-255-0d9: hsl(from rgb(120 200 255 / 0.9) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-0-30-90-0d55: hsl(from rgb(0 30 90 / 0.55) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-70-110-180-0d7: hsl(from rgb(70 110 180 / 0.7) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-160-200-250-0d35: hsl(from rgb(160 200 250 / 0.35) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-60-150-210-0d45: hsl(from rgb(60 150 210 / 0.45) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-10-30-70-0d55: hsl(from rgb(10 30 70 / 0.55) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-150-185-235-0d96: hsl(from rgb(150 185 235 / 0.96) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-104-146-212-0d95: hsl(from rgb(104 146 212 / 0.95) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-110-154-216-0d95: hsl(from rgb(110 154 216 / 0.95) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-20-50-120-0d5: hsl(from rgb(20 50 120 / 0.5) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-70-110-180-0d8: hsl(from rgb(70 110 180 / 0.8) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-30-60-110-0d25: hsl(from rgb(30 60 110 / 0.25) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-0-20-70-0d35: hsl(from rgb(0 20 70 / 0.35) calc(h + var(--vista-hue-shift, 0)) s l);
+  --vista-color-rgb-42-54-77-0d92: hsl(from rgb(42 54 77 / 0.92) calc(h + var(--vista-hue-shift, 0)) s l);
+}
+
+:root[data-ui-style='vista'] {
+  color-scheme: light;
+
+  --vista-navy: var(--vista-color-2a364d);
+  --vista-frame-a: var(--vista-color-8fb4e8);
+  --vista-frame-b: var(--vista-color-5f8fd2);
+  --vista-frame-edge: var(--vista-color-9dbbe8);
+  --vista-ink: #1b1f27;
+  --vista-hair: #d9d9d9;
+  --vista-glow: var(--vista-color-3d9be8);
+
+  --color-bg: var(--vista-color-3161b0);
+  --color-panel1: #ffffff;
+  --color-panel2: var(--vista-color-f1f5fb);
+  --color-panel3: var(--vista-color-d6e2f3);
+  --color-hover: var(--vista-color-e3eefb);
+  --color-active: var(--vista-color-d3e6fb);
+  --color-mine: var(--vista-color-eaf3ff);
+  --color-replied-mine: #fff3dc;
+  --color-spoiler: var(--vista-color-8a97a8);
+  --color-fg: var(--vista-ink);
+  --color-secondary: var(--vista-color-6a7280);
+  --color-accent: var(--vista-color-1b6fd0);
+  --color-accent-hover: var(--vista-color-0a4aa3);
+  --color-success: #257221;
+  --color-danger: #c62828;
+  --color-warn: #b45309;
+  --color-quote: #2f8f2f;
+  --color-postnum: #2f9a2f;
+  --color-glass1: var(--vista-color-rgb-177-194-225-0d85);
+  --color-glass2: rgba(255, 255, 255, 0.55);
+  --color-chip: var(--vista-color-rgb-40-110-200-0d1);
+  --color-shade: var(--vista-color-rgb-10-30-70-0d6);
+  --color-scrim: rgba(10, 25, 55, 0.7);
+  --color-track: var(--vista-color-rgb-30-80-150-0d35);
+  --color-separator: var(--vista-hair);
+  --color-reaction: var(--vista-color-rgb-61-155-232-0d25);
+  --color-toggle-track: var(--vista-color-b8c4d4);
+  --color-toggle-on: var(--vista-color-3aa0e8);
+
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+
+  background: var(--vista-navy);
+}
+
+:root[data-ui-style='vista'] body {
+  background: var(--vista-navy);
+}
+
+:root[data-ui-style='vista'] main {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+:root[data-ui-style='vista'] main::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background: #3161b0 url('/static/vista/background.png') right bottom / cover no-repeat;
+  filter: hue-rotate(calc(var(--vista-hue-shift, 0) * 1deg));
+}
+
+:root[data-ui-style='vista'] [data-on-wallpaper] {
+  color: #fff;
+  text-shadow: 0 1px 3px var(--vista-color-rgb-0-20-70-0d75);
+}
+
+:root[data-ui-style='vista'] *::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+:root[data-ui-style='vista'] *::-webkit-scrollbar-track {
+  background: linear-gradient(90deg, var(--vista-color-e9eef6), var(--vista-color-f8fafd));
+}
+
+:root[data-ui-style='vista'] *::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, var(--vista-color-c4d6ee), var(--vista-color-9bb9e0) 50%, var(--vista-color-b3cbe9));
+  border: 1px solid var(--vista-color-6f93c4);
+  border-radius: 3px;
+}
+
+:root[data-ui-style='vista'] *::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, var(--vista-color-d8eaff), var(--vista-color-8cc4f5) 50%, var(--vista-color-bfe0ff));
+}
+
+:root[data-ui-style='vista'] .btn,
+:root[data-ui-style='vista'] [data-post] button[class~='bg-chip'],
+:root[data-ui-style='vista'] [data-post] button[class~='bg-reaction'] {
+  color: #fff;
+  font-weight: 600;
+  text-shadow: 0 1px 2px var(--vista-color-rgb-0-40-100-0d8);
+  border: 1px solid var(--vista-color-5a96cc);
+  border-radius: 12px;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.12) 49%, rgba(255, 255, 255, 0) 50%),
+    linear-gradient(to bottom, var(--vista-color-4b86bf) 0%, var(--vista-color-3b78b5) 50%, var(--vista-color-5fb0ea) 52%, var(--vista-color-d0ffff) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45), 0 1px 2px var(--vista-color-rgb-0-30-80-0d35);
+}
+
+:root[data-ui-style='vista'] .btn:hover,
+:root[data-ui-style='vista'] [data-post] button[class~='bg-chip']:hover,
+:root[data-ui-style='vista'] [data-post] button[class~='bg-reaction']:hover {
+  filter: brightness(1.08) saturate(1.15);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 8px var(--vista-color-rgb-80-190-255-0d85);
+}
+
+:root[data-ui-style='vista'] .btn:active {
+  filter: brightness(0.95);
+  box-shadow: inset 0 2px 4px var(--vista-color-rgb-0-30-80-0d5);
+}
+
+:root[data-ui-style='vista'] .btn:disabled {
+  filter: grayscale(0.7);
+}
+
+:root[data-ui-style='vista'] .btn.text-danger {
+  border-color: #b24a4a;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 49%, rgba(255, 255, 255, 0) 50%),
+    linear-gradient(to bottom, #c05a5a 0%, #a83c3c 50%, #e58a7e 52%, #ffd9d2 100%);
+}
+
+:root[data-ui-style='vista'] [data-post] button[class~='bg-chip'],
+:root[data-ui-style='vista'] [data-post] button[class~='bg-reaction'] {
+  color: #fff;
+}
+
+:root[data-ui-style='vista'] input:not([type='checkbox']):not([type='range']),
+:root[data-ui-style='vista'] select,
+:root[data-ui-style='vista'] textarea {
+  color: var(--vista-ink);
+  background: #fff;
+  border: 1px solid var(--vista-color-8fa8c8);
+  border-radius: 3px;
+  box-shadow: inset 0 1px 3px var(--vista-color-rgb-30-60-110-0d2);
+}
+
+:root[data-ui-style='vista'] input:focus,
+:root[data-ui-style='vista'] select:focus,
+:root[data-ui-style='vista'] textarea:focus {
+  border-color: var(--vista-color-3d9be8);
+  box-shadow: inset 0 1px 3px var(--vista-color-rgb-30-60-110-0d2), 0 0 5px var(--vista-color-rgb-61-155-232-0d7);
+}
+
+:root[data-ui-style='vista'] .settings-checkbox {
+  border: 1px solid var(--vista-color-7f9dc4);
+  box-shadow: inset 0 1px 3px var(--vista-color-rgb-20-50-100-0d3);
+}
+
+:root[data-ui-style='vista'] aside {
+  background: var(--vista-navy);
+  border-right: 0;
+}
+
+:root[data-ui-style='vista'] [data-nav='header'] {
+  gap: 10px;
+  min-height: 62px;
+  padding: 11px 10px 10px 10px;
+  background: none;
+}
+
+:root[data-ui-style='vista'] [data-nav='header']::before {
+  display: none;
+}
+
+:root[data-ui-style='vista'] [data-nav='title'] {
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+  color: #fff;
+  font-size: 17px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+:root[data-ui-style='vista'] [data-nav='toggle'] {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  border-radius: 9px;
+  border: 1px solid #000;
+  color: #fff;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 65%),
+    linear-gradient(to bottom, #5b5b5b 0%, #232323 48%, #000 52%, #2b2b2b 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+:root[data-ui-style='vista'] [data-nav='toggle']:hover {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 0 9px var(--vista-color-rgb-90-180-255-0d9);
+}
+
+:root[data-ui-style='vista'] [data-nav='toggle'] svg {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.5));
+}
+
+:root[data-ui-style='vista'] [data-nav='toggle'][data-collapsed] svg {
+  transform: scaleX(-1);
+}
+
+:root[data-ui-style='vista'] aside.collapsed [data-nav='header'] {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+:root[data-ui-style='vista'] [data-nav='forum'] {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+:root[data-ui-style='vista'] [data-nav='forum'] > button {
+  height: 40px;
+  padding: 0 10px;
+  color: #444;
+  background: linear-gradient(to bottom, #f1f1f1, #e2e2e2);
+  border: 1px solid #b9b9b9;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+:root[data-ui-style='vista'] [data-nav='forum'] > button:hover {
+  background: linear-gradient(to bottom, var(--vista-color-f4faff), var(--vista-color-d8eafb));
+  border-color: var(--vista-color-7da2ce);
+}
+
+:root[data-ui-style='vista'] [data-nav='forum-sub'] {
+  display: none;
+}
+
+:root[data-ui-style='vista'] [data-nav='forum-host'] {
+  font-size: 12px;
+  font-weight: 400;
+  color: #555;
+}
+
+:root[data-ui-style='vista'] [data-nav='forum'] > button > div:last-child {
+  color: #000;
+}
+
+:root[data-ui-style='vista'] [data-nav='forum'] > div:last-child {
+  background: #fff;
+  border: 1px solid var(--vista-color-aab8cc);
+  border-radius: 2px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  color: var(--vista-ink);
+}
+
+:root[data-ui-style='vista'] [data-nav='label'] {
+  display: none;
+}
+
+:root[data-ui-style='vista'] [data-nav='list'] {
+  margin: 0 8px;
+  padding: 4px 8px;
+  background: #fff;
+  border: 3px solid #e8e8e8;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-ui-style='vista'] [data-nav='list'] + [data-nav='label'] + [data-nav='list'],
+:root[data-ui-style='vista'] [data-nav='label'] + [data-nav='list'] ~ [data-nav='label'] + [data-nav='list'] {
+  margin-top: 10px;
+}
+
+:root[data-ui-style='vista'] [data-nav='list'] > a {
+  grid-template-columns: 52px 1fr auto;
+  gap: 0;
+  min-height: 40px;
+  padding: 4px 6px 4px 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--vista-hair);
+  color: #222;
+  background: transparent;
+  transition: none;
+}
+
+:root[data-ui-style='vista'] [data-nav='list'] > a:last-child {
+  border-bottom-color: transparent;
+}
+
+:root[data-ui-style='vista'] [data-nav='list'] > a:hover {
+  background: linear-gradient(to bottom, var(--vista-color-f7fbff), var(--vista-color-dcecfc));
+  border-bottom-color: transparent;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--vista-color-b4d3f3);
+}
+
+:root[data-ui-style='vista'] [data-nav='list'] > a.bg-active,
+:root[data-ui-style='vista'] [data-nav='list'] > a[aria-current] {
+  background: linear-gradient(to bottom, var(--vista-color-eaf4ff), var(--vista-color-c6e0fa));
+  border-bottom-color: transparent;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--vista-color-7da2ce), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+:root[data-ui-style='vista'] [data-nav='list'] > a > div:first-child {
+  display: flex;
+  justify-content: center;
+  color: var(--color-accent);
+}
+
+:root[data-ui-style='vista'] [data-nav='list'] > a > div:nth-child(2) {
+  font-weight: 400;
+  font-size: 15px;
+  color: #222;
+}
+
+:root[data-ui-style='vista'] [data-nav='list'] > a > div:nth-child(3) {
+  color: #b0b0b0;
+  font-size: 14px;
+}
+
+:root[data-ui-style='vista'] .vista-board-icon {
+  display: block;
+  width: 32px;
+  height: 32px;
+  image-rendering: auto;
+}
+
+:root[data-ui-style='vista'] aside.collapsed [data-nav='list'] {
+  margin: 0 6px;
+  padding: 4px 0;
+  border-width: 2px;
+}
+
+:root[data-ui-style='vista'] aside.collapsed [data-nav='list'] > a {
+  min-height: 42px;
+  padding: 4px 0;
+}
+
+:root[data-ui-style='vista'] [data-nav='bar'] {
+  margin-inline: 12px;
+  padding: 4px;
+  background: var(--vista-color-50596b);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+:root[data-ui-style='vista'] [data-nav='bar'].mx-auto {
+  margin-inline: auto;
+}
+
+:root[data-ui-style='vista'] [data-nav='bar'] button {
+  width: 40px;
+  height: 40px;
+  color: #fff;
+  border: 1px solid #000;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 100%, var(--vista-color-rgb-214-232-247-0d95) 0%, var(--vista-color-rgb-214-232-247-0) 62%),
+    linear-gradient(to bottom, var(--vista-color-8db1d6) 0%, var(--vista-color-5d93c4) 28%, var(--vista-color-3c75a8) 50%, var(--vista-color-3f79ae) 68%, var(--vista-color-a7c0d8) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+:root[data-ui-style='vista'] [data-nav='bar'] button:hover {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 0 9px var(--vista-color-rgb-110-200-255-0d95);
+}
+
+:root[data-ui-style='vista'] [data-nav='bar'] button.glass {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 7px var(--vista-color-rgb-110-200-255-0d8);
+}
+
+:root[data-ui-style='vista'] [data-nav='bar'] button svg {
+  filter: drop-shadow(0 1px 1px var(--vista-color-rgb-0-30-80-0d6));
+}
+
+:root[data-ui-style='vista'] [data-page-header] {
+  height: auto;
+  min-height: 58px;
+  padding: 10px 16px 6px 16px;
+  background: none;
+}
+
+:root[data-ui-style='vista'] [data-page-header]::before {
+  display: none;
+}
+
+:root[data-ui-style='vista'] [data-page-header] > div:first-child {
+  height: 42px;
+  padding: 0 6px;
+  border-radius: 3px;
+  background: linear-gradient(to bottom, var(--vista-color-rgb-226-236-250-0d78), var(--vista-color-rgb-168-188-224-0d72) 50%, var(--vista-color-rgb-177-194-225-0d8));
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px var(--vista-color-rgb-20-50-120-0d45), 0 3px 10px var(--vista-color-rgb-0-20-70-0d3), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  backdrop-filter: blur(8px) saturate(140%);
+}
+
+:root[data-ui-style='vista'] [data-page-header] h1 {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--vista-color-14213a);
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
+}
+
+:root[data-ui-style='vista'] [data-page-header] h1 + div {
+  font-size: 11px;
+  color: var(--vista-color-4a5d80);
+}
+
+:root[data-ui-style='vista'] [data-page-header] button {
+  width: 32px;
+  height: 30px;
+  color: var(--vista-color-14213a);
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+:root[data-ui-style='vista'] [data-page-header] button:hover {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.85), var(--vista-color-rgb-190-220-250-0d7));
+  box-shadow: inset 0 0 0 1px var(--vista-color-7da2ce);
+}
+
+:root[data-ui-style='vista'] [data-page-header] button:active {
+  background: linear-gradient(to bottom, var(--vista-color-rgb-170-205-245-0d8), var(--vista-color-rgb-220-238-255-0d8));
+}
+
+:root[data-ui-style='vista'] [data-post-column] {
+  margin-bottom: 14px;
+}
+
+:root[data-ui-style='vista'] [data-post-column] > .h-px,
+:root[data-ui-style='vista'] [data-post-column] > [class*='mt-6'][class*='h-px'] {
+  display: none;
+}
+
+:root[data-ui-style='vista'] [data-vista-thread] {
+  margin-bottom: 36px !important;
+  padding-bottom: 16px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.58);
+}
+
+:root[data-ui-style='vista'] [data-vista-window] {
+  margin-bottom: 8px;
+  padding: 0 4px 4px;
+  color: var(--vista-ink);
+  border-radius: 4px 4px 2px 2px;
+  border: 1px solid var(--vista-frame-edge);
+  background: linear-gradient(to bottom, var(--vista-color-rgb-150-185-235-0d92), var(--vista-color-rgb-104-146-212-0d9) 40px, var(--vista-color-rgb-110-154-216-0d9));
+  box-shadow:
+    0 0 0 1px var(--vista-color-rgb-20-50-120-0d4),
+    0 5px 16px var(--vista-color-rgb-0-20-70-0d4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+:root[data-ui-style='vista'] [data-vista-window][data-mine-post] {
+  box-shadow: 0 0 0 1px var(--vista-color-rgb-20-50-120-0d4), 0 5px 16px var(--vista-color-rgb-0-20-70-0d4), inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 0 10px rgba(255, 255, 255, 0.55);
+}
+
+:root[data-ui-style='vista'] [data-vista-window].outline {
+  outline-color: #ffd34d;
+}
+
+:root[data-ui-style='vista'] .vista-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 0 0 3px;
+}
+
+:root[data-ui-style='vista'] .vista-titlebar-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  filter: drop-shadow(0 1px 1px var(--vista-color-rgb-0-20-70-0d5));
+}
+
+:root[data-ui-style='vista'] .vista-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--vista-color-17223a);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.95), 0 0 2px rgba(255, 255, 255, 0.6);
+}
+
+:root[data-ui-style='vista'] .vista-caption {
+  display: flex;
+  flex: none;
+  align-self: flex-start;
+  margin-right: 0;
+  padding-left: 18px;
+}
+
+:root[data-ui-style='vista'] .vista-cap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 19px;
+  padding: 0;
+  margin: 0 0 0 -1px;
+  cursor: pointer;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-top-color: transparent;
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06) 50%, var(--vista-color-rgb-40-90-170-0d12) 52%, rgba(255, 255, 255, 0.14));
+  box-shadow: 0 1px 2px var(--vista-color-rgb-0-30-90-0d3);
+}
+
+:root[data-ui-style='vista'] .vista-cap:first-child {
+  border-bottom-left-radius: 4px;
+}
+
+:root[data-ui-style='vista'] .vista-cap:last-child {
+  border-bottom-right-radius: 4px;
+}
+
+:root[data-ui-style='vista'] .vista-cap:hover {
+  background: linear-gradient(to bottom, var(--vista-color-d6e9ff), var(--vista-color-8fbdf2) 50%, var(--vista-color-4f92e0) 52%, var(--vista-color-8cc5ff));
+  box-shadow: 0 0 8px var(--vista-color-rgb-120-200-255-0d9);
+}
+
+:root[data-ui-style='vista'] .vista-cap[data-glyph='close']:hover {
+  background: linear-gradient(to bottom, #f2b4a8, #e0705f 50%, #c0392b 52%, #e8867a);
+  box-shadow: 0 0 8px rgba(255, 120, 100, 0.9);
+}
+
+:root[data-ui-style='vista'] .vista-cap:active {
+  filter: brightness(0.9);
+}
+
+:root[data-ui-style='vista'] .vista-cap[data-glyph]::before,
+:root[data-ui-style='vista'] .vista-cap-glyph {
+  content: '';
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  filter: drop-shadow(0 1px 1px var(--vista-color-rgb-0-30-90-0d55));
+  -webkit-mask: var(--vista-glyph) center / contain no-repeat;
+  mask: var(--vista-glyph) center / contain no-repeat;
+}
+
+:root[data-ui-style='vista'] [data-glyph='menu'] {
+  --vista-glyph: url('/static/vista/ui/caption-menu.svg');
+}
+
+:root[data-ui-style='vista'] [data-glyph='flag'] {
+  --vista-glyph: url('/static/vista/ui/caption-flag.svg');
+}
+
+:root[data-ui-style='vista'] [data-glyph='open'] {
+  --vista-glyph: url('/static/vista/ui/caption-open.svg');
+}
+
+:root[data-ui-style='vista'] [data-glyph='close'] {
+  --vista-glyph: url('/static/vista/ui/caption-close.svg');
+}
+
+:root[data-ui-style='vista'] .vista-client {
+  padding: 8px 12px 10px;
+  color: var(--vista-ink);
+  background: #fff;
+  border: 1px solid var(--vista-color-rgb-70-110-180-0d7);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px var(--vista-color-rgb-160-200-250-0d35);
+}
+
+:root[data-ui-style='vista'] [data-mine-post] .vista-client {
+  background: linear-gradient(to bottom, var(--vista-color-f3f9ff), #fff 60px);
+}
+
+:root[data-ui-style='vista'] [data-replied-mine-post] .vista-client {
+  background: linear-gradient(to bottom, #fff7e6, #fff 60px);
+}
+
+:root[data-ui-style='vista'] .vista-client > div:first-child {
+  color: #333;
+  text-shadow: 0 0 5px rgba(255, 255, 255, 1);
+}
+
+:root[data-ui-style='vista'] [data-media-row] {
+  padding: 4px 6px 8px 2px;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-media] {
+  padding: 0;
+  border-radius: 7px;
+  border: 3px solid transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(135deg, var(--vista-color-00cfff) 0%, var(--vista-color-8fdcff) 55%, var(--vista-color-d8f4ff) 100%) border-box;
+  box-shadow: 0 4px 6px rgba(0, 20, 60, 0.4), 0 0 0 1px var(--vista-color-rgb-60-150-210-0d45);
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-video] {
+  margin-inline: 10px;
+  overflow: visible !important;
+  border: 0;
+  border-radius: 3px;
+  background: #101216;
+  box-shadow: none;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-video]::before,
+:root[data-ui-style='vista'] [data-media-row] [data-vista-video]::after {
+  content: '';
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  pointer-events: none;
+  border-radius: 1px;
+  background: url('/static/vista/ui/film-perforation.svg') center / 10px 100% no-repeat;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-video]::before {
+  left: -10px;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-video]::after {
+  right: -10px;
+}
+
+:root[data-ui-style='vista'] .post-text {
+  color: var(--vista-ink);
+}
+
+:root[data-ui-style='vista'] .post-text.collapsed {
+  mask-image: linear-gradient(#000 74%, transparent);
+  -webkit-mask-image: linear-gradient(#000 74%, transparent);
+}
+
+:root[data-ui-style='vista'] .post-text a:not(.post-num) {
+  color: var(--color-accent);
+}
+
+:root[data-ui-style='vista'] .link-card {
+  background: var(--vista-color-f1f5fb);
+  border: 1px solid var(--vista-color-b4c6e0);
+  border-radius: 3px;
+}
+
+:root[data-ui-style='vista'] [class*='min-w-menu'] {
+  padding: 3px;
+  color: var(--vista-ink);
+  background: linear-gradient(to bottom, #fff, #f1f1f1);
+  border: 1px solid #979797;
+  border-radius: 3px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+}
+
+:root[data-ui-style='vista'] [class*='min-w-menu'] button,
+:root[data-ui-style='vista'] [class*='min-w-menu'] a {
+  color: var(--vista-ink);
+  border-radius: 2px;
+}
+
+:root[data-ui-style='vista'] [class*='min-w-menu'] button:hover,
+:root[data-ui-style='vista'] [class*='min-w-menu'] a:hover {
+  color: var(--vista-ink);
+  background: linear-gradient(to bottom, var(--vista-color-f7fbff), var(--vista-color-d5e8fb));
+  box-shadow: inset 0 0 0 1px var(--vista-color-9cc4ee);
+}
+
+:root[data-ui-style='vista'] [class*='z-modal'] {
+  background: var(--vista-color-rgb-10-30-70-0d55);
+}
+
+:root[data-ui-style='vista'] [class*='max-w-modal'] {
+  padding: 0 5px 5px;
+  color: var(--vista-ink);
+  background: linear-gradient(to bottom, var(--vista-color-rgb-150-185-235-0d96), var(--vista-color-rgb-104-146-212-0d95) 44px, var(--vista-color-rgb-110-154-216-0d95));
+  border: 1px solid var(--vista-frame-edge);
+  border-radius: 6px 6px 3px 3px;
+  box-shadow: 0 0 0 1px var(--vista-color-rgb-20-50-120-0d5), 0 14px 40px rgba(0, 10, 50, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+:root[data-ui-style='vista'] [class*='max-w-modal'] > div:first-child {
+  min-height: 30px;
+  padding: 3px 4px 3px 4px;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--vista-color-17223a);
+  border-bottom: 0;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.95);
+}
+
+:root[data-ui-style='vista'] [class*='max-w-modal'] > div:last-child {
+  color: var(--vista-ink);
+  background: #fff;
+  border: 1px solid var(--vista-color-rgb-70-110-180-0d7);
+}
+
+:root[data-ui-style='vista'] .vista-surface {
+  margin: 12px 16px;
+  padding: 16px 18px;
+  color: var(--vista-ink);
+  background: #fff;
+  border: 1px solid var(--vista-color-rgb-70-110-180-0d8);
+  border-radius: 3px;
+  box-shadow: 0 0 0 4px var(--vista-color-rgb-110-154-216-0d9), 0 0 0 5px var(--vista-color-rgb-20-50-120-0d4), 0 6px 18px var(--vista-color-rgb-0-20-70-0d4);
+}
+
+:root[data-ui-style='vista'] .vista-surface[class*='bg-panel1'] {
+  padding: 4px 16px;
+}
+
+:root[data-ui-style='vista'] [data-composer] {
+  background: none;
+}
+
+:root[data-ui-style='vista'] [data-composer]::before {
+  display: none;
+}
+
+:root[data-ui-style='vista'] [data-composer] textarea {
+  border-radius: 4px;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: inset 0 1px 3px var(--vista-color-rgb-30-60-110-0d25), 0 0 0 1px var(--vista-color-rgb-20-50-120-0d4), 0 3px 10px var(--vista-color-rgb-0-20-70-0d35);
+}
+
+:root[data-ui-style='vista'] [data-composer] button {
+  color: #fff;
+  border: 1px solid var(--vista-color-5a96cc);
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 49%, rgba(255, 255, 255, 0) 50%),
+    linear-gradient(to bottom, var(--vista-color-4b86bf) 0%, var(--vista-color-3b78b5) 50%, var(--vista-color-5fb0ea) 52%, var(--vista-color-d0ffff) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45), 0 1px 2px var(--vista-color-rgb-0-30-80-0d35);
+}
+
+:root[data-ui-style='vista'] .nav-up,
+:root[data-ui-style='vista'] [data-tabs] {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+:root[data-ui-style='vista'] [data-tabs] {
+  background: var(--vista-color-rgb-42-54-77-0d92);
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+:root[data-ui-style='vista'] .glass-fade--up {
+  background: none;
+}
+
+@media (max-width: 899px) {
+  :root[data-ui-style='vista'] [data-page-header] {
+    padding-inline: 8px;
+  }
+
+  :root[data-ui-style='vista'] [data-vista-window] {
+    width: auto;
+  }
+
+  :root[data-ui-style='vista'] .vista-surface {
+    margin: 10px 8px;
+  }
+}
+
+:root[data-ui-style='vista'] aside.collapsed [data-nav='list'] {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  margin-inline: 0;
+  padding: 4px 0;
+}
+
+:root[data-ui-style='vista'] aside.collapsed [data-nav='list'] > a {
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-ui-style='vista'] aside.collapsed [data-nav='list'] > a:hover,
+:root[data-ui-style='vista'] aside.collapsed [data-nav='list'] > a.bg-active,
+:root[data-ui-style='vista'] aside.collapsed [data-nav='list'] > a[aria-current] {
+  background: linear-gradient(to bottom, var(--vista-color-eaf4ff), var(--vista-color-c6e0fa));
+  box-shadow: inset 0 0 0 1px var(--vista-color-7da2ce), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+:root[data-ui-style='vista'] .vista-client:has([data-media-row]) {
+  display: block;
+  min-width: 0;
+}
+
+:root[data-ui-style='vista'] .vista-client:has([data-media-row]) > :has([data-media-row]) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0 0 8px;
+}
+
+:root[data-ui-style='vista'] [data-media-row] {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 8px 6px 8px 2px;
+  scroll-snap-type: none;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+}
+
+:root[data-ui-style='vista'] [data-media-row] + div {
+  display: block;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-media] {
+  position: relative;
+  overflow: hidden !important;
+  border: 3px solid #fff;
+  border-radius: 6px;
+  background: #fff;
+  isolation: isolate;
+  box-shadow: 0 4px 6px rgba(0, 20, 60, 0.4), 0 0 0 1px var(--vista-color-rgb-60-150-210-0d45);
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-media][data-vista-video] {
+  overflow: visible !important;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-ui-style='vista'] [data-vista-video-viewport] {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: 0;
+  isolation: isolate;
+  background: #101216;
+  border: 2px solid #454c54;
+  box-sizing: border-box;
+}
+
+:root[data-ui-style='vista'] [data-vista-media] > img:first-child,
+:root[data-ui-style='vista'] [data-vista-media] > [data-vista-video-viewport] > img:first-child {
+  filter: blur(14px);
+  transform: scale(1.08);
+}
+
+:root[data-ui-style='vista'] .vista-media-format-badge {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  z-index: 5;
+  display: block;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  pointer-events: none;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-video] .vista-media-format-badge {
+  right: 5px;
+}
+
+:root[data-ui-style='vista'] .vista-media-format-badge img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+:root[data-ui-style='vista'] .vista-reactions-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+:root[data-ui-style='vista'] .vista-reaction-picker {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  translate: none !important;
+  display: inline-flex !important;
+  flex: none;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  margin-left: auto;
+  padding: 0 !important;
+  border: 1px solid var(--vista-color-aab8cc) !important;
+  border-radius: 999px !important;
+  color: #45556b !important;
+  background: linear-gradient(to bottom, #f4f6f9, #d9e0e9) !important;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px var(--vista-color-rgb-20-50-120-0d22) !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+:root[data-ui-style='vista'] .vista-reaction-picker:hover,
+:root[data-ui-style='vista'] .vista-reaction-picker[aria-expanded='true'] {
+  background: linear-gradient(to bottom, #fff, var(--vista-color-d6e9ff)) !important;
+  border-color: var(--vista-color-7da2ce) !important;
+}
+
+:root[data-ui-style='vista'] .vista-reaction-picker::before {
+  width: 18px;
+  height: 18px;
+  background-size: 18px 18px;
+  filter: grayscale(1) brightness(0.72) contrast(0.9);
+}
+
+:root[data-ui-style='vista'] [data-glyph='question'] {
+  --vista-glyph: url('/static/vista/ui/caption-question.svg');
+}
+
+:root[data-ui-style='vista'] .vista-bubble-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+:root[data-ui-style='vista'] .vista-bubble {
+  position: absolute;
+  bottom: -140px;
+  display: block;
+  width: var(--bubble-size, 80px);
+  height: var(--bubble-size, 80px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.92) 0 3%, rgba(255, 255, 255, 0.22) 13%, transparent 34%),
+    radial-gradient(circle at 68% 78%, rgba(80, 170, 255, 0.12), rgba(150, 210, 255, 0.2) 55%, rgba(255, 255, 255, 0.48));
+  box-shadow: inset -8px -10px 22px rgba(35, 85, 155, 0.18), inset 5px 6px 14px rgba(255, 255, 255, 0.72), 0 3px 18px rgba(190, 225, 255, 0.2);
+  opacity: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  outline: none;
+  filter: hue-rotate(calc(var(--vista-hue-shift, 0) * 1deg));
+  animation: vista-bubble-rise var(--bubble-duration, 9s) ease-in forwards;
+}
+
+:root[data-ui-style='vista'] .vista-bubble:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.95);
+  outline-offset: 3px;
+}
+
+:root[data-ui-style='vista'] .vista-bubble.is-popped {
+  animation: vista-bubble-pop 220ms ease-out forwards;
+}
+
+@keyframes vista-bubble-rise {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.72); }
+  12% { opacity: 0.72; }
+  82% { opacity: 0.55; }
+  100% { opacity: 0; transform: translate3d(var(--bubble-drift, 0), -115vh, 0) scale(1.08); }
+}
+
+@keyframes vista-bubble-pop {
+  to { opacity: 0; transform: scale(1.55); filter: blur(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-ui-style='vista'] .vista-bubble { animation-duration: 18s; }
+}
+
+@media (max-width: 899px) {
+  :root[data-ui-style='vista'] .settings-mobile-content {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
+  }
+
+  :root[data-ui-style='vista'] .settings-mobile-content > .max-w-settings {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 12px 10px;
+  }
+
+  :root[data-ui-style='vista'] .settings-mobile-content .border-b {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  :root[data-ui-style='vista'] .settings-mobile-content .border-b > span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  :root[data-ui-style='vista'] .settings-mobile-content input[type='range'] {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 899px) {
+  :root[data-ui-style='vista'] [data-media-row] {
+    gap: 4px;
+    padding: 6px 4px 8px 2px;
+  }
+
+  :root[data-ui-style='vista'] .vista-media-format-badge {
+    right: 4px;
+    bottom: 4px;
+    width: 16px;
+    height: 16px;
+    transform: none;
+  }
+}
+
+:root[data-ui-style='vista'] [data-media-row] {
+  gap: 8px;
+  padding: 8px 8px 10px;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-media] {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: fit-content !important;
+  height: auto !important;
+  min-width: 64px;
+  min-height: 64px;
+  max-width: 220px;
+  max-height: 220px;
+  box-sizing: border-box;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-media] > img[aria-hidden='true'],
+:root[data-ui-style='vista'] [data-vista-video-viewport] > img[aria-hidden='true'] {
+  display: none !important;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-media] > img[loading='lazy'] {
+  position: relative !important;
+  inset: auto !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 64px !important;
+  max-width: 214px !important;
+  max-height: 214px !important;
+  margin: 0 auto !important;
+  object-fit: contain !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-media][data-vista-video] {
+  display: block;
+  flex: 0 0 auto;
+  width: fit-content !important;
+  height: auto !important;
+  min-width: 64px;
+  min-height: 64px;
+  max-width: 240px;
+  max-height: 220px;
+}
+
+:root[data-ui-style='vista'] [data-vista-video-viewport] {
+  position: relative !important;
+  inset: auto !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  height: auto;
+  min-width: 64px;
+  min-height: 64px;
+  max-width: 220px;
+  max-height: 220px;
+}
+
+:root[data-ui-style='vista'] [data-vista-video-viewport] > img[loading='lazy'] {
+  position: relative !important;
+  inset: auto !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 60px !important;
+  max-width: 216px !important;
+  max-height: 216px !important;
+  margin: 0 auto !important;
+  object-fit: contain !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+@media (max-width: 899px) {
+  :root[data-ui-style='vista'] [data-media-row] {
+    gap: 8px;
+    padding: 6px 6px 9px;
+  }
+
+  :root[data-ui-style='vista'] [data-media-row] [data-vista-media] {
+    max-width: 110px;
+    max-height: 110px;
+  }
+
+  :root[data-ui-style='vista'] [data-media-row] [data-vista-media] > img[loading='lazy'] {
+    max-width: 104px !important;
+    max-height: 104px !important;
+  }
+
+  :root[data-ui-style='vista'] [data-media-row] [data-vista-media][data-vista-video] {
+    max-width: 130px;
+    max-height: 110px;
+  }
+
+  :root[data-ui-style='vista'] [data-vista-video-viewport] {
+    max-width: 110px;
+    max-height: 110px;
+  }
+
+  :root[data-ui-style='vista'] [data-vista-video-viewport] > img[loading='lazy'] {
+    max-width: 106px !important;
+    max-height: 106px !important;
+  }
+}
+
+:root[data-ui-style='vista'] [data-media-row] {
+  gap: 12px !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+:root[data-ui-style='vista'] [data-media-row]::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+:root[data-ui-style='vista'] [data-vista-window] {
+  margin-bottom: 12px;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-media] {
+  width: clamp(80px, var(--nat-w, 220px), 220px) !important;
+  height: 220px !important;
+  min-width: 80px;
+  min-height: 0;
+  max-width: 220px;
+  max-height: none;
+  flex: 0 0 auto;
+  position: relative;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-media] > img[aria-hidden='true'],
+:root[data-ui-style='vista'] [data-vista-video-viewport] > img[aria-hidden='true'] {
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  object-fit: cover !important;
+  filter: blur(28px) !important;
+  transform: scale(1.15) !important;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-media] > img[loading='lazy'],
+:root[data-ui-style='vista'] [data-vista-video-viewport] > img[loading='lazy'] {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: auto !important;
+  object-fit: contain !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-media][data-vista-video],
+:root[data-ui-style='vista'] [data-vista-video-viewport] {
+  height: 220px !important;
+  max-height: 220px !important;
+}
+
+:root[data-ui-style='vista'] [data-media-row] + div {
+  display: none !important;
+}
+
+@media (max-width: 899px) {
+  :root[data-ui-style='vista'] [data-media-row] [data-vista-media] {
+    width: clamp(40px, var(--nat-w, 110px), 110px) !important;
+    height: 110px !important;
+    max-width: 110px;
+  }
+
+  :root[data-ui-style='vista'] [data-media-row] [data-vista-media][data-vista-video],
+  :root[data-ui-style='vista'] [data-vista-video-viewport] {
+    height: 110px !important;
+    max-height: 110px !important;
+  }
+}
+
+:root[data-ui-style='vista'] [data-media-row] [data-vista-media][data-vista-video] {
+  display: block !important;
+  width: clamp(80px, var(--nat-w, 220px), 220px) !important;
+  height: 220px !important;
+  min-width: 80px !important;
+  min-height: 0 !important;
+  max-width: 220px !important;
+  max-height: none !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+}
+
+:root[data-ui-style='vista'] [data-vista-video-viewport] {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+@media (max-width: 899px) {
+  :root[data-ui-style='vista'] [data-media-row] [data-vista-media][data-vista-video] {
+    width: clamp(40px, var(--nat-w, 110px), 110px) !important;
+    height: 110px !important;
+    min-width: 40px !important;
+    max-width: 110px !important;
+  }
+}

@@ -1,6 +1,6 @@
 import { createSignal, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
-import { useI18n, useIsPotato } from '../i18n'
+import { useI18n, useIsPotato, useIsVista } from '../i18n'
 import type { SourceRect } from './Gallery/context'
 import type { MediaInfo } from '../../core/media'
 import { XIcon } from '../icons/XIcon'
@@ -66,6 +66,7 @@ function formatMime(mime: string): string {
 export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: MediaInfo, rect?: SourceRect) => void }) {
   const { t } = useI18n()
   const potato = useIsPotato()
+  const vista = useIsVista()
   const actions = useEntityActions()
   const [natW, setNatW] = createSignal<number | null>(null)
   const isVideo = () => props.m.mime.startsWith('video/')
@@ -73,6 +74,14 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
   const isDocument = () => props.m.mime === 'application/pdf'
   const isGif = () => props.m.mime === 'image/gif'
   const isImage = () => props.m.mime.startsWith('image/')
+  const vistaFormatIcon = () => {
+    const mime = props.m.mime.toLowerCase()
+    if (mime.startsWith('image/')) return '/static/vista/icons/files.png'
+    if (mime.startsWith('video/')) return '/static/vista/icons/video.png'
+    if (mime.startsWith('audio/')) return '/static/vista/icons/audio.png'
+    if (mime === 'application/pdf') return '/static/vista/icons/folder.png'
+    return '/static/vista/icons/globe.png'
+  }
   const searchItems = (): MenuItem[] =>
     isImage() && !props.m.banned
       ? [
@@ -175,6 +184,8 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
     <Show when={!potato()} fallback={potatoView()}>
     <a
       data-media=""
+      data-vista-media={vista() ? '' : undefined}
+      data-vista-video={vista() && isVideo() && !props.m.banned ? '' : undefined}
       draggable={false}
       class={mediaCardVariants({ borderedUnbanned: (isVideo() || isGif() || isAudio() || isDocument()) && !props.m.banned })}
       href={props.m.banned ? undefined : props.m.fullUrl}
@@ -193,19 +204,37 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
       }}
     >
       <Show
-        when={!props.m.banned}
-        fallback={<img class={mediaBannedVariants()} src="/static/banned_media.png" alt="" />}
+        when={vista() && isVideo() && !props.m.banned}
+        fallback={
+          <Show
+            when={!props.m.banned}
+            fallback={<img class={mediaBannedVariants()} src="/static/banned_media.png" alt="" />}
+          >
+            <Show
+              when={!isAudio() && !isDocument()}
+              fallback={
+                <div class={mediaAudioThumbVariants()}>
+                  <Show when={isDocument()} fallback={<MusicIcon width={40} height={40} />}>
+                    <span class={mediaPdfLabelVariants()}>PDF</span>
+                  </Show>
+                </div>
+              }
+            >
+              <img class={mediaThumbBlurVariants()} src={props.m.thumbUrl} alt="" aria-hidden="true" draggable={false} />
+              <img
+                class={mediaThumbVariants()}
+                src={props.m.thumbUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                onLoad={(e) => setNatW(e.currentTarget.naturalWidth)}
+              />
+            </Show>
+          </Show>
+        }
       >
-        <Show
-          when={!isAudio() && !isDocument()}
-          fallback={
-            <div class={mediaAudioThumbVariants()}>
-              <Show when={isDocument()} fallback={<MusicIcon width={40} height={40} />}>
-                <span class={mediaPdfLabelVariants()}>PDF</span>
-              </Show>
-            </div>
-          }
-        >
+        <div data-vista-video-viewport="">
           <img class={mediaThumbBlurVariants()} src={props.m.thumbUrl} alt="" aria-hidden="true" draggable={false} />
           <img
             class={mediaThumbVariants()}
@@ -216,7 +245,7 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
             draggable={false}
             onLoad={(e) => setNatW(e.currentTarget.naturalWidth)}
           />
-        </Show>
+        </div>
       </Show>
       <Show when={!props.m.banned && (isVideo() || isAudio()) && props.m.durationMs != null}>
         <span class={mediaDurationVariants()}>{formatDuration(props.m.durationMs!)}</span>
@@ -272,6 +301,11 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
             {props.m.durationMs != null ? ` ${formatDuration(props.m.durationMs)}` : ''}
           </span>
         </div>
+      </Show>
+      <Show when={vista() && !props.m.banned}>
+        <span class="vista-media-format-badge" aria-hidden="true">
+          <img src={vistaFormatIcon()} alt="" loading="lazy" decoding="async" />
+        </span>
       </Show>
     </a>
     </Show>

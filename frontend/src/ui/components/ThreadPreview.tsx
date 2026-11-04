@@ -1,6 +1,6 @@
 import { createSignal, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
-import { useI18n, useIsPotato } from '../i18n'
+import { useI18n, useIsPotato, useIsVista } from '../i18n'
 import { getHiddenThreads, setThreadHidden } from '../hiddenThreads'
 import { Button } from './Button'
 import { PostBody } from './Post'
@@ -20,6 +20,7 @@ const postsColumnVariants = cva('flex w-fit max-w-full flex-col')
 const potatoSkippedVariants = cva('pb-1 text-sm text-secondary')
 const actionRowVariants = cva('flex items-center gap-2 pb-2 max-w-post')
 const skippedVariants = cva('text-sm text-secondary')
+const vistaSkippedVariants = cva('text-sm text-secondary mb-4')
 const spacerVariants = cva('flex-1')
 
 export function ThreadPreview(props: {
@@ -27,9 +28,11 @@ export function ThreadPreview(props: {
   forumId: string
   slug?: string
   onOpen: () => void
+  boardTitle?: string
 }) {
   const { t, hideThreadsCompletely } = useI18n()
   const potato = useIsPotato()
+  const vista = useIsVista()
   const store = useStore()
   const [hidden, setHidden] = createSignal(getHiddenThreads().has(props.row.uid))
   const op = useRecord(props.row.opUid ?? '')
@@ -63,6 +66,7 @@ export function ThreadPreview(props: {
           <section class={sectionVariants({ potato: potato() })}>
             <div
               class={hiddenLabelVariants()}
+              data-on-wallpaper=""
               onClick={() => {
                 setThreadHidden(props.row.uid, false)
                 setHidden(false)
@@ -83,8 +87,9 @@ export function ThreadPreview(props: {
           class={sectionVariants({ potato: potato() })}
           data-post-column=""
           data-potato-thread={potato() ? '' : undefined}
+          data-vista-thread={vista() ? '' : undefined}
         >
-          <Show when={props.row.topic}>
+          <Show when={props.row.topic && !vista()}>
             <div class={topicRowVariants()}>
               <div class={topicVariants()}>{props.row.topic}</div>
             </div>
@@ -100,23 +105,28 @@ export function ThreadPreview(props: {
                   pinned={props.row.pinned}
                   slug={props.slug}
                   threadNum={props.row.number}
+                  boardTitle={props.boardTitle}
                   headerActions={potato() ? potatoActions() : undefined}
                   onOpenThread={() => props.onOpen()}
+                  title={vista() ? props.row.topic || undefined : undefined}
+                  onHide={vista() ? hide : undefined}
                   boardPage
                 />
               )}
             </Show>
             <Show
-              when={!potato()}
+              when={!potato() && !vista()}
               fallback={
                 <Show when={props.row.skipped > 0}>
-                  <div class={potatoSkippedVariants()}>{t('thread.skipped', { n: props.row.skipped })}</div>
+                  <div class={vista() ? vistaSkippedVariants() : potatoSkippedVariants()} data-on-wallpaper={vista() ? '' : undefined}>
+                    {t('thread.skipped', { n: props.row.skipped })}
+                  </div>
                 </Show>
               }
             >
               <div class={actionRowVariants()}>
                 <Show when={props.row.skipped > 0}>
-                  <span class={skippedVariants()}>{t('thread.skipped', { n: props.row.skipped })}</span>
+                  <span class={skippedVariants()} data-on-wallpaper="">{t('thread.skipped', { n: props.row.skipped })}</span>
                 </Show>
                 <span class={spacerVariants()} />
                 <Button size="sm" intent="accent" onClick={hide}>
@@ -129,7 +139,7 @@ export function ThreadPreview(props: {
             </Show>
           </div>
           {props.row.replyUids.map((uid) => (
-            <ThreadPreviewReply uid={uid} row={props.row} slug={props.slug} />
+            <ThreadPreviewReply uid={uid} row={props.row} slug={props.slug} boardTitle={props.boardTitle} />
           ))}
           <Show when={!potato()}>
             <div class={separatorVariants()} />
@@ -140,7 +150,7 @@ export function ThreadPreview(props: {
   )
 }
 
-function ThreadPreviewReply(props: { uid: string; row: ThreadRowRecord; slug?: string }) {
+function ThreadPreviewReply(props: { uid: string; row: ThreadRowRecord; slug?: string; boardTitle?: string }) {
   const store = useStore()
   const record = useRecord(props.uid)
   const view = () => {
@@ -164,6 +174,7 @@ function ThreadPreviewReply(props: { uid: string; row: ThreadRowRecord; slug?: s
           threadBroom={props.row.opAdmin}
           slug={props.slug}
           threadNum={props.row.number}
+          boardTitle={props.boardTitle}
           boardPage
         />
       )}

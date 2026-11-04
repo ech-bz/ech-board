@@ -19,11 +19,12 @@ import { PostRefLink } from '../postTooltip/PostRefLink'
 import { reportError } from '../errors'
 import { threadPath } from '../route'
 import { useNav } from '../nav'
-import { useI18n, useIsPotato } from '../i18n'
+import { useI18n, useIsPotato, useIsVista } from '../i18n'
 import { useRecord, useStaticInfo, useStore } from '../store'
 import { usePostSelection } from '../postSelection/PostSelectionProvider'
 import { SelectedPostMenu } from '../postSelection/SelectedPostMenu'
 import { useComposerBridge } from '../composerBridge'
+import { BoardIcon } from '../vista/BoardIcon'
 import type { PostRecord } from '../../store/records'
 import type { DecryptContext } from '../../core/intent/decrypt'
 
@@ -144,9 +145,13 @@ export function PostBody(props: {
   menu?: boolean
   headerActions?: JSX.Element
   onOpenThread?: () => void
+  title?: string
+  boardTitle?: string
+  onHide?: () => void
 }) {
   const store = useStore()
   const potato = useIsPotato()
+  const vista = useIsVista()
   const staticInfo = useStaticInfo()
   const nav = useNav()
   const { t, months, expandFolds, hideReactions } = useI18n()
@@ -601,24 +606,8 @@ export function PostBody(props: {
       </Show>
     </article>
   )
-  return (
-    <Show when={!potato()} fallback={potatoView()}>
-    <article
-      id={`post-${props.record.number}`}
-      data-post=""
-      data-op-post={props.record.op ? '' : undefined}
-      data-mine-post={props.record.mine ? '' : undefined}
-      data-replied-mine-post={props.record.repliedMine && !props.record.mine ? '' : undefined}
-      ref={postEl}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchCancel}
-      class={postVariants({
-        variant: props.record.op ? 'op' : props.record.mine ? 'mine' : props.record.repliedMine ? 'repliedMine' : 'default',
-        selected: selected(),
-        tooltip: !!props.tooltip,
-      })}
-    >
+  const content = () => (
+    <>
       <div class={headerVariants()}>
         <Show when={selectable()}>
           <span
@@ -691,7 +680,7 @@ export function PostBody(props: {
             <PinIcon width={16} height={16} class={pinIconVariants()} />
           </Show>
         </div>
-        <Show when={props.menu !== false}>
+        <Show when={props.menu !== false && !vista()}>
           <PostMenu
             record={props.record}
             closed={props.threadClosed}
@@ -739,36 +728,134 @@ export function PostBody(props: {
         </div>
       </Show>
       {banned()}
-      <Show when={!hideReactions() && props.record.reactions.length > 0}>
-        <div class={reactionsRowVariants()}>
-          <For each={props.record.reactions}>
-            {(item) => (
-              <button
-                type="button"
-                disabled={reactBusy()}
-                onClick={() => void react(item.hex)}
-                class={reactionVariants({ active: item.hex === props.record.myReaction })}
-              >
-                <img src={item.url} alt="" class={reactionImgVariants()} />
-                {item.count}
-              </button>
-            )}
-          </For>
-        </div>
-      </Show>
-      <Show when={!hideReactions() && staticInfo()}>
-        {(info) => (
-          <ReactionPicker
-            glyph={props.record.reactionGlyph}
-            relayUrl={props.ctx.relayUrl}
-            boardUid={props.ctx.boardUid}
-            reactions={info().boardReactions}
-            busy={reactBusy()}
-            onPick={(hex) => void react(hex)}
-          />
-        )}
+      <Show
+        when={vista()}
+        fallback={
+          <>
+            <Show when={!hideReactions() && props.record.reactions.length > 0}>
+              <div class={reactionsRowVariants()}>
+                <For each={props.record.reactions}>
+                  {(item) => (
+                    <button
+                      type="button"
+                      disabled={reactBusy()}
+                      onClick={() => void react(item.hex)}
+                      class={reactionVariants({ active: item.hex === props.record.myReaction })}
+                    >
+                      <img src={item.url} alt="" class={reactionImgVariants()} />
+                      {item.count}
+                    </button>
+                  )}
+                </For>
+              </div>
+            </Show>
+            <Show when={!hideReactions() && staticInfo()}>
+              {(info) => (
+                <ReactionPicker
+                  glyph={props.record.reactionGlyph}
+                  relayUrl={props.ctx.relayUrl}
+                  boardUid={props.ctx.boardUid}
+                  reactions={info().boardReactions}
+                  busy={reactBusy()}
+                  onPick={(hex) => void react(hex)}
+                />
+              )}
+            </Show>
+          </>
+        }
+      >
+        <Show when={!hideReactions()}>
+          <div class={`${reactionsRowVariants()} vista-reactions-row`} data-vista-reactions="">
+            <Show when={props.record.reactions.length > 0}>
+              <For each={props.record.reactions}>
+                {(item) => (
+                  <button
+                    type="button"
+                    disabled={reactBusy()}
+                    onClick={() => void react(item.hex)}
+                    class={reactionVariants({ active: item.hex === props.record.myReaction })}
+                  >
+                    <img src={item.url} alt="" class={reactionImgVariants()} />
+                    {item.count}
+                  </button>
+                )}
+              </For>
+            </Show>
+            <Show when={staticInfo()}>
+              {(info) => (
+                <ReactionPicker
+                  glyph={props.record.reactionGlyph}
+                  relayUrl={props.ctx.relayUrl}
+                  boardUid={props.ctx.boardUid}
+                  reactions={info().boardReactions}
+                  busy={reactBusy()}
+                  onPick={(hex) => void react(hex)}
+                />
+              )}
+            </Show>
+          </div>
+        </Show>
       </Show>
       {refs()}
+    </>
+  )
+  const vistaFlag = () => {
+    if (props.tooltip) return null
+    if (props.boardPage) return props.record.op && props.onOpenThread ? { glyph: 'open', label: t('thread.open'), run: () => props.onOpenThread?.() } : null
+    return { glyph: 'question', label: t('post.reply'), run: insertNo }
+  }
+  const vistaTitleBar = () => (
+    <div class="vista-titlebar" data-vista-titlebar="">
+      <Show when={props.slug}>{(slug) => <BoardIcon slug={slug()} title={props.boardTitle} size={16} class="vista-titlebar-icon" />}</Show>
+      <span class="vista-title">{props.title}</span>
+      <div class="vista-caption">
+        <Show when={props.menu !== false}>
+          <PostMenu
+            record={props.record}
+            closed={props.threadClosed}
+            threadObject={props.record.op ? (store.threadObject(props.record.threadUid) ?? undefined) : undefined}
+            onEdit={props.onEdit}
+            vista
+          />
+        </Show>
+        <Show when={vistaFlag()}>
+          {(flag) => (
+            <button type="button" class="vista-cap" data-glyph={flag().glyph} title={flag().label} aria-label={flag().label} onClick={() => flag().run()} />
+          )}
+        </Show>
+        <Show when={props.onHide}>
+          {(hide) => (
+            <button type="button" class="vista-cap" data-glyph="close" title={t('thread.hide')} aria-label={t('thread.hide')} onClick={() => hide()()} />
+          )}
+        </Show>
+      </div>
+    </div>
+  )
+  return (
+    <Show when={!potato()} fallback={potatoView()}>
+    <article
+      id={`post-${props.record.number}`}
+      data-post=""
+      data-op-post={props.record.op ? '' : undefined}
+      data-mine-post={props.record.mine ? '' : undefined}
+      data-replied-mine-post={props.record.repliedMine && !props.record.mine ? '' : undefined}
+      data-vista-window={vista() ? '' : undefined}
+      ref={postEl}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchCancel}
+      class={postVariants({
+        variant: props.record.op ? 'op' : props.record.mine ? 'mine' : props.record.repliedMine ? 'repliedMine' : 'default',
+        selected: selected(),
+        tooltip: !!props.tooltip,
+      })}
+    >
+      <Show when={vista()}>{vistaTitleBar()}</Show>
+      <Show when={vista()} fallback={content()}>
+        <div class="vista-client" data-vista-client="">
+          {content()}
+        </div>
+      </Show>
     </article>
     </Show>
   )
@@ -782,6 +869,7 @@ export function Post(props: {
   threadBroom: boolean
   slug?: string
   threadNum?: number
+  boardTitle?: string
   onEdit?: (uid: string) => void
 }) {
   const store = useStore()
@@ -802,7 +890,9 @@ export function Post(props: {
             threadBroom={props.threadBroom}
             slug={props.slug}
             threadNum={props.threadNum}
+            boardTitle={props.boardTitle}
             onEdit={props.onEdit}
+            title={rec().op ? store.threadTitle() || undefined : undefined}
           />
         </Show>
       )}

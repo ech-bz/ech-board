@@ -58,7 +58,7 @@ export function MasterKeyView() {
   }
 
   return (
-    <div class={pageVariants()}>
+    <div class={`${pageVariants()} vista-surface`}>
       <p class={descVariants()}>{t('settings.masterKeyDesc')}</p>
       <div class={rowVariants()}>
         <Button onClick={() => void copy()}>{t('settings.copy')}</Button>

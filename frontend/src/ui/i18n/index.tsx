@@ -6,7 +6,7 @@ import { setTitleTheme } from '../title'
 
 export type Lang = 'ru' | 'en'
 export type Theme = 'light' | 'dark'
-export type UiStyle = 'modern' | 'potato'
+export type UiStyle = 'modern' | 'potato' | 'vista'
 
 export const APPEARANCES: { id: string; label: string; file?: string; theme: Theme; enabled?: boolean }[] = [
   { id: 'default_dark', label: 'Default D', file: 'default_dark.css', theme: 'dark' },
@@ -43,6 +43,8 @@ const SHOW_GALLERY_ON_OPEN_KEY = 'ech-board-show-gallery-on-open'
 const UI_STYLE_KEY = 'ech-board-ui-style'
 const CORNER_RADIUS_KEY = 'ech-board-corner-radius'
 const REACTION_SIZE_KEY = 'ech-board-reaction-size'
+const VISTA_PALETTE_KEY = 'ech-board-vista-palette'
+const VISTA_BUBBLES_KEY = 'ech-board-vista-bubbles'
 const CORNER_RADIUS_VERSION_KEY = 'ech-board-corner-radius-version'
 
 function readString(key: string): string | null {
@@ -80,6 +82,10 @@ export interface I18nValue {
   setCornerRadius: (value: number) => void
   reactionSize: Accessor<number>
   setReactionSize: (value: number) => void
+  vistaPalette: Accessor<number>
+  setVistaPalette: (value: number) => void
+  vistaBubbles: Accessor<boolean>
+  setVistaBubbles: (value: boolean) => void
   lang: Accessor<Lang>
   setLang: (l: Lang) => void
   theme: Accessor<Theme>
@@ -129,7 +135,7 @@ export function I18nProvider(props: { children: JSX.Element }) {
   const [centerPotatoBoards, setCenterPotatoBoards] = boolPref(POTATO_CENTER_BOARDS_KEY, false)
   const [showGalleryOnOpen, setShowGalleryOnOpen] = boolPref(SHOW_GALLERY_ON_OPEN_KEY, false)
   const storedStyle = readString(UI_STYLE_KEY)
-  const [uiStyle, setUiStyleSignal] = createSignal<UiStyle>(storedStyle === 'potato' ? 'potato' : 'modern')
+  const [uiStyle, setUiStyleSignal] = createSignal<UiStyle>(storedStyle === 'potato' || storedStyle === 'vista' ? storedStyle : 'modern')
   const savedRadius = readString(CORNER_RADIUS_KEY)
   const radiusVersion = readString(CORNER_RADIUS_VERSION_KEY)
   const storedRadiusValue = savedRadius === null ? 100 : Number(savedRadius)
@@ -141,12 +147,18 @@ export function I18nProvider(props: { children: JSX.Element }) {
   writeString(CORNER_RADIUS_VERSION_KEY, '2')
   if (savedRadius !== null && radiusVersion !== '2') writeString(CORNER_RADIUS_KEY, String(storedRadius))
   const [modernCornerRadius, setModernCornerRadiusSignal] = createSignal<number>(storedRadius)
-  const cornerRadius: Accessor<number> = () => uiStyle() === 'potato' ? 10 : modernCornerRadius()
+  const cornerRadius: Accessor<number> = () => (uiStyle() === 'potato' ? 10 : uiStyle() === 'vista' ? 100 : modernCornerRadius())
   const savedReactionSize = readString(REACTION_SIZE_KEY)
   const reactionSizeValue = savedReactionSize === null ? 100 : Number(savedReactionSize)
   const [reactionSize, setReactionSizeSignal] = createSignal<number>(
     Math.round(Math.max(0, Math.min(100, Number.isFinite(reactionSizeValue) ? reactionSizeValue : 100)) / 10) * 10,
   )
+  const savedVistaPalette = readString(VISTA_PALETTE_KEY)
+  const parsedVistaPalette = savedVistaPalette === null ? 0 : Number(savedVistaPalette)
+  const [vistaPalette, setVistaPaletteSignal] = createSignal<number>(
+    Math.round(Math.max(0, Math.min(100, Number.isFinite(parsedVistaPalette) ? parsedVistaPalette : 0)) / 5) * 5,
+  )
+  const [vistaBubbles, setVistaBubbles] = boolPref(VISTA_BUBBLES_KEY, false)
 
   const setLang = (value: Lang) => {
     writeString(LANG_KEY, value)
@@ -170,6 +182,12 @@ export function I18nProvider(props: { children: JSX.Element }) {
     const next = Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value / 10) * 10)) : 100
     writeString(REACTION_SIZE_KEY, String(next))
     setReactionSizeSignal(next)
+  }
+
+  const setVistaPalette = (value: number) => {
+    const next = Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value / 5) * 5)) : 0
+    writeString(VISTA_PALETTE_KEY, String(next))
+    setVistaPaletteSignal(next)
   }
 
   const setTheme = (value: Theme) => {
@@ -199,12 +217,14 @@ export function I18nProvider(props: { children: JSX.Element }) {
     document.documentElement.style.setProperty('--reaction-size', `${12 + reactionSize() * 0.12}px`)
     document.documentElement.style.setProperty('--reaction-glyph-size', `${12 + reactionSize() * (uiStyle() === 'potato' ? 0.12 : 0.04)}px`)
     document.documentElement.style.setProperty('--reaction-picker-size', `${12 + reactionSize() * 0.08}px`)
+    document.documentElement.style.setProperty('--vista-hue-shift', String(vistaPalette() * 3.6))
   })
 
   createEffect(() => {
     const found = APPEARANCES.find((item) => item.id === appearance())
-    document.documentElement.setAttribute('data-appearance', found?.id ?? appearance())
-    const href = found?.file ? APPEARANCE_CSS[`../appearances/${found.file}`] : null
+    const vista = uiStyle() === 'vista'
+    document.documentElement.setAttribute('data-appearance', vista ? 'vista' : (found?.id ?? appearance()))
+    const href = !vista && found?.file ? APPEARANCE_CSS[`../appearances/${found.file}`] : null
     let link = document.querySelector<HTMLLinkElement>('link[data-appearance]')
     if (!href) {
       link?.remove()
@@ -222,8 +242,9 @@ export function I18nProvider(props: { children: JSX.Element }) {
   createEffect(() => {
     const found = APPEARANCES.find((item) => item.id === appearance())
     if (!found) return
-    document.documentElement.setAttribute('data-theme', found.theme)
-    setTitleTheme(found.theme)
+    const theme = uiStyle() === 'vista' ? 'light' : found.theme
+    document.documentElement.setAttribute('data-theme', theme)
+    setTitleTheme(theme)
   })
 
   const t = (key: MessageKey, vars?: Record<string, string | number>) => {
@@ -241,6 +262,10 @@ export function I18nProvider(props: { children: JSX.Element }) {
     setCornerRadius,
     reactionSize,
     setReactionSize,
+    vistaPalette,
+    setVistaPalette,
+    vistaBubbles,
+    setVistaBubbles,
     lang,
     setLang,
     theme,
@@ -272,6 +297,11 @@ export function I18nProvider(props: { children: JSX.Element }) {
 export function useIsPotato(): Accessor<boolean> {
   const { uiStyle } = useI18n()
   return () => uiStyle() === 'potato'
+}
+
+export function useIsVista(): Accessor<boolean> {
+  const { uiStyle } = useI18n()
+  return () => uiStyle() === 'vista'
 }
 
 export function useI18n(): I18nValue {

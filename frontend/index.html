@@ -12,11 +12,14 @@
       (function () {
         try {
           var theme = localStorage.getItem('ech-board-theme') === 'light' ? 'light' : 'dark';
+          var style = localStorage.getItem('ech-board-ui-style');
+          if (style === 'vista') theme = 'light';
           document.documentElement.setAttribute('data-theme', theme);
+          if (style === 'vista' || style === 'potato') document.documentElement.setAttribute('data-ui-style', style);
           var icon = document.querySelector('link[rel="icon"]');
           if (icon) icon.href = theme === 'dark' ? '/favicon_dark.png' : '/favicon_light.png';
           var themeColor = document.querySelector('meta[name="theme-color"]');
-          if (themeColor) themeColor.content = theme === 'dark' ? '#1c1c1c' : '#EEE';
+          if (themeColor) themeColor.content = style === 'vista' ? '#2a364d' : theme === 'dark' ? '#1c1c1c' : '#EEE';
         } catch (e) {}
       })();
     </script>

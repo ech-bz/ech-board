@@ -30,6 +30,7 @@ import { SettingsPage } from './ui/screens/SettingsPage'
 import { NavPanel, type Section } from './ui/components/NavPanel'
 import { IconSprite } from './ui/icons/IconSprite'
 import { StatusPill } from './ui/components/StatusPill'
+import { VistaBubbles } from './ui/components/VistaBubbles'
 import { StateScreen } from './ui/components/StateScreen'
 import { rememberContentPath, NavProvider, useNav } from './ui/nav'
 
@@ -303,7 +304,7 @@ function Shell() {
     <Show when={context() && !loading()} fallback={<StateScreen error={error()} />}>
       <Show when={!error()} fallback={<StateScreen error={error()} />}>
         <Show when={threadRoute()}>
-          {(r) => <ThreadPage forumId={r().forumId ?? ''} slug={r().slug} threadNum={r().threadNum} />}
+          {(r) => <ThreadPage forumId={r().forumId ?? ''} slug={r().slug} threadNum={r().threadNum} boardTitle={currentBoard()?.title} />}
         </Show>
         <Show when={boardRoute()}>
           {(r) => (
@@ -312,6 +313,7 @@ function Shell() {
               slug={r().slug}
               heading={boardHeading()}
               host={currentForum()?.host}
+              boardTitle={currentBoard()?.title}
             />
           )}
         </Show>
@@ -337,6 +339,7 @@ function Shell() {
     <>
       <aside class={asideVariants({ collapsed: collapsed() })}>{panel()}</aside>
       <main class={mainVariants({ offset: collapsed() ? 'collapsed' : 'nav' })} style={{ 'min-height': minHeight() }}>
+        <VistaBubbles />
         {content()}
       </main>
     </>

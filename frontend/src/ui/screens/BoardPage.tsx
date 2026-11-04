@@ -5,9 +5,10 @@ import { IconButton } from '../components/IconButton'
 import { PageHeader } from '../components/PageHeader'
 import { TabBar } from '../components/TabBar'
 import { SquarePenIcon } from '../icons/SquarePenIcon'
+import { ChevronDownIcon } from '../icons/ChevronDownIcon'
 import { DropdownMenu, type MenuItem } from '../components/Menu/DropdownMenu'
 import { useBoardInfo, useLoadingMore, useRows, useStore } from '../store'
-import { useI18n, useIsPotato } from '../i18n'
+import { useI18n, useIsPotato, useIsVista } from '../i18n'
 import { useRestart } from '../restart'
 import { composePath } from '../route'
 import { useEntityActions } from '../entityActions'
@@ -26,9 +27,10 @@ const potatoListVariants = cva('pb-12')
 const potatoCreateVariants = cva('cursor-pointer text-accent hover:text-accent-hover hover:underline')
 const moreVariants = cva('py-3 text-center text-md text-secondary')
 
-export function BoardPage(props: { forumId: string; slug: string; heading: string; host?: string }) {
+export function BoardPage(props: { forumId: string; slug: string; heading: string; host?: string; boardTitle?: string }) {
   const { t, showDeleted } = useI18n()
   const potato = useIsPotato()
+  const vista = useIsVista()
   const phone = useIsMobile()
   const mobile = () => phone() && !potato()
   const restart = useRestart()
@@ -69,7 +71,7 @@ export function BoardPage(props: { forumId: string; slug: string; heading: strin
       <PageHeader
         title={props.heading}
         subtitle={potato() ? undefined : (props.host ?? '')}
-        onBack={mobile() ? () => nav.back() : undefined}
+        onBack={mobile() || vista() ? () => nav.back() : undefined}
         onTitle={restart}
         trailing={
           <Show
@@ -79,7 +81,7 @@ export function BoardPage(props: { forumId: string; slug: string; heading: strin
                 <IconButton size="lg" variant="glass" class={headerIconBtnVariants()} onClick={compose}>
                   <SquarePenIcon width={20} height={20} />
                 </IconButton>
-                <DropdownMenu items={boardMenu()} triggerSize="lg" />
+                <DropdownMenu items={boardMenu()} triggerSize="lg" icon={vista() ? <ChevronDownIcon width={20} height={20} /> : undefined} />
               </>
             }
           >
@@ -105,13 +107,14 @@ export function BoardPage(props: { forumId: string; slug: string; heading: strin
               row={row}
               forumId={props.forumId}
               slug={props.slug}
+              boardTitle={props.boardTitle}
               onOpen={() => nav.navigate({ page: 'thread', forumId: props.forumId, slug: props.slug, threadNum: row.number })}
             />
           )}
         </For>
         <div ref={sentinel} class={sentinelVariants()} />
         <Show when={loadingMore()}>
-          <div class={moreVariants()}>{t('common.loading')}</div>
+          <div class={moreVariants()} data-on-wallpaper="">{t('common.loading')}</div>
         </Show>
       </div>
       <Show when={mobile()}>

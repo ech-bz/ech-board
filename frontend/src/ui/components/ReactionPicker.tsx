@@ -2,7 +2,7 @@ import { createEffect, createSignal, For, onCleanup, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { cva } from 'class-variance-authority'
 import { IconButton } from './IconButton'
-import { useI18n, useIsPotato } from '../i18n'
+import { useI18n, useIsPotato, useIsVista } from '../i18n'
 import { reactionUrl } from '../../core/media'
 import { toHex } from '../../core/intent/crypto'
 
@@ -28,6 +28,7 @@ export function ReactionPicker(props: {
 }) {
   const { t } = useI18n()
   const potato = useIsPotato()
+  const vista = useIsVista()
   const [open, setOpen] = createSignal(false)
   const [pos, setPos] = createSignal<{ top: number; right: number } | null>(null)
   let button: HTMLButtonElement | undefined
@@ -91,7 +92,7 @@ export function ReactionPicker(props: {
             ref={button}
             size="sm"
             data-overhang=""
-            class={triggerVariants({ potato: potato() })}
+            class={`${triggerVariants({ potato: potato() })} ${vista() ? 'vista-reaction-picker' : ''}`}
             aria-label={t('post.reactions')}
             aria-expanded={open()}
             style={{ '--glyph': `url("${glyph()}")` }}

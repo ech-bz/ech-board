@@ -1,14 +1,14 @@
 import { For, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
-import { useI18n, type Lang } from '../i18n'
+import { useI18n, type Lang, type UiStyle } from '../i18n'
 import { haptic } from '../haptic'
 import { Field } from './Field'
 import { useStaticInfo } from '../store'
 import { reactionUrl } from '../../core/media'
 import { toHex } from '../../core/intent/crypto'
 
-const pageVariants = cva('max-w-settings p-6')
-const settingRowVariants = cva('flex items-center justify-between gap-3 border-b border-separator px-0.5 py-3 text-lg')
+const pageVariants = cva('box-border w-full max-w-settings p-6')
+const settingRowVariants = cva('flex min-w-0 items-center justify-between gap-3 border-b border-separator px-0.5 py-3 text-lg max-[520px]:flex-wrap')
 const toggleWrapVariants = cva('inline-flex flex-none cursor-pointer')
 const toggleVariants = cva('settings-checkbox relative h-toggle w-toggle flex-none cursor-pointer appearance-none rounded-full bg-toggle-track checked:bg-toggle-on transition-colors')
 
@@ -39,6 +39,10 @@ export function AppearanceView() {
     setCornerRadius,
     reactionSize,
     setReactionSize,
+    vistaPalette,
+    setVistaPalette,
+    vistaBubbles,
+    setVistaBubbles,
   } = useI18n()
   const staticInfo = useStaticInfo()
   const reactionPreview = () => {
@@ -57,7 +61,7 @@ export function AppearanceView() {
     { id: 'dark_oled', label: 'Dark OLED' },
   ]
   return (
-    <div class={pageVariants()}>
+    <div class={`${pageVariants()} vista-surface`}>
       <label class={settingRowVariants()}>
         <span>{t('settings.showDeleted')}</span>
         <span
@@ -133,17 +137,20 @@ export function AppearanceView() {
           <input type="checkbox" class={toggleVariants()} checked={showGalleryOnOpen()} readOnly />
         </span>
       </label>
-      <div class={settingRowVariants()}>
-        <span>{t('settings.theme')}</span>
-        <Field as="select" bordered select value={appearance()} onInput={(e) => setAppearance(e.currentTarget.value)}>
-          <For each={themes()}>{(theme) => <option value={theme.id}>{theme.label}</option>}</For>
-        </Field>
-      </div>
+      <Show when={uiStyle() !== 'vista'}>
+        <div class={settingRowVariants()}>
+          <span>{t('settings.theme')}</span>
+          <Field as="select" bordered select value={appearance()} onInput={(e) => setAppearance(e.currentTarget.value)}>
+            <For each={themes()}>{(theme) => <option value={theme.id}>{theme.label}</option>}</For>
+          </Field>
+        </div>
+      </Show>
       <div class={settingRowVariants()}>
         <span>{t('settings.style')}</span>
-        <Field as="select" bordered select value={uiStyle()} onInput={(e) => setUiStyle(e.currentTarget.value as 'modern' | 'potato')}>
+        <Field as="select" bordered select value={uiStyle()} onInput={(e) => setUiStyle(e.currentTarget.value as UiStyle)}>
           <option value="modern">Simple</option>
           <option value="potato">Potato</option>
+          <option value="vista">Vista</option>
         </Field>
       </div>
       <Show when={uiStyle() === 'potato'}>
@@ -175,6 +182,40 @@ export function AppearanceView() {
             }}
           >
             <input type="checkbox" class={toggleVariants()} checked={centerPotatoBoards()} readOnly />
+          </span>
+        </label>
+      </Show>
+      <Show when={uiStyle() === 'vista'}>
+        <div class={`${settingRowVariants()} max-[520px]:flex-wrap`}>
+          <span>{t('settings.vistaPalette')} {vistaPalette()}%</span>
+          <Field
+            as="input"
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value={vistaPalette()}
+            title={`${vistaPalette()}%`}
+            aria-label={t('settings.vistaPalette')}
+            class="corner-radius-slider w-36 flex-none"
+            onInput={(e) => setVistaPalette(Number(e.currentTarget.value))}
+          />
+        </div>
+      </Show>
+      <Show when={uiStyle() === 'vista'}>
+        <label class={settingRowVariants()}>
+          <span>{t('settings.vistaBubbles')}</span>
+          <span
+            ref={(el) => haptic(el)}
+            role="checkbox"
+            aria-checked={vistaBubbles()}
+            class={toggleWrapVariants()}
+            onClick={(e) => {
+              e.preventDefault()
+              setVistaBubbles(!vistaBubbles())
+            }}
+          >
+            <input type="checkbox" class={toggleVariants()} checked={vistaBubbles()} readOnly />
           </span>
         </label>
       </Show>
