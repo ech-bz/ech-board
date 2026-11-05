@@ -33,6 +33,8 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
+        env:
+          VITE_BASE_PATH: /ech-board-dev-front/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
