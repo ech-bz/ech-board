@@ -1,4 +1,8 @@
-export const VISTA_ICON_BASE = '/static/vista/icons/'
+const BASE = import.meta.env.BASE_URL
+
+export const VISTA_ICON_BASE = `${BASE}static/vista/icons/`
+export const VISTA_LOGO = `${BASE}static/vista/logo.png`
+export const DEFAULT_LOGO = `${BASE}static/logo.svg`
 
 const BY_SLUG: Record<string, string> = {
   b: 'bomb',
