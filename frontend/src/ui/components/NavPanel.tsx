@@ -17,6 +17,7 @@ import { Capsule } from './Capsule'
 import { IconButton } from './IconButton'
 import { settingLabel } from '../settings'
 import type { BoardInfo, ForumInfo } from '../../core/views'
+import { VISTA_LOGO, DEFAULT_LOGO } from '../vista/boardIcons'
 
 const navScrollVariants = cva('flex-1 min-h-0 overflow-y-auto')
 const navInnerVariants = cva('flex min-h-full flex-col pb-3')
@@ -96,7 +97,7 @@ export function NavPanel(props: {
   const [forumMenuOpen, setForumMenuOpen] = createSignal(false)
   const isActiveSetting = (name: string) => settingKeyToSlug(name) === props.setting
   const title = () => (props.section === 'boards' ? t('ui.boards') : t('ui.settings'))
-  const logoSrc = () => (vista() ? '/static/vista/logo.png' : '/static/logo.svg')
+  const logoSrc = () => (vista() ? VISTA_LOGO : DEFAULT_LOGO)
   const forumSelect = () => (
     <div class={forumSelectWrapVariants()} data-nav="forum">
       <button
