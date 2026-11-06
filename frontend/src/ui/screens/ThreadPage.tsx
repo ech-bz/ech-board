@@ -69,7 +69,7 @@ function ThreadBody(props: {
   onEdit: (uid: string) => void
   onEditDone: () => void
 }) {
-  const { t } = useI18n()
+  const { t, potatoThreadTitle } = useI18n()
   const store = useStore()
   const nav = useNav()
   const potato = useIsPotato()
@@ -79,8 +79,9 @@ function ThreadBody(props: {
   const page = usePage()
   const location = useLocation()
   const posts = props.posts
-  const heading = () => store.threadTitle() || `#${props.threadNum}`
-  const sub = () => (store.threadTitle() ? `/${props.slug}/ - ${t('ui.threadLabel', { n: props.threadNum })}` : `/${props.slug}/`)
+  const headTitle = () => (potato() && potatoThreadTitle() !== 'above' ? '' : store.threadTitle())
+  const heading = () => headTitle() || `#${props.threadNum}`
+  const sub = () => (headTitle() ? `/${props.slug}/ - ${t('ui.threadLabel', { n: props.threadNum })}` : `/${props.slug}/`)
   const back = () => nav.back()
   const unread = createThreadUnread(
     () => posts().length,
@@ -213,6 +214,7 @@ function ThreadBody(props: {
       <PageHeader
         title={heading()}
         subtitle={sub()}
+        topic={!!headTitle()}
         onBack={back}
         onTitle={restart}
         trailing={

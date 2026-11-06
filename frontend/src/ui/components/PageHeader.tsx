@@ -30,6 +30,7 @@ export function PageHeader(props: {
   trailing?: JSX.Element
   below?: JSX.Element
   onTitle?: () => void
+  topic?: boolean
 }) {
   const { t } = useI18n()
   const potato = useIsPotato()
@@ -40,7 +41,7 @@ export function PageHeader(props: {
         <Portal mount={mount()}>
           <div data-page-header="">
             <h1
-              class={potatoTitleVariants({ link: !!props.onTitle })}
+              class={`${potatoTitleVariants({ link: !!props.onTitle })}${props.topic ? ' thread-topic' : ''}`}
               role={props.onTitle ? 'button' : undefined}
               tabindex={props.onTitle ? 0 : undefined}
               onClick={() => props.onTitle?.()}
@@ -89,7 +90,7 @@ export function PageHeader(props: {
             </Show>
           </div>
           <div class={titleBlockVariants()}>
-            <h1 class={headerTitleVariants()}>{props.title}</h1>
+            <h1 class={`${headerTitleVariants()}${props.topic ? ' thread-topic' : ''}`}>{props.title}</h1>
             <Show when={props.subtitle}>
               <div class={headerSubVariants()}>{props.subtitle}</div>
             </Show>

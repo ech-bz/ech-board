@@ -9,6 +9,12 @@ export type Theme = 'light' | 'dark'
 export type UiStyle = 'modern' | 'potato' | 'vista'
 export type PotatoHeader = 'peek' | 'hidden' | 'fixed'
 export type PotatoBoardsBar = 'pinned' | 'scroll'
+export type PotatoThreadTitle = 'above' | 'inline' | 'hidden'
+export type PostReplyPosition = 'header' | 'below' | 'hidden'
+export type PostBorderSide = 'top' | 'right' | 'bottom' | 'left'
+
+export const THREAD_SEPARATOR_MIN = 1
+export const THREAD_SEPARATOR_MAX = 12
 
 export const APPEARANCES: { id: string; label: string; file?: string; theme: Theme; enabled?: boolean }[] = [
   { id: 'default_dark', label: 'Default D', file: 'default_dark.css', theme: 'dark' },
@@ -43,6 +49,15 @@ const POTATO_CENTER_THREADS_KEY = 'ech-board-potato-center-threads'
 const POTATO_CENTER_BOARDS_KEY = 'ech-board-potato-center-boards'
 const POTATO_HEADER_KEY = 'ech-board-potato-header'
 const POTATO_BOARDS_BAR_KEY = 'ech-board-potato-boards-bar'
+const POTATO_THREAD_TITLE_KEY = 'ech-board-potato-thread-title'
+const POTATO_ASCII_BUTTONS_KEY = 'ech-board-potato-ascii-buttons'
+const POTATO_CORNER_RADIUS_KEY = 'ech-board-potato-corner-radius'
+const POST_BORDER_SIDES_KEY = 'ech-board-post-border-sides'
+const OP_POST_BORDERS_KEY = 'ech-board-op-post-borders'
+const OP_POST_BACKGROUND_KEY = 'ech-board-op-post-background'
+const POST_REPLY_POSITION_KEY = 'ech-board-post-reply-position'
+const THREAD_SEPARATOR_KEY = 'ech-board-thread-separator'
+const THREAD_SEPARATOR_HEIGHT_KEY = 'ech-board-thread-separator-height'
 const SHOW_GALLERY_ON_OPEN_KEY = 'ech-board-show-gallery-on-open'
 const UI_STYLE_KEY = 'ech-board-ui-style'
 const CORNER_RADIUS_KEY = 'ech-board-corner-radius'
@@ -112,6 +127,22 @@ export interface I18nValue {
   setPotatoHeader: (v: PotatoHeader) => void
   potatoBoardsBar: Accessor<PotatoBoardsBar>
   setPotatoBoardsBar: (v: PotatoBoardsBar) => void
+  potatoThreadTitle: Accessor<PotatoThreadTitle>
+  setPotatoThreadTitle: (v: PotatoThreadTitle) => void
+  potatoAsciiButtons: Accessor<boolean>
+  setPotatoAsciiButtons: (v: boolean) => void
+  postBorderSides: Accessor<readonly PostBorderSide[]>
+  setPostBorderSides: (v: readonly PostBorderSide[]) => void
+  opPostBorders: Accessor<boolean>
+  setOpPostBorders: (v: boolean) => void
+  opPostBackground: Accessor<boolean>
+  setOpPostBackground: (v: boolean) => void
+  postReplyPosition: Accessor<PostReplyPosition>
+  setPostReplyPosition: (v: PostReplyPosition) => void
+  threadSeparator: Accessor<boolean>
+  setThreadSeparator: (v: boolean) => void
+  threadSeparatorHeight: Accessor<number>
+  setThreadSeparatorHeight: (v: number) => void
   showGalleryOnOpen: Accessor<boolean>
   setShowGalleryOnOpen: (v: boolean) => void
   t: (key: MessageKey, vars?: Record<string, string | number>) => string
@@ -152,6 +183,47 @@ export function I18nProvider(props: { children: JSX.Element }) {
     writeString(POTATO_BOARDS_BAR_KEY, v)
     setPotatoBoardsBarSignal(v)
   }
+  const storedThreadTitle = readString(POTATO_THREAD_TITLE_KEY)
+  const [potatoThreadTitle, setPotatoThreadTitleSignal] = createSignal<PotatoThreadTitle>(
+    storedThreadTitle === 'inline' || storedThreadTitle === 'hidden' ? storedThreadTitle : 'above',
+  )
+  const setPotatoThreadTitle = (v: PotatoThreadTitle) => {
+    writeString(POTATO_THREAD_TITLE_KEY, v)
+    setPotatoThreadTitleSignal(v)
+  }
+  const [potatoAsciiButtons, setPotatoAsciiButtons] = boolPref(POTATO_ASCII_BUTTONS_KEY, true)
+  const [opPostBorders, setOpPostBorders] = boolPref(OP_POST_BORDERS_KEY, false)
+  const [opPostBackground, setOpPostBackground] = boolPref(OP_POST_BACKGROUND_KEY, true)
+  const savedReplyPosition = readString(POST_REPLY_POSITION_KEY)
+  const [postReplyPosition, setPostReplyPositionSignal] = createSignal<PostReplyPosition>(
+    savedReplyPosition === 'header' || savedReplyPosition === 'hidden' ? savedReplyPosition : 'below',
+  )
+  const setPostReplyPosition = (v: PostReplyPosition) => {
+    writeString(POST_REPLY_POSITION_KEY, v)
+    setPostReplyPositionSignal(v)
+  }
+  const validBorderSides = new Set<PostBorderSide>(['top', 'right', 'bottom', 'left'])
+  const storedBorderSides = (readString(POST_BORDER_SIDES_KEY) ?? '')
+    .split(',')
+    .filter((side): side is PostBorderSide => validBorderSides.has(side as PostBorderSide))
+  const [postBorderSides, setPostBorderSidesSignal] = createSignal<readonly PostBorderSide[]>([...new Set(storedBorderSides)])
+  const setPostBorderSides = (v: readonly PostBorderSide[]) => {
+    const next = [...new Set(v.filter((side) => validBorderSides.has(side)))]
+    writeString(POST_BORDER_SIDES_KEY, next.join(','))
+    setPostBorderSidesSignal(next)
+  }
+  const [threadSeparator, setThreadSeparator] = boolPref(THREAD_SEPARATOR_KEY, true)
+  const clampSeparatorHeight = (value: number) =>
+    Number.isFinite(value) ? Math.max(THREAD_SEPARATOR_MIN, Math.min(THREAD_SEPARATOR_MAX, Math.round(value))) : THREAD_SEPARATOR_MIN
+  const savedSeparatorHeight = readString(THREAD_SEPARATOR_HEIGHT_KEY)
+  const [threadSeparatorHeight, setThreadSeparatorHeightSignal] = createSignal<number>(
+    clampSeparatorHeight(savedSeparatorHeight === null ? THREAD_SEPARATOR_MIN : Number(savedSeparatorHeight)),
+  )
+  const setThreadSeparatorHeight = (value: number) => {
+    const next = clampSeparatorHeight(value)
+    writeString(THREAD_SEPARATOR_HEIGHT_KEY, String(next))
+    setThreadSeparatorHeightSignal(next)
+  }
   const [showGalleryOnOpen, setShowGalleryOnOpen] = boolPref(SHOW_GALLERY_ON_OPEN_KEY, false)
   const storedStyle = readString(UI_STYLE_KEY)
   const [uiStyle, setUiStyleSignal] = createSignal<UiStyle>(storedStyle === 'potato' || storedStyle === 'vista' ? storedStyle : 'modern')
@@ -166,7 +238,12 @@ export function I18nProvider(props: { children: JSX.Element }) {
   writeString(CORNER_RADIUS_VERSION_KEY, '2')
   if (savedRadius !== null && radiusVersion !== '2') writeString(CORNER_RADIUS_KEY, String(storedRadius))
   const [modernCornerRadius, setModernCornerRadiusSignal] = createSignal<number>(storedRadius)
-  const cornerRadius: Accessor<number> = () => (uiStyle() === 'potato' ? 10 : uiStyle() === 'vista' ? 100 : modernCornerRadius())
+  const savedPotatoRadius = readString(POTATO_CORNER_RADIUS_KEY)
+  const potatoRadiusValue = savedPotatoRadius === null ? 100 : Number(savedPotatoRadius)
+  const [potatoCornerRadius, setPotatoCornerRadiusSignal] = createSignal<number>(
+    Math.round(Math.max(0, Math.min(100, Number.isFinite(potatoRadiusValue) ? potatoRadiusValue : 100)) / 10) * 10,
+  )
+  const cornerRadius: Accessor<number> = () => (uiStyle() === 'potato' ? potatoCornerRadius() : uiStyle() === 'vista' ? 100 : modernCornerRadius())
   const savedReactionSize = readString(REACTION_SIZE_KEY)
   const reactionSizeValue = savedReactionSize === null ? 100 : Number(savedReactionSize)
   const [reactionSize, setReactionSizeSignal] = createSignal<number>(
@@ -194,6 +271,9 @@ export function I18nProvider(props: { children: JSX.Element }) {
     if (uiStyle() === 'modern') {
       writeString(CORNER_RADIUS_KEY, String(next))
       setModernCornerRadiusSignal(next)
+    } else if (uiStyle() === 'potato') {
+      writeString(POTATO_CORNER_RADIUS_KEY, String(next))
+      setPotatoCornerRadiusSignal(next)
     }
   }
 
@@ -237,6 +317,12 @@ export function I18nProvider(props: { children: JSX.Element }) {
     document.documentElement.style.setProperty('--reaction-glyph-size', `${12 + reactionSize() * (uiStyle() === 'potato' ? 0.12 : 0.04)}px`)
     document.documentElement.style.setProperty('--reaction-picker-size', `${12 + reactionSize() * 0.08}px`)
     document.documentElement.style.setProperty('--vista-hue-shift', String(vistaPalette() * 3.6))
+  })
+
+  createEffect(() => {
+    const root = document.documentElement
+    root.setAttribute('data-thread-separator', threadSeparator() ? 'on' : 'off')
+    root.style.setProperty('--thread-separator-h', `${threadSeparatorHeight()}px`)
   })
 
   createEffect(() => {
@@ -307,6 +393,22 @@ export function I18nProvider(props: { children: JSX.Element }) {
     setPotatoHeader,
     potatoBoardsBar,
     setPotatoBoardsBar,
+    potatoThreadTitle,
+    setPotatoThreadTitle,
+    potatoAsciiButtons,
+    setPotatoAsciiButtons,
+    postBorderSides,
+    setPostBorderSides,
+    opPostBorders,
+    setOpPostBorders,
+    opPostBackground,
+    setOpPostBackground,
+    postReplyPosition,
+    setPostReplyPosition,
+    threadSeparator,
+    setThreadSeparator,
+    threadSeparatorHeight,
+    setThreadSeparatorHeight,
     showGalleryOnOpen,
     setShowGalleryOnOpen,
     t,

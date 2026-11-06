@@ -131,6 +131,38 @@
   color: var(--color-postnum, var(--color-quote, #789922));
 }
 
+/* Цвета, которые задаёт только тема (если переменной нет — наследуется обычный цвет) */
+.post-name {
+  color: var(--color-post-name, inherit);
+}
+
+.thread-topic {
+  color: var(--color-thread-title, inherit);
+}
+
+.thread-title {
+  color: var(--color-thread-title, var(--color-fg));
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.thread-omitted {
+  color: var(--color-omitted, var(--color-secondary));
+}
+
+/* Разделитель между тредами: включение и высота (настройки внешнего вида) */
+:root {
+  --thread-separator-h: 1px;
+}
+
+.thread-separator {
+  height: var(--thread-separator-h);
+}
+
+:root[data-thread-separator='off'] .thread-separator {
+  display: none;
+}
+
 @layer base {
   html,
   body {
@@ -610,6 +642,18 @@
   }
 }
 
+:root[data-ui-style='potato'] .thread-section {
+  border-top: var(--thread-separator-h) solid var(--color-separator);
+}
+
+:root[data-ui-style='potato'] .thread-section:first-child {
+  border-top-width: 0;
+}
+
+:root[data-ui-style='potato'][data-thread-separator='off'] .thread-section {
+  border-top-width: 0;
+}
+
 :root[data-ui-style='potato'] [data-potato-thread] {
   box-sizing: border-box;
   width: 90%;
@@ -652,7 +696,7 @@
   min-height: 100px;
   margin-bottom: 10px;
   padding: var(--potato-post-pad);
-  border-radius: 6px !important;
+  border-radius: calc(6px * var(--corner-scale)) !important;
 }
 
 :root[data-ui-style='potato'] .potato-reactions-row {
@@ -792,7 +836,7 @@
     min-height: 100px;
     margin-bottom: 12px;
     padding: var(--potato-post-pad);
-    border-radius: 8px !important;
+    border-radius: calc(8px * var(--corner-scale)) !important;
     background: var(--post-bg, var(--color-panel1));
   }
 
@@ -1011,4 +1055,65 @@
 
 :root[data-ui-style='potato'] .potato-reactions-row {
   padding-left: 16px;
+}
+
+
+:root[data-ui-style='potato'] .potato-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: 0;
+}
+
+:root[data-ui-style='potato'] .potato-ascii-button,
+:root[data-ui-style='potato'] .potato-hide-thread.potato-ascii-button,
+:root[data-ui-style='potato'] .potato-menu-trigger.potato-ascii-button,
+:root[data-ui-style='potato'] .potato-delete-post.potato-ascii-button,
+:root[data-ui-style='potato'] .potato-state-icon.potato-ascii-button {
+  display: inline-flex !important;
+  flex: none !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 1px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--color-accent) !important;
+  font: 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  text-decoration: none !important;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+:root[data-ui-style='potato'] .potato-state-icon.potato-ascii-button {
+  cursor: default;
+}
+
+:root[data-ui-style='potato'] .potato-ascii-button:hover,
+:root[data-ui-style='potato'] .potato-hide-thread.potato-ascii-button:hover,
+:root[data-ui-style='potato'] .potato-menu-trigger.potato-ascii-button:hover,
+:root[data-ui-style='potato'] .potato-delete-post.potato-ascii-button:hover {
+  background: transparent !important;
+  color: var(--color-accent-hover) !important;
+  text-decoration: underline !important;
+}
+
+:root[data-ui-style='potato'] .potato-ascii-button .potato-menu-glyph {
+  color: inherit !important;
+  font: inherit !important;
+}
+
+/* OP post background/border overrides must not be forced back by theme rules */
+:root[data-ui-style='potato'] [data-op-post][style*='transparent'],
+:root[data-ui-style='modern'] [data-op-post].bg-transparent {
+  background-color: transparent !important;
+  background-image: none !important;
 }

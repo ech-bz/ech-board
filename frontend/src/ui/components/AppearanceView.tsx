@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
-import { useI18n, type Lang, type PotatoBoardsBar, type PotatoHeader, type UiStyle } from '../i18n'
+import { THREAD_SEPARATOR_MAX, THREAD_SEPARATOR_MIN, useI18n, type Lang, type PotatoBoardsBar, type PotatoHeader, type PotatoThreadTitle, type PostBorderSide, type PostReplyPosition, type UiStyle } from '../i18n'
 import { haptic } from '../haptic'
 import { Field } from './Field'
 import { useStaticInfo } from '../store'
@@ -33,6 +33,22 @@ export function AppearanceView() {
     setPotatoHeader,
     potatoBoardsBar,
     setPotatoBoardsBar,
+    potatoThreadTitle,
+    setPotatoThreadTitle,
+    potatoAsciiButtons,
+    setPotatoAsciiButtons,
+    postBorderSides,
+    setPostBorderSides,
+    opPostBorders,
+    setOpPostBorders,
+    opPostBackground,
+    setOpPostBackground,
+    postReplyPosition,
+    setPostReplyPosition,
+    threadSeparator,
+    setThreadSeparator,
+    threadSeparatorHeight,
+    setThreadSeparatorHeight,
     showGalleryOnOpen,
     setShowGalleryOnOpen,
     appearance,
@@ -49,6 +65,16 @@ export function AppearanceView() {
     setVistaBubbles,
   } = useI18n()
   const staticInfo = useStaticInfo()
+  const borderSideOptions: { id: PostBorderSide; label: string }[] = [
+    { id: 'top', label: t('settings.borderTop') },
+    { id: 'right', label: t('settings.borderRight') },
+    { id: 'bottom', label: t('settings.borderBottom') },
+    { id: 'left', label: t('settings.borderLeft') },
+  ]
+  const toggleBorderSide = (side: PostBorderSide) => {
+    const current = postBorderSides()
+    setPostBorderSides(current.includes(side) ? current.filter((item) => item !== side) : [...current, side])
+  }
   const reactionPreview = () => {
     const info = staticInfo()
     const firstReaction = info?.boardReactions[0]
@@ -196,6 +222,29 @@ export function AppearanceView() {
             <option value="fixed">{t('settings.potatoHeaderFixed')}</option>
           </Field>
         </div>
+        <div class={settingRowVariants()}>
+          <span>{t('settings.potatoThreadTitle')}</span>
+          <Field as="select" bordered select value={potatoThreadTitle()} onInput={(e) => setPotatoThreadTitle(e.currentTarget.value as PotatoThreadTitle)}>
+            <option value="above">{t('settings.potatoThreadTitleAbove')}</option>
+            <option value="inline">{t('settings.potatoThreadTitleInline')}</option>
+            <option value="hidden">{t('settings.potatoThreadTitleHidden')}</option>
+          </Field>
+        </div>
+        <label class={settingRowVariants()}>
+          <span>{t('settings.potatoAsciiButtons')}</span>
+          <span
+            ref={(el) => haptic(el)}
+            role="checkbox"
+            aria-checked={potatoAsciiButtons()}
+            class={toggleWrapVariants()}
+            onClick={(e) => {
+              e.preventDefault()
+              setPotatoAsciiButtons(!potatoAsciiButtons())
+            }}
+          >
+            <input type="checkbox" class={toggleVariants()} checked={potatoAsciiButtons()} readOnly />
+          </span>
+        </label>
         <Show when={centerPotatoBoards()}>
           <div class={`${settingRowVariants()} max-[899px]:hidden`}>
             <span>{t('settings.potatoBoardsBar')}</span>
@@ -240,7 +289,7 @@ export function AppearanceView() {
           </span>
         </label>
       </Show>
-      <Show when={uiStyle() === 'modern'}>
+      <Show when={uiStyle() === 'modern' || uiStyle() === 'potato'}>
         <div class={settingRowVariants()}>
           <span>{t('settings.radius')} {cornerRadius()}%</span>
           <Field
@@ -257,6 +306,102 @@ export function AppearanceView() {
           />
         </div>
       </Show>
+      <Show when={uiStyle() === 'modern' || uiStyle() === 'potato'}>
+        <div class={`${settingRowVariants()} max-[520px]:items-start`}>
+          <span>{t('settings.postBorder')}</span>
+          <div class="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+            <For each={borderSideOptions}>
+              {(side) => (
+                <label class="inline-flex cursor-pointer items-center gap-1.5 text-sm">
+                  <input
+                    type="checkbox"
+                    class="size-4 accent-accent"
+                    checked={postBorderSides().includes(side.id)}
+                    onChange={() => toggleBorderSide(side.id)}
+                  />
+                  <span>{side.label}</span>
+                </label>
+              )}
+            </For>
+          </div>
+        </div>
+        <label class={settingRowVariants()}>
+          <span>{t('settings.opPostBorders')}</span>
+          <span
+            ref={(el) => haptic(el)}
+            role="checkbox"
+            aria-checked={opPostBorders()}
+            class={toggleWrapVariants()}
+            onClick={(e) => {
+              e.preventDefault()
+              setOpPostBorders(!opPostBorders())
+            }}
+          >
+            <input type="checkbox" class={toggleVariants()} checked={opPostBorders()} readOnly />
+          </span>
+        </label>
+        <label class={settingRowVariants()}>
+          <span>{t('settings.opPostBackground')}</span>
+          <span
+            ref={(el) => haptic(el)}
+            role="checkbox"
+            aria-checked={opPostBackground()}
+            class={toggleWrapVariants()}
+            onClick={(e) => {
+              e.preventDefault()
+              setOpPostBackground(!opPostBackground())
+            }}
+          >
+            <input type="checkbox" class={toggleVariants()} checked={opPostBackground()} readOnly />
+          </span>
+        </label>
+      </Show>
+      <label class={settingRowVariants()}>
+        <span>{t('settings.threadSeparator')}</span>
+        <span
+          ref={(el) => haptic(el)}
+          role="checkbox"
+          aria-checked={threadSeparator()}
+          class={toggleWrapVariants()}
+          onClick={(e) => {
+            e.preventDefault()
+            setThreadSeparator(!threadSeparator())
+          }}
+        >
+          <input type="checkbox" class={toggleVariants()} checked={threadSeparator()} readOnly />
+        </span>
+      </label>
+      <Show when={threadSeparator()}>
+        <div class={settingRowVariants()}>
+          <span>{t('settings.threadSeparatorHeight')} {threadSeparatorHeight()}px</span>
+          <Field
+            as="input"
+            type="range"
+            min={String(THREAD_SEPARATOR_MIN)}
+            max={String(THREAD_SEPARATOR_MAX)}
+            step="1"
+            value={threadSeparatorHeight()}
+            title={`${threadSeparatorHeight()}px`}
+            aria-label={t('settings.threadSeparatorHeight')}
+            class="corner-radius-slider w-36 flex-none"
+            onInput={(e) => setThreadSeparatorHeight(Number(e.currentTarget.value))}
+          />
+        </div>
+      </Show>
+      <div class={settingRowVariants()}>
+        <span>{t('settings.replyPosition')}</span>
+        <Field
+          as="select"
+          bordered
+          select
+          value={postReplyPosition()}
+          onInput={(e) => setPostReplyPosition(e.currentTarget.value as PostReplyPosition)}
+        >
+          <option value="header">{t('settings.replyPositionHeader')}</option>
+          <option value="below">{t('settings.replyPositionBelow')}</option>
+          <option value="hidden">{t('settings.replyPositionHidden')}</option>
+        </Field>
+      </div>
       <div class={`${settingRowVariants()} max-[420px]:flex-wrap`}>
         <span>{t('settings.reactionSize')} {reactionSize()}%</span>
         <div class="ml-auto flex flex-none items-center gap-3">

@@ -559,14 +559,18 @@
 }
 
 :root[data-ui-style='vista'] [data-post-column] > .h-px,
-:root[data-ui-style='vista'] [data-post-column] > [class*='mt-6'][class*='h-px'] {
+:root[data-ui-style='vista'] [data-post-column] > .thread-separator {
   display: none;
 }
 
 :root[data-ui-style='vista'] [data-vista-thread] {
   margin-bottom: 36px !important;
   padding-bottom: 16px !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.58);
+  border-bottom: var(--thread-separator-h, 1px) solid rgba(255, 255, 255, 0.58);
+}
+
+:root[data-ui-style='vista'][data-thread-separator='off'] [data-vista-thread] {
+  border-bottom-width: 0;
 }
 
 :root[data-ui-style='vista'] [data-vista-window] {

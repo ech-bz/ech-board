@@ -9,7 +9,7 @@ import { canSelectAllFromAuthor, canBanByUid, type BanScope } from '../../core/i
 import type { ThreadObject } from '../../core/bcs/types'
 
 export function PostMenu(props: { record: PostRecord; closed: boolean; threadObject?: ThreadObject; onEdit?: (uid: string) => void; onOpenThread?: () => void; potato?: boolean; vista?: boolean; label?: string }) {
-  const { t } = useI18n()
+  const { t, potatoAsciiButtons } = useI18n()
   const actions = useEntityActions()
   const store = useStore()
   const selection = usePostSelection()
@@ -53,8 +53,8 @@ export function PostMenu(props: { record: PostRecord; closed: boolean; threadObj
       triggerSize="xs"
       iconSize={14}
       triggerShape={props.potato || props.vista ? 'square' : 'rounded'}
-      icon={props.potato ? <span class="potato-menu-glyph">▶</span> : props.vista ? <span class="vista-cap-glyph" data-glyph="menu" /> : undefined}
-      class={props.potato ? 'potato-menu-trigger' : props.vista ? 'vista-cap' : 'ml-auto self-start'}
+      icon={props.potato ? <span class="potato-menu-glyph">{potatoAsciiButtons() ? '[O]' : '▶'}</span> : props.vista ? <span class="vista-cap-glyph" data-glyph="menu" /> : undefined}
+      class={props.potato ? `potato-menu-trigger${potatoAsciiButtons() ? ' potato-ascii-button' : ''}` : props.vista ? 'vista-cap' : 'ml-auto self-start'}
       label={props.potato ? undefined : props.label}
     />
   )

@@ -1,22 +1,33 @@
 :root {
   color-scheme: light;
+
+  /* Фон страницы и панели */
   --color-bg: #eddad2;
-  --color-panel1: #d9af9e;
-  --color-panel2: #e6cbc0;
+  --color-panel1: #e6cbc0; /* посты */
+  --color-panel2: #d9af9e; /* блоки/кнопки поверх постов */
   --color-panel3: #ca927b;
   --color-hover: #ca927b;
-  --color-active: #f1ded6;
+  --color-active: #f0e0d6; /* подсветка поста / активный пункт списка */
   --color-mine: #ffb6a0;
   --color-replied-mine: #ffc397;
-  --color-spoiler: #333;
-  --color-fg: #000;
-  --color-secondary: rgba(0, 0, 0, 0.6);
+  --color-spoiler: #000;
+
+  /* Текст */
+  --color-fg: #800000;
+  --color-secondary: rgba(128, 0, 0, 0.8);
+  --color-omitted: #707070;
+  --color-thread-title: #cc1105; /* заголовок треда */
+  --color-post-name: #117743; /* имя «Аноним» */
+
+  /* Ссылки и акценты */
   --color-accent: #34345c;
-  --color-accent-hover: #535393;
-  --color-success: #1a7f37;
-  --color-danger: #d70000;
+  --color-accent-hover: #dd0000;
+  --color-success: #117743;
+  --color-danger: #dd0000;
   --color-warn: #b45309;
   --color-quote: #789922;
+
+  /* Прозрачные слои */
   --color-glass1: rgba(255, 217, 201, 0.85);
   --color-glass2: rgba(202, 146, 123, 0.2);
   --color-chip: rgba(0, 0, 0, 0.06);

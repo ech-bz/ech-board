@@ -9,17 +9,17 @@ import { threadPath } from '../route'
 import type { ThreadRowRecord } from '../../store/rows'
 
 const sectionVariants = cva('', {
-  variants: { potato: { true: 'border-t border-separator py-1 first:border-t-0 first:pt-0', false: 'mb-6 pr-3.5' } },
+  variants: { potato: { true: 'thread-section py-1 first:pt-0', false: 'mb-6 pr-3.5' } },
   defaultVariants: { potato: false },
 })
 const hiddenLabelVariants = cva('cursor-pointer px-0.5 py-1 text-lg italic text-secondary')
-const separatorVariants = cva('mt-6 h-px bg-separator opacity-50')
+const separatorVariants = cva('thread-separator mt-6 bg-separator opacity-50')
 const topicRowVariants = cva('flex items-center gap-2 px-1 pt-2')
-const topicVariants = cva('min-w-0 flex-1 text-xl font-bold [overflow-wrap:anywhere]')
+const topicVariants = cva('thread-topic min-w-0 flex-1 text-xl font-bold [overflow-wrap:anywhere]')
 const postsColumnVariants = cva('flex w-fit max-w-full flex-col')
-const potatoSkippedVariants = cva('flex items-center gap-1.5 pb-1 text-sm text-secondary')
+const potatoSkippedVariants = cva('thread-omitted flex items-center gap-1.5 pb-1 text-sm text-secondary')
 const actionRowVariants = cva('flex items-center gap-2 pb-2 max-w-post')
-const skippedVariants = cva('text-sm text-secondary')
+const skippedVariants = cva('thread-omitted text-sm text-secondary')
 const vistaSkippedVariants = cva('text-sm text-secondary mb-4')
 const spacerVariants = cva('flex-1')
 
@@ -30,7 +30,7 @@ export function ThreadPreview(props: {
   onOpen: () => void
   boardTitle?: string
 }) {
-  const { t, hideThreadsCompletely } = useI18n()
+  const { t, hideThreadsCompletely, potatoThreadTitle, potatoAsciiButtons } = useI18n()
   const potato = useIsPotato()
   const vista = useIsVista()
   const store = useStore()
@@ -55,8 +55,18 @@ export function ThreadPreview(props: {
     props.onOpen()
   }
   const threadHref = () => (props.slug ? threadPath(props.forumId, props.slug, props.row.number) : undefined)
+  const topicAbove = () => !!props.row.topic && !vista() && (!potato() || potatoThreadTitle() === 'above')
+  const topicInline = () => (vista() ? props.row.topic || undefined : potato() && potatoThreadTitle() === 'inline' ? props.row.topic || undefined : undefined)
   const potatoActions = () => (
-    <button type="button" class="potato-hide-thread" title={t('thread.hide')} aria-label={t('thread.hide')} onClick={hide}>✖</button>
+    <button
+      type="button"
+      class={`potato-hide-thread${potatoAsciiButtons() ? ' potato-ascii-button' : ''}`}
+      title={t('thread.hide')}
+      aria-label={t('thread.hide')}
+      onClick={hide}
+    >
+      {potatoAsciiButtons() ? '[<o>]' : '✖'}
+    </button>
   )
   return (
     <Show when={!hidden() || !hideThreadsCompletely()}>
@@ -89,7 +99,7 @@ export function ThreadPreview(props: {
           data-potato-thread={potato() ? '' : undefined}
           data-vista-thread={vista() ? '' : undefined}
         >
-          <Show when={props.row.topic && !vista()}>
+          <Show when={topicAbove()}>
             <div class={topicRowVariants()}>
               <div class={topicVariants()}>{props.row.topic}</div>
             </div>
@@ -107,8 +117,7 @@ export function ThreadPreview(props: {
                   threadNum={props.row.number}
                   boardTitle={props.boardTitle}
                   headerActions={potato() ? potatoActions() : undefined}
-                  onOpenThread={() => props.onOpen()}
-                  title={vista() ? props.row.topic || undefined : undefined}
+                  title={topicInline()}
                   onHide={vista() ? hide : undefined}
                   boardPage
                 />
@@ -120,7 +129,15 @@ export function ThreadPreview(props: {
                 <Show when={props.row.skipped > 0}>
                   <div class={vista() ? vistaSkippedVariants() : potatoSkippedVariants()} data-on-wallpaper={vista() ? '' : undefined}>
                     <Show when={potato()}>
-                      <button type="button" class="potato-menu-trigger" title={t('thread.open')} aria-label={t('thread.open')} onClick={() => props.onOpen()}>⤢</button>
+                      <button
+                        type="button"
+                        class={`potato-menu-trigger potato-thread-open${potatoAsciiButtons() ? ' potato-ascii-button' : ''}`}
+                        title={t('thread.open')}
+                        aria-label={t('thread.open')}
+                        onClick={() => props.onOpen()}
+                      >
+                        {potatoAsciiButtons() ? '[<->]' : '⤢'}
+                      </button>
                     </Show>
                     {t('thread.skipped', { n: props.row.skipped })}
                   </div>
