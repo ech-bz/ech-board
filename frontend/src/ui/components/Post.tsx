@@ -24,7 +24,6 @@ import { useRecord, useStaticInfo, useStore } from '../store'
 import { usePostSelection } from '../postSelection/PostSelectionProvider'
 import { SelectedPostMenu } from '../postSelection/SelectedPostMenu'
 import { useComposerBridge } from '../composerBridge'
-import { useEntityActions } from '../entityActions'
 import { BoardIcon } from '../vista/BoardIcon'
 import type { PostRecord } from '../../store/records'
 import type { DecryptContext } from '../../core/intent/decrypt'
@@ -166,7 +165,6 @@ export function PostBody(props: {
   const { openMedia } = useGallery()
   const selection = usePostSelection()
   const composer = useComposerBridge()
-  const entityActions = useEntityActions()
   const mobile = useIsMobile()
   const [reactBusy, setReactBusy] = createSignal(false)
   const [expanded, setExpanded] = createSignal(false)
