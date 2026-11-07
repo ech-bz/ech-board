@@ -12,6 +12,7 @@ const LOGO_BY_APPEARANCE: Record<string, string> = {
 export function logoFor(appearance: string, preset?: string): string {
   if (preset === 'end') return `${BASE}static/logo-end.svg`
   if (preset === 'aboba') return `${BASE}static/logo-aboba.svg`
+  if (preset === 'operative') return `${BASE}static/logo-operative.svg`
   return LOGO_BY_APPEARANCE[appearance] ?? DEFAULT_LOGO
 }
 

@@ -137,13 +137,14 @@ export function AppearanceView() {
       <Fold title={t('settings.groupAppearance')} defaultOpen followExpandFolds={false}>
         <div class={settingRowVariants()}>
           <span>{t('settings.presets')}</span>
-          <Field as="select" bordered select value={preset()} onInput={(e) => setPreset(e.currentTarget.value as 'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba')}>
+          <Field as="select" bordered select value={preset()} onInput={(e) => setPreset(e.currentTarget.value as 'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba' | 'operative')}>
             <option value="default">{t('settings.presetDefault')}</option>
             <option value="escapism">{t('settings.presetEscapism')}</option>
             <option value="guro">{t('settings.presetGuro')}</option>
             <option value="moot">{t('settings.presetMoot')}</option>
             <option value="end">{t('settings.presetEnd')}</option>
             <option value="aboba">{t('settings.presetAboba')}</option>
+            <option value="operative">{t('settings.presetOperative')}</option>
             <option value="custom">{t('settings.presetCustom')}</option>
           </Field>
         </div>

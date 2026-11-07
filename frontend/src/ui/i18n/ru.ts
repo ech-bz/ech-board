@@ -96,6 +96,7 @@ export const ru = {
   'settings.presetMoot': 'Moot',
   'settings.presetEnd': 'End',
   'settings.presetAboba': 'Aboba',
+  'settings.presetOperative': 'Оперуполномоченный',
   'settings.groupStyleOptions': 'Параметры стиля',
   'settings.groupReactions': 'Реакции',
   'settings.groupPosts': 'Посты и треды',

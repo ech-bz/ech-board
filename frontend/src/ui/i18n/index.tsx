@@ -146,8 +146,8 @@ export interface I18nValue {
   setThreadSeparatorHeight: (v: number) => void
   showGalleryOnOpen: Accessor<boolean>
   setShowGalleryOnOpen: (v: boolean) => void
-  preset: Accessor<'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba'>
-  setPreset: (p: 'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba') => void
+  preset: Accessor<'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba' | 'operative'>
+  setPreset: (p: 'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba' | 'operative') => void
   resetToDefaults: () => void
   t: (key: MessageKey, vars?: Record<string, string | number>) => string
   days: Accessor<readonly string[]>
@@ -518,6 +518,32 @@ export function I18nProvider(props: { children: JSX.Element }) {
     )
   })
 
+  const isOperativeConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "jezowy" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      !centerPotatoBoards() &&
+      potatoHeader() === "hidden" &&
+      potatoThreadTitle() === "inline" &&
+      !potatoAsciiButtons() &&
+      hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "below" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 1 &&
+      potatoCornerRadius() === 100 &&
+      sides.length === 4 &&
+      sides.includes("top") &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      sides.includes("left") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
   const preset = createMemo(() => {
     if (isDefaultConfig()) return "default"
     if (isEscapismConfig()) return "escapism"
@@ -525,6 +551,7 @@ export function I18nProvider(props: { children: JSX.Element }) {
     if (isMootConfig()) return "moot"
     if (isEndConfig()) return "end"
     if (isAbobaConfig()) return "aboba"
+    if (isOperativeConfig()) return "operative"
     return "custom"
   })
 
@@ -658,13 +685,35 @@ export function I18nProvider(props: { children: JSX.Element }) {
     setOpPostBackground(false)
   }
 
-  const setPreset = (p: "default" | "custom" | "escapism" | "guro" | "moot" | "end" | "aboba") => {
+  const applyOperative = () => {
+    setAppearance("jezowy")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(false)
+    setPotatoHeader("hidden")
+    setPotatoBoardsBar("pinned")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(false)
+    setHideReactions(true)
+    setReactionSize(50)
+    setPostReplyPosition("below")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(1)
+    writeString(POTATO_CORNER_RADIUS_KEY, "100")
+    setPotatoCornerRadiusSignal(100)
+    setPostBorderSides(["top", "right", "bottom", "left"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const setPreset = (p: "default" | "custom" | "escapism" | "guro" | "moot" | "end" | "aboba" | "operative") => {
     if (p === "default") resetToDefaults()
     else if (p === "escapism") applyEscapism()
     else if (p === "guro") applyGuro()
     else if (p === "moot") applyMoot()
     else if (p === "end") applyEnd()
     else if (p === "aboba") applyAboba()
+    else if (p === "operative") applyOperative()
   }
 
   const value: I18nValue = {

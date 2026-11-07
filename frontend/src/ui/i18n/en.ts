@@ -98,6 +98,7 @@ export const en: Dict = {
   'settings.presetMoot': 'Moot',
   'settings.presetEnd': 'End',
   'settings.presetAboba': 'Aboba',
+  'settings.presetOperative': 'Operative',
   'settings.groupStyleOptions': 'Style options',
   'settings.groupReactions': 'Reactions',
   'settings.groupPosts': 'Posts and threads',
