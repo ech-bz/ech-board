@@ -15,6 +15,14 @@ export interface MediaInfo {
   banned: boolean
 }
 
+export function isAnimatableImage(mime: string): boolean {
+  return mime === 'image/gif' || mime === 'image/webp'
+}
+
+export function previewUrl(m: MediaInfo, animate: boolean): string {
+  return animate && !m.banned && isAnimatableImage(m.mime) ? m.fullUrl : m.thumbUrl
+}
+
 export interface ReactionInfo {
   url: string
   count: number

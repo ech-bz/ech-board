@@ -60,6 +60,7 @@ const POST_REPLY_POSITION_KEY = 'ech-board-post-reply-position'
 const THREAD_SEPARATOR_KEY = 'ech-board-thread-separator'
 const THREAD_SEPARATOR_HEIGHT_KEY = 'ech-board-thread-separator-height'
 const SHOW_GALLERY_ON_OPEN_KEY = 'ech-board-show-gallery-on-open'
+const ANIMATE_GIFS_KEY = 'ech-board-animate-gifs'
 const UI_STYLE_KEY = 'ech-board-ui-style'
 const CORNER_RADIUS_KEY = 'ech-board-corner-radius'
 const REACTION_SIZE_KEY = 'ech-board-reaction-size'
@@ -146,6 +147,8 @@ export interface I18nValue {
   setThreadSeparatorHeight: (v: number) => void
   showGalleryOnOpen: Accessor<boolean>
   setShowGalleryOnOpen: (v: boolean) => void
+  animateGifs: Accessor<boolean>
+  setAnimateGifs: (v: boolean) => void
   preset: Accessor<'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba' | 'operative'>
   setPreset: (p: 'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba' | 'operative') => void
   resetToDefaults: () => void
@@ -230,6 +233,7 @@ export function I18nProvider(props: { children: JSX.Element }) {
     setThreadSeparatorHeightSignal(next)
   }
   const [showGalleryOnOpen, setShowGalleryOnOpen] = boolPref(SHOW_GALLERY_ON_OPEN_KEY, false)
+  const [animateGifs, setAnimateGifs] = boolPref(ANIMATE_GIFS_KEY, false)
   const storedStyle = readString(UI_STYLE_KEY)
   const [uiStyle, setUiStyleSignal] = createSignal<UiStyle>(storedStyle === 'potato' || storedStyle === 'vista' ? storedStyle : 'modern')
   const savedRadius = readString(CORNER_RADIUS_KEY)
@@ -767,6 +771,8 @@ export function I18nProvider(props: { children: JSX.Element }) {
     setThreadSeparatorHeight,
     showGalleryOnOpen,
     setShowGalleryOnOpen,
+    animateGifs,
+    setAnimateGifs,
     preset,
     setPreset,
     resetToDefaults,

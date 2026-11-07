@@ -56,6 +56,7 @@ export const en: Dict = {
   'settings.expandFolds': 'Expand [fold] tags',
   'settings.hideReactions': 'Hide reactions',
   'settings.showGalleryOnOpen': 'Show gallery when opening media',
+  'settings.animateGifs': 'Animate GIF/WEBP',
   'settings.style': 'Style',
   'settings.centerPotatoThreads': 'Center threads',
   'settings.centerPotatoBoards': 'Center boards',

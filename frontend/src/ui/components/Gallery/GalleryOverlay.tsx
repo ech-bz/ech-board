@@ -12,6 +12,7 @@ import { ChevronLeftIcon } from '../../icons/ChevronLeftIcon'
 import { ChevronRightIcon } from '../../icons/ChevronRightIcon'
 import { useI18n, useIsPotato } from '../../i18n'
 import { useIsMobile } from './useIsMobile'
+import { previewUrl } from '../../../core/media'
 
 const galleryOverlayVariants = cva('fixed inset-0 z-overlay flex flex-col transition-colors duration-200', {
   variants: { gallery: { true: 'bg-scrim', false: 'bg-transparent' } },
@@ -101,10 +102,11 @@ function saveMediaPrefs(prefs: MediaPrefs) {
   }
 }
 
-function findMediaRect(thumbUrl: string): SourceRect | null {
+function findMediaRect(...urls: string[]): SourceRect | null {
   const nodes = document.querySelectorAll<HTMLImageElement>('[data-media] img')
   for (const img of nodes) {
-    if (img.getAttribute('src') === thumbUrl || img.src === thumbUrl) {
+    const src = img.getAttribute('src')
+    if (urls.some((url) => src === url || img.src === url)) {
       const card = img.closest('[data-media]')
       if (card) {
         const r = card.getBoundingClientRect()
@@ -151,7 +153,7 @@ function fmtTime(s: number): string {
 
 export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sourceRect: SourceRect | null; onClose: () => void }) {
   const mobile = useIsMobile()
-  const { t, showGalleryOnOpen } = useI18n()
+  const { t, showGalleryOnOpen, animateGifs } = useI18n()
   const potato = useIsPotato()
   const [cur, setCur] = createSignal(props.index)
   const [thumbs, setThumbs] = createSignal(mobile() || showGalleryOnOpen())
@@ -451,7 +453,7 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
   const flyBack = () => {
     const el = activeMedia
     const item = props.items[cur()]
-    const target = (item ? findMediaRect(item.thumbUrl) : null) ?? props.sourceRect
+    const target = (item ? findMediaRect(item.thumbUrl, item.fullUrl) : null) ?? props.sourceRect
     if (!el || !target) {
       props.onClose()
       return
@@ -1012,7 +1014,7 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
                   fallback={
                     <Show
                       when={m.mime === 'application/pdf'}
-                      fallback={<img class={galleryThumbImgVariants()} src={m.thumbUrl} alt="" draggable={false} />}
+                      fallback={<img class={galleryThumbImgVariants()} src={previewUrl(m, animateGifs())} alt="" draggable={false} />}
                     >
                       <span class={galleryThumbPdfVariants()}>PDF</span>
                     </Show>

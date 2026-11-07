@@ -72,6 +72,8 @@ export function AppearanceView() {
     setThreadSeparatorHeight,
     showGalleryOnOpen,
     setShowGalleryOnOpen,
+    animateGifs,
+    setAnimateGifs,
     appearance,
     setAppearance,
     uiStyle,
@@ -133,6 +135,7 @@ export function AppearanceView() {
         <ToggleRow label={t('settings.showHidden')} checked={!hideThreadsCompletely()} onToggle={() => setHideThreadsCompletely(!hideThreadsCompletely())} />
         <ToggleRow label={t('settings.expandFolds')} checked={expandFolds()} onToggle={() => setExpandFolds(!expandFolds())} />
         <ToggleRow label={t('settings.showGalleryOnOpen')} checked={showGalleryOnOpen()} onToggle={() => setShowGalleryOnOpen(!showGalleryOnOpen())} />
+        <ToggleRow label={t('settings.animateGifs')} checked={animateGifs()} onToggle={() => setAnimateGifs(!animateGifs())} />
       </Fold>
       <Fold title={t('settings.groupAppearance')} defaultOpen followExpandFolds={false}>
         <div class={settingRowVariants()}>

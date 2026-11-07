@@ -54,6 +54,7 @@ export const ru = {
   'settings.expandFolds': 'Раскрывать [fold]-теги',
   'settings.hideReactions': 'Скрывать реакции',
   'settings.showGalleryOnOpen': 'Показывать галерею при открытии медиа',
+  'settings.animateGifs': 'Анимировать GIF/WEBP',
   'settings.style': 'Стили',
   'settings.centerPotatoThreads': 'Центрировать треды',
   'settings.centerPotatoBoards': 'Центрировать доски',

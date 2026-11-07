@@ -2,7 +2,7 @@ import { createSignal, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
 import { useI18n, useIsPotato, useIsVista } from '../i18n'
 import type { SourceRect } from './Gallery/context'
-import type { MediaInfo } from '../../core/media'
+import { previewUrl, type MediaInfo } from '../../core/media'
 import { XIcon } from '../icons/XIcon'
 import { MusicIcon } from '../icons/MusicIcon'
 import { SearchIcon } from '../icons/SearchIcon'
@@ -64,7 +64,7 @@ function formatMime(mime: string): string {
 }
 
 export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: MediaInfo, rect?: SourceRect) => void }) {
-  const { t } = useI18n()
+  const { t, animateGifs } = useI18n()
   const potato = useIsPotato()
   const vista = useIsVista()
   const actions = useEntityActions()
@@ -74,6 +74,8 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
   const isDocument = () => props.m.mime === 'application/pdf'
   const isGif = () => props.m.mime === 'image/gif'
   const isImage = () => props.m.mime.startsWith('image/')
+  const thumbSrc = () => previewUrl(props.m, animateGifs())
+  const animated = () => thumbSrc() !== props.m.thumbUrl
   const vistaFormatIcon = () => {
     const mime = props.m.mime.toLowerCase()
     if (mime.startsWith('image/')) return '/static/vista/icons/files.png'
@@ -133,7 +135,7 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
               when={!isAudio() && !isDocument()}
               fallback={<span class={potatoBoxVariants()}>{isDocument() ? 'PDF' : '♪'}</span>}
             >
-              <img class={potatoImgVariants()} src={props.m.thumbUrl} alt="" loading="lazy" decoding="async" draggable={false} onLoad={(e) => setNatW(e.currentTarget.naturalWidth)} />
+              <img class={potatoImgVariants()} src={thumbSrc()} alt="" loading="lazy" decoding="async" draggable={false} onLoad={(e) => setNatW(e.currentTarget.naturalWidth)} />
             </Show>
           </Show>
         </a>
@@ -220,15 +222,17 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
                 </div>
               }
             >
-              <img class={mediaThumbBlurVariants()} src={props.m.thumbUrl} alt="" aria-hidden="true" draggable={false} />
+              <img class={mediaThumbBlurVariants()} src={props.m.thumbUrl} alt="" aria-hidden="true" draggable={false} onLoad={(e) => setNatW(e.currentTarget.naturalWidth)} />
               <img
                 class={mediaThumbVariants()}
-                src={props.m.thumbUrl}
+                src={thumbSrc()}
                 alt=""
                 loading="lazy"
                 decoding="async"
                 draggable={false}
-                onLoad={(e) => setNatW(e.currentTarget.naturalWidth)}
+                onLoad={(e) => {
+                  if (!animated()) setNatW(e.currentTarget.naturalWidth)
+                }}
               />
             </Show>
           </Show>
