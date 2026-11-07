@@ -83,3 +83,21 @@
   outline: 0 !important;
   box-shadow: none !important;
 }
+
+:root[data-appearance='jezowy'][data-ui-style='potato'] [data-potato-layout]:not([data-potato-center-boards]) [data-potato-nav] > div:first-child {
+  box-sizing: border-box;
+  padding: 4px 10px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-weight: 700;
+}
+
+:root[data-appearance='jezowy'][data-ui-style='potato'] [data-potato-layout]:not([data-potato-center-boards]) [data-potato-nav] > div:nth-child(2) {
+  box-sizing: border-box;
+  padding: 6px 4px;
+  border: 1px solid var(--color-accent);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
