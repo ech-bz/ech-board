@@ -1,0 +1,67 @@
+:root {
+  color-scheme: light;
+
+  /* Фон страницы и панели */
+  --color-bg: #f0ffe0;
+  --color-panel1: #e8f5e9; /* посты-ответы (.reply) */
+  --color-panel2: #c8e6c9; /* кнопки/блоки поверх постов */
+  --color-panel3: #f4fbef;
+  --color-hover: #a5d6a7;
+  --color-active: #c8e6c9; /* подсветка поста (.replyhl) */
+  --color-mine: #c3e6c5;
+  --color-replied-mine: #d4ecd0;
+  --color-spoiler: #013220;
+
+  /* Текст */
+  --color-fg: #013220;
+  --color-secondary: #2e8b57;
+  --color-omitted: #2e8b57;
+  --color-thread-title: #006400; /* тема треда (.filetitle) */
+  --color-subject: #006400;
+  --color-post-name: #006400; /* имя (.postername) */
+  --color-postnum: #013220;
+  --color-special-text: #228b22; /* трипкод (.postertrip) */
+  --color-trip: #228b22;
+  --color-capcode: #800080; /* ## Admin ## */
+
+  /* Ссылки и акценты */
+  --color-accent: #006400;
+  --color-accent-hover: #228b22;
+  --color-accent-ink: #fff;
+  --color-success: #2e8b57;
+  --color-danger: #c0392b;
+  --color-warn: #b45309;
+  --color-quote: #2e8b57; /* .unkfunc */
+
+  /* Прозрачные слои */
+  --color-glass1: rgba(240, 255, 224, 0.9);
+  --color-glass2: rgba(165, 214, 167, 0.35);
+  --color-chip: rgba(1, 50, 32, 0.06);
+  --color-shade: rgba(0, 0, 0, 0.5);
+  --color-scrim: rgba(0, 0, 0, 0.78);
+  --color-scrim-fg: #fff;
+  --color-track: rgba(1, 50, 32, 0.18);
+  --color-separator: #4caf50;
+  --color-border: #a5d6a7;
+  --color-reaction: rgba(76, 175, 80, 0.18);
+  --color-toggle-track: rgba(1, 50, 32, 0.28);
+  --color-toggle-on: #4caf50;
+  --color-surface: #f0ffe0;
+  --color-surface-2: #e8f5e9;
+  --color-header: #f0ffe0;
+  --color-drag: #a5d6a7;
+  --color-icon: #2e8b57;
+  --color-media-border: #a5d6a7;
+  --color-muted-button: #c8e6c9;
+
+  --form-field-bg: #fff;
+  --form-border: #4caf50;
+  --form-border-focus: #2e8b57;
+  --form-text: #013220;
+  --report-modal-border: rgba(1, 50, 32, 0.25);
+}
+
+/* Potato: верхняя панель всегда сплошная, цвета --color-header (без прозрачности) */
+:root[data-appearance='nowak'][data-ui-style='potato'] [data-potato-topbar] {
+  background: var(--color-header) !important;
+}

@@ -4,6 +4,17 @@ export const VISTA_ICON_BASE = `${BASE}static/vista/icons/`
 export const VISTA_LOGO = `${BASE}static/vista/logo.png`
 export const DEFAULT_LOGO = `${BASE}static/logo.svg`
 
+const LOGO_BY_APPEARANCE: Record<string, string> = {
+  yotsuba_a: `${BASE}static/logo-yotsuba.svg`,
+  gurochan: `${BASE}static/logo-gurochan.svg`,
+}
+
+export function logoFor(appearance: string, preset?: string): string {
+  if (preset === 'end') return `${BASE}static/logo-end.svg`
+  if (preset === 'aboba') return `${BASE}static/logo-aboba.svg`
+  return LOGO_BY_APPEARANCE[appearance] ?? DEFAULT_LOGO
+}
+
 const BY_SLUG: Record<string, string> = {
   b: 'bomb',
   d: 'headphones',

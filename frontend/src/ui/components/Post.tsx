@@ -67,7 +67,7 @@ const postTextVariants = cva('post-text whitespace-pre-wrap break-words', {
 const headerVariants = cva('mb-1.5 flex items-center gap-1.5 text-sm text-secondary')
 const headerMetaVariants = cva('flex min-w-0 flex-1 flex-wrap items-center gap-1.5')
 const headerItemVariants = cva('whitespace-nowrap')
-const tripcodeVariants = cva('whitespace-nowrap text-success')
+const tripcodeVariants = cva('post-tripcode whitespace-nowrap')
 const flagVariants = cva('h-3.5 w-auto flex-none rounded-xs')
 const checkboxWrapVariants = cva('relative flex flex-none cursor-pointer items-center')
 const checkboxVariants = cva('relative size-4 cursor-pointer appearance-none rounded-sm border border-separator bg-panel2 checked:border-accent checked:bg-accent')
@@ -136,7 +136,7 @@ const reactionImgVariants = cva('reaction-image')
 const refsRowVariants = cva('mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-secondary')
 const refsHeaderVariants = cva('flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0 text-xs text-secondary')
 const potatoActionsVariants = cva('potato-actions flex flex-none items-center gap-1.5')
-const refVariants = cva('cursor-pointer text-accent')
+const refVariants = cva('post-ref cursor-pointer text-accent')
 
 export function PostBody(props: {
   record: PostRecord

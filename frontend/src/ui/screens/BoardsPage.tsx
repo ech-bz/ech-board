@@ -8,6 +8,7 @@ import { ChevronRightIcon } from '../icons/ChevronRightIcon'
 import type { MenuItem } from '../components/Menu/DropdownMenu'
 import { useEntityActions } from '../entityActions'
 import { useI18n, useIsPotato } from '../i18n'
+import { logoFor } from '../vista/boardIcons'
 import { useIsMobile } from '../components/Gallery/useIsMobile'
 import { useMobileTabs } from '../mobileNav'
 import { boardPath } from '../route'
@@ -40,7 +41,7 @@ export function BoardsPage(props: {
   forums: ForumInfo[]
   onSelectForum: (forum: ForumInfo) => void
 }) {
-  const { t } = useI18n()
+  const { t, appearance, preset } = useI18n()
   const ea = useEntityActions()
   const potato = useIsPotato()
   const phone = useIsMobile()
@@ -74,7 +75,7 @@ export function BoardsPage(props: {
                 onClick={() => props.onSelectForum(forum)}
               >
                 <span class={chipLogoVariants()}>
-                  <img class="h-full w-auto" src="/static/logo.svg" alt="" />
+                  <img class="h-full w-auto" src={logoFor(appearance(), preset())} alt="" />
                 </span>
                 {forum.host}
               </button>

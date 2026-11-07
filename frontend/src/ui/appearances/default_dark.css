@@ -1,28 +1,34 @@
 :root {
   color-scheme: dark;
-  --color-bg: #15202b;
-  --color-panel1: #1b2e3f;
-  --color-panel2: #182938;
-  --color-panel3: #2C4058;
-  --color-hover: #24384E;
-  --color-active: #294056;
-  --color-mine: #233D58;
+  --color-bg: #1b2b3a;
+  --color-panel1: #1e3346;
+  --color-panel2: #192734;
+  --color-panel3: #2c4058;
+  --color-hover: #15202b;
+  --color-active: #131d28;
+  --color-mine: #264260;
   --color-replied-mine: #373225;
-  --color-spoiler: #3a3a40;
+  --color-spoiler: #000;
+
   --color-fg: #ccc;
-  --color-secondary: rgba(204, 204, 204, 0.62);
+  --color-secondary: #7d7d7d;
+  --color-thread-title: #6995c5;
+  --color-special-text: #e533e5;
+  --color-postnum: #789922;
+
   --color-accent: #88c8ff;
-  --color-accent-hover: #cceeff;
+  --color-accent-hover: #c6d9e9;
   --color-success: #30d158;
   --color-danger: #ff453a;
   --color-warn: #ff9f0a;
   --color-quote: #789922;
-  --color-glass1: rgba(23, 36, 51, 0.85);
-  --color-glass2: rgba(60, 91, 122, 0.5);
+
+  --color-glass1: rgba(27, 43, 58, 0.85);
+  --color-glass2: rgba(76, 96, 116, 0.5);
   --color-chip: rgba(255, 255, 255, 0.07);
   --color-shade: rgba(0, 0, 0, 0.6);
   --color-track: rgba(255, 255, 255, 0.3);
-  --color-separator: rgba(56, 68, 77, 0.65);
+  --color-separator: rgba(56, 68, 77, 0.4);
   --color-reaction: rgba(136, 200, 255, 0.19);
   --color-toggle-track: rgba(120, 120, 128, 0.32);
   --color-toggle-on: #34c759;

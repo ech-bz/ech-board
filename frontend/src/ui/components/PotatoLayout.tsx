@@ -1,6 +1,7 @@
-import { createSignal, For, Show, type JSX } from 'solid-js'
+import { createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import { cva } from 'class-variance-authority'
 import { useI18n } from '../i18n'
+import { logoFor } from '../vista/boardIcons'
 import { useEntityActions } from '../entityActions'
 import { useStore } from '../store'
 import { PotatoHeadContext } from '../potatoHead'
@@ -41,7 +42,7 @@ export function PotatoLayout(props: {
   onOpenSetting: (setting: SettingSlug) => void
   children: JSX.Element
 }) {
-  const { t, centerPotatoThreads, centerPotatoBoards, potatoBoardsBar, potatoHeader } = useI18n()
+  const { t, appearance, preset, centerPotatoThreads, centerPotatoBoards, potatoBoardsBar, potatoHeader } = useI18n()
   const ea = useEntityActions()
   const store = useStore()
   const [head, setHead] = createSignal<HTMLElement>()
@@ -57,9 +58,38 @@ export function PotatoLayout(props: {
     }
   }
   const forumId = () => props.forum?.forumId ?? ''
+  let layoutEl: HTMLDivElement | undefined
+  // Отмечаем, сдвинулась ли страница и «прилип» ли блок досок: темы могут делать их прозрачными, пока они стоят на месте.
+  onMount(() => {
+    let raf = 0
+    const update = () => {
+      raf = 0
+      const root = layoutEl
+      if (!root) return
+      const scrolled = window.scrollY > 0
+      root.toggleAttribute('data-scrolled', scrolled)
+      const nav = root.querySelector<HTMLElement>('[data-potato-nav]')
+      if (nav) {
+        const cs = getComputedStyle(nav)
+        const top = Number.parseFloat(cs.top) || 0
+        nav.toggleAttribute('data-stuck', scrolled && cs.position === 'sticky' && nav.getBoundingClientRect().top <= top + 0.5)
+      }
+    }
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(update)
+    }
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    schedule()
+    onCleanup(() => {
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      if (raf) cancelAnimationFrame(raf)
+    })
+  })
   return (
     <PotatoHeadContext.Provider value={head}>
-      <div data-potato-layout="" data-potato-header={potatoHeader()} data-potato-center-boards={centerPotatoBoards() && props.page !== 'settings' ? '' : undefined} data-potato-boards-bar={potatoBoardsBar()}>
+      <div ref={layoutEl} data-potato-layout="" data-potato-header={potatoHeader()} data-potato-center-boards={centerPotatoBoards() && props.page !== 'settings' ? '' : undefined} data-potato-boards-bar={potatoBoardsBar()}>
         <header data-potato-topbar="" class={barVariants()}>
           <a
             class={barLinkVariants()}
@@ -108,7 +138,7 @@ export function PotatoLayout(props: {
           </Show>
         </header>
         <div ref={setHead} data-potato-head="" class={headVariants()}>
-          <img class={logoVariants()} src="/static/logo.svg" alt="" />
+          <img class={logoVariants()} src={logoFor(appearance(), preset())} alt="" />
         </div>
         <div data-potato-columns="" class={columnsVariants()}>
           <nav data-potato-nav="" class={navVariants()}>

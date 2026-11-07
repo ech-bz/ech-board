@@ -1,4 +1,4 @@
-import { createContext, createEffect, createSignal, useContext, type Accessor, type JSX } from 'solid-js'
+import { createContext, createEffect, createMemo, createSignal, useContext, type Accessor, type JSX } from 'solid-js'
 import { ru } from './ru'
 import type { Dict, MessageKey } from './ru'
 import { en } from './en'
@@ -19,17 +19,18 @@ export const THREAD_SEPARATOR_MAX = 12
 export const APPEARANCES: { id: string; label: string; file?: string; theme: Theme; enabled?: boolean }[] = [
   { id: 'default_dark', label: 'Default D', file: 'default_dark.css', theme: 'dark' },
   { id: 'default_light', label: 'Default L', file: 'default_light.css', theme: 'light' },
-  { id: 'yotsuba', label: 'Yotsuba', file: 'yotsuba.css', theme: 'light' },
+  { id: 'yotsuba_a', label: 'Yotsuba A', file: 'yotsuba_a.css', theme: 'light' },
   { id: 'matrix', label: 'Matrix', file: 'matrix.css', theme: 'dark' },
   { id: 'gurochan', label: 'Gurochan', file: 'gurochan.css', theme: 'light' },
   { id: 'neutron', label: 'Neutron', file: 'neutron.css', theme: 'dark' },
   { id: 'jezowy', label: 'Jezowy', file: 'jezowy.css', theme: 'dark' },
   { id: 'dark_oled', label: 'Dark OLED', file: 'dark_oled.css', theme: 'dark' },
-  { id: 'yotsuba_b', label: 'Yotsuba B', file: 'yotsuba_b.css', theme: 'light', enabled: false },
+  { id: 'yotsuba_b', label: 'Yotsuba B', file: 'yotsuba_b.css', theme: 'light' },
   { id: 'futaba', label: 'Futaba', file: 'futaba.css', theme: 'light', enabled: false },
   { id: 'burichan', label: 'Burichan', file: 'burichan.css', theme: 'light', enabled: false },
   { id: 'tomorrow', label: 'Tomorrow', file: 'tomorrow.css', theme: 'dark', enabled: false },
   { id: 'lord_english', label: 'Lord English', file: 'lord_english.css', theme: 'dark', enabled: false },
+  { id: 'nowak', label: 'Nowak', file: 'nowak.css', theme: 'light' },
   { id: 'sosaka_light', label: 'Sosaka A', file: 'sosaka_a.css', theme: 'light' },
   { id: 'sosaka_dark', label: 'Sosaka B', file: 'sosaka_b.css', theme: 'dark' },
 ]
@@ -145,9 +146,13 @@ export interface I18nValue {
   setThreadSeparatorHeight: (v: number) => void
   showGalleryOnOpen: Accessor<boolean>
   setShowGalleryOnOpen: (v: boolean) => void
+  preset: Accessor<'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba'>
+  setPreset: (p: 'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba') => void
+  resetToDefaults: () => void
   t: (key: MessageKey, vars?: Record<string, string | number>) => string
   days: Accessor<readonly string[]>
   months: Accessor<readonly string[]>
+
 }
 
 const I18nContext = createContext<I18nValue>()
@@ -360,6 +365,308 @@ export function I18nProvider(props: { children: JSX.Element }) {
     return s
   }
 
+
+  const isDefaultConfig = createMemo(() => {
+    return (
+      appearance() === "default_dark" &&
+      !hideReactions() &&
+      !centerPotatoThreads() &&
+      !centerPotatoBoards() &&
+      potatoHeader() === "peek" &&
+      potatoBoardsBar() === "pinned" &&
+      potatoThreadTitle() === "above" &&
+      potatoAsciiButtons() &&
+      !opPostBorders() &&
+      opPostBackground() &&
+      postReplyPosition() === "below" &&
+      postBorderSides().length === 0 &&
+      threadSeparator() &&
+      threadSeparatorHeight() === THREAD_SEPARATOR_MIN &&
+      uiStyle() === "modern" &&
+      modernCornerRadius() === 100 &&
+      potatoCornerRadius() === 100 &&
+      reactionSize() === 100 &&
+      vistaPalette() === 0 &&
+      !vistaBubbles()
+    )
+  })
+
+  const isEscapismConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "default_dark" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      !centerPotatoBoards() &&
+      potatoHeader() === "peek" &&
+      potatoThreadTitle() === "inline" &&
+      !potatoAsciiButtons() &&
+      !hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "below" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 1 &&
+      potatoCornerRadius() === 50 &&
+      sides.length === 4 &&
+      sides.includes("top") &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      sides.includes("left") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
+  const isGuroConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "gurochan" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      !centerPotatoBoards() &&
+      potatoHeader() === "hidden" &&
+      potatoThreadTitle() === "inline" &&
+      !potatoAsciiButtons() &&
+      hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "header" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 3 &&
+      potatoCornerRadius() === 0 &&
+      sides.length === 2 &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
+  const isMootConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "yotsuba_a" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      centerPotatoBoards() &&
+      potatoBoardsBar() === "scroll" &&
+      potatoHeader() === "hidden" &&
+      potatoThreadTitle() === "inline" &&
+      !potatoAsciiButtons() &&
+      hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "below" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 1 &&
+      potatoCornerRadius() === 0 &&
+      sides.length === 2 &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
+  const isEndConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "yotsuba_b" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      centerPotatoBoards() &&
+      potatoBoardsBar() === "pinned" &&
+      potatoHeader() === "hidden" &&
+      potatoThreadTitle() === "inline" &&
+      potatoAsciiButtons() &&
+      hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "header" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 1 &&
+      potatoCornerRadius() === 0 &&
+      sides.length === 2 &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
+  const isAbobaConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "nowak" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      centerPotatoBoards() &&
+      potatoBoardsBar() === "scroll" &&
+      potatoHeader() === "fixed" &&
+      potatoThreadTitle() === "inline" &&
+      !potatoAsciiButtons() &&
+      hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "below" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 1 &&
+      potatoCornerRadius() === 0 &&
+      sides.length === 4 &&
+      sides.includes("top") &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      sides.includes("left") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
+  const preset = createMemo(() => {
+    if (isDefaultConfig()) return "default"
+    if (isEscapismConfig()) return "escapism"
+    if (isGuroConfig()) return "guro"
+    if (isMootConfig()) return "moot"
+    if (isEndConfig()) return "end"
+    if (isAbobaConfig()) return "aboba"
+    return "custom"
+  })
+
+  const resetToDefaults = () => {
+    setAppearance("default_dark")
+    setHideReactions(false)
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(false)
+    setPotatoHeader("peek")
+    setPotatoBoardsBar("pinned")
+    setPotatoThreadTitle("above")
+    setPotatoAsciiButtons(true)
+    setOpPostBorders(false)
+    setOpPostBackground(true)
+    setPostReplyPosition("below")
+    setPostBorderSides([])
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(THREAD_SEPARATOR_MIN)
+    setUiStyle("modern")
+    writeString(CORNER_RADIUS_KEY, "100")
+    setModernCornerRadiusSignal(100)
+    writeString(POTATO_CORNER_RADIUS_KEY, "100")
+    setPotatoCornerRadiusSignal(100)
+    setReactionSize(100)
+    setVistaPalette(0)
+    setVistaBubbles(false)
+  }
+
+  const applyEscapism = () => {
+    setAppearance("default_dark")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(false)
+    setPotatoHeader("peek")
+    setPotatoBoardsBar("pinned")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(false)
+    setHideReactions(false)
+    setReactionSize(50)
+    setPostReplyPosition("below")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(1)
+    writeString(POTATO_CORNER_RADIUS_KEY, "50")
+    setPotatoCornerRadiusSignal(50)
+    setPostBorderSides(["top", "right", "bottom", "left"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const applyGuro = () => {
+    setAppearance("gurochan")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(false)
+    setPotatoHeader("hidden")
+    setPotatoBoardsBar("pinned")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(false)
+    setHideReactions(true)
+    setReactionSize(50)
+    setPostReplyPosition("header")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(3)
+    writeString(POTATO_CORNER_RADIUS_KEY, "0")
+    setPotatoCornerRadiusSignal(0)
+    setPostBorderSides(["right", "bottom"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const applyMoot = () => {
+    setAppearance("yotsuba_a")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(true)
+    setPotatoHeader("hidden")
+    setPotatoBoardsBar("scroll")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(false)
+    setHideReactions(true)
+    setReactionSize(50)
+    setPostReplyPosition("below")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(1)
+    writeString(POTATO_CORNER_RADIUS_KEY, "0")
+    setPotatoCornerRadiusSignal(0)
+    setPostBorderSides(["right", "bottom"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const applyEnd = () => {
+    setAppearance("yotsuba_b")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(true)
+    setPotatoHeader("hidden")
+    setPotatoBoardsBar("pinned")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(true)
+    setHideReactions(true)
+    setReactionSize(50)
+    setPostReplyPosition("header")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(1)
+    writeString(POTATO_CORNER_RADIUS_KEY, "0")
+    setPotatoCornerRadiusSignal(0)
+    setPostBorderSides(["right", "bottom"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const applyAboba = () => {
+    setAppearance("nowak")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(true)
+    setPotatoHeader("fixed")
+    setPotatoBoardsBar("scroll")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(false)
+    setHideReactions(true)
+    setReactionSize(50)
+    setPostReplyPosition("below")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(1)
+    writeString(POTATO_CORNER_RADIUS_KEY, "0")
+    setPotatoCornerRadiusSignal(0)
+    setPostBorderSides(["top", "right", "bottom", "left"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const setPreset = (p: "default" | "custom" | "escapism" | "guro" | "moot" | "end" | "aboba") => {
+    if (p === "default") resetToDefaults()
+    else if (p === "escapism") applyEscapism()
+    else if (p === "guro") applyGuro()
+    else if (p === "moot") applyMoot()
+    else if (p === "end") applyEnd()
+    else if (p === "aboba") applyAboba()
+  }
+
   const value: I18nValue = {
     uiStyle,
     setUiStyle,
@@ -411,6 +718,9 @@ export function I18nProvider(props: { children: JSX.Element }) {
     setThreadSeparatorHeight,
     showGalleryOnOpen,
     setShowGalleryOnOpen,
+    preset,
+    setPreset,
+    resetToDefaults,
     t,
     days: () => dicts[lang()].days,
     months: () => dicts[lang()].months,

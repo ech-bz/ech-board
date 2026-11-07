@@ -75,7 +75,7 @@
 @utility max-h-modal { max-height: 85vh; }
 @utility max-w-content { max-width: 640px; }
 @utility max-w-narrow { max-width: 360px; }
-@utility max-w-settings { max-width: 560px; }
+@utility max-w-settings { max-width: 880px; }
 
 @utility min-h-composer { min-height: 44px; }
 @utility max-h-composer { max-height: 50vh; }
@@ -134,6 +134,10 @@
 /* Цвета, которые задаёт только тема (если переменной нет — наследуется обычный цвет) */
 .post-name {
   color: var(--color-post-name, inherit);
+}
+
+.post-tripcode {
+  color: var(--color-special-text, var(--color-success));
 }
 
 .thread-topic {
@@ -637,7 +641,7 @@
 
 @media (min-width: 900px) {
   :root[data-ui-style='potato'] [data-potato-main][data-potato-center-threads] .max-w-settings {
-    width: min(100%, 560px);
+    width: min(100%, 880px);
     margin-inline: auto;
   }
 }

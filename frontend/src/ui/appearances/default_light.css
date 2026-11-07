@@ -5,18 +5,24 @@
   --color-panel2: #f5f5f5;
   --color-panel3: #cacaca;
   --color-hover: #cacaca;
-  --color-active: #eaeaea;
+  --color-active: #eedacb;
   --color-mine: #ccddee;
   --color-replied-mine: #f6ddbb;
   --color-spoiler: #bbb;
+
   --color-fg: #333;
   --color-secondary: #5d5d5d;
+  --color-thread-title: #004a99;
+  --color-special-text: #800080;
+  --color-postnum: #789922;
+
   --color-accent: #0072d4;
   --color-accent-hover: #4d91cb;
   --color-success: #1a7f37;
   --color-danger: #d1242f;
   --color-warn: #b45309;
   --color-quote: #789922;
+
   --color-glass1: rgba(255, 255, 255, 0.85);
   --color-glass2: rgba(0, 114, 212, 0.2);
   --color-chip: rgba(0, 0, 0, 0.05);

@@ -23,15 +23,16 @@ const foldPanelVariants = cva('grid transition-[grid-template-rows,opacity] dura
 const foldPanelInnerVariants = cva('min-h-0 overflow-hidden')
 const foldBodyVariants = cva('py-0.5 pr-6 pl-2 text-base text-fg')
 
-export function Fold(props: { title: string; children: JSX.Element }) {
+export function Fold(props: { title: string; children: JSX.Element; defaultOpen?: boolean; followExpandFolds?: boolean }) {
   const { expandFolds } = useI18n()
   const parent = useContext(FoldContext)
-  const [open, setOpen] = createSignal(expandFolds())
+  const follow = () => props.followExpandFolds ?? true
+  const [open, setOpen] = createSignal(props.defaultOpen ?? (follow() && expandFolds()))
   createEffect(
     on(
       expandFolds,
       (value) => {
-        if (value) setOpen(true)
+        if (value && follow()) setOpen(true)
       },
       { defer: true },
     ),
