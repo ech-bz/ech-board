@@ -5,7 +5,7 @@ import { useEntityActions } from '../entityActions'
 import { ProgressPill } from './ProgressPill'
 import { DropdownMenu, type MenuItem } from '../components/Menu/DropdownMenu'
 
-export function ThreadSelectionMenu(props: { items: MenuItem[]; class?: string; variant?: 'glass' }) {
+export function ThreadSelectionMenu(props: { items: MenuItem[]; class?: string; variant?: 'glass'; size?: 'xs' | 'sm' | 'md' | 'lg'; label?: string }) {
   const { t } = useI18n()
   const sel = usePostSelection()
   const ea = useEntityActions()
@@ -51,7 +51,7 @@ export function ThreadSelectionMenu(props: { items: MenuItem[]; class?: string; 
   }
   return (
     <>
-      <DropdownMenu items={items()} class={props.class} triggerVariant={props.variant} />
+      <DropdownMenu items={items()} class={props.class} triggerVariant={props.variant} triggerSize={props.size} label={props.label} />
       <Show when={run()}>
         {(progress) => <ProgressPill label={t('select.progress', { done: progress().done, total: progress().total })} />}
       </Show>

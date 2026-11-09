@@ -1,0 +1,93 @@
+:root {
+  color-scheme: light;
+
+  /* Фон страницы и панели */
+  --color-bg: #eef2ff;
+  --color-panel1: #d6daf0; /* посты-ответы */
+  --color-panel2: #c6cbe8; /* кнопки/блоки поверх постов */
+  --color-panel3: #e3e6f7;
+  --color-hover: #c6cbe8;
+  --color-active: #e6e9fa; /* подсветка поста / активный пункт */
+  --color-mine: #c9cff0;
+  --color-replied-mine: #c9cff0;
+  --color-spoiler: #000;
+
+  /* Текст */
+  --color-fg: #000;
+  --color-secondary: rgba(0,0,0,0.65);
+  --color-omitted: #707070;
+  --color-thread-title: #0f0c5d; /* тема треда */
+  --color-post-name: #117743; /* имя «Аноним» */
+  --color-subject: #0f0c5d;
+  --color-postnum: #000;
+  --color-special-text: #117743; /* трипкод */
+  --color-trip: #117743;
+  --color-capcode: #ff0000;
+
+  /* Ссылки и акценты */
+  --color-accent: #34345c;
+  --color-accent-hover: #ff0000;
+  --color-accent-ink: #fff;
+  --color-success: #117743;
+  --color-danger: #dd0000;
+  --color-warn: #b45309;
+  --color-quote: #789922;
+
+  /* Прозрачные слои */
+  --color-glass1: rgba(238,242,255,0.9);
+  --color-glass2: rgba(183,197,217,0.35);
+  --color-chip: rgba(0, 0, 0, 0.06);
+  --color-shade: rgba(0, 0, 0, 0.5);
+  --color-scrim: rgba(0, 0, 0, 0.78);
+  --color-scrim-fg: #fff;
+  --color-track: rgba(0, 0, 0, 0.15);
+  --color-separator: #b7c5d9;
+  --color-border: #b7c5d9;
+  --color-reaction: rgba(52,52,92,0.15);
+  --color-toggle-track: rgba(120, 120, 128, 0.35);
+  --color-toggle-on: #117743;
+  --color-surface: #eef2ff;
+  --color-surface-2: #d6daf0;
+  --color-header: #eef2ff;
+  --color-drag: #b7c5d9;
+  --color-icon: #707070;
+  --color-media-border: #b7c5d9;
+  --color-muted-button: #c6cbe8;
+
+  --form-field-bg: #fff;
+  --form-border: #707070;
+  --form-border-focus: #34345c;
+  --form-text: #000;
+  --report-modal-border: rgba(0, 0, 0, 0.2);
+}
+
+/* Классический градиент-спрайт 4chan (1×200 px, повторяется по X).
+   Один крошечный файл вместо CSS-градиента — дёшево для слабых устройств. */
+:root[data-appearance='yotsuba_b'] {
+  background: #eef2ff url('/static/themes/fade-blue.png') top repeat-x;
+}
+
+:root[data-appearance='yotsuba_b'] .post-sequence-num {
+  color: #000 !important;
+}
+
+/* Верхняя плашка нижним слоем тянет тот же спрайт, что и страница (стык цвета в хедере Simple). */
+:root[data-appearance='yotsuba_b'][data-ui-style='potato'] .glass-fade:not(.glass-fade--up) {
+  background: #eef2ff url('/static/themes/fade-blue.png') top repeat-x;
+}
+
+:root[data-appearance='yotsuba_b'][data-ui-style='modern'] .glass-fade:not(.glass-fade--up) {
+  background: linear-gradient(to bottom, rgba(209, 213, 238, 0.92) 0%, transparent 100%);
+}
+
+/* Potato: верхняя панель и блок досок прозрачны, пока стоят на месте (виден градиент страницы),
+   и становятся сплошными, когда страницу прокрутили / блок «прилип» (атрибуты ставит PotatoLayout). */
+:root[data-appearance='yotsuba_b'][data-ui-style='potato'] [data-potato-topbar],
+:root[data-appearance='yotsuba_b'][data-ui-style='potato'] [data-potato-nav] {
+  background: transparent !important;
+}
+
+:root[data-appearance='yotsuba_b'][data-ui-style='potato'] [data-potato-layout][data-scrolled] [data-potato-topbar],
+:root[data-appearance='yotsuba_b'][data-ui-style='potato'] [data-potato-nav][data-stuck] {
+  background: var(--color-bg) !important;
+}

@@ -1,8 +1,8 @@
 import { createSignal, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
-import { useI18n } from '../i18n'
+import { useI18n, useIsPotato, useIsVista } from '../i18n'
 import type { SourceRect } from './Gallery/context'
-import type { MediaInfo } from '../../core/media'
+import { previewUrl, type MediaInfo } from '../../core/media'
 import { XIcon } from '../icons/XIcon'
 import { MusicIcon } from '../icons/MusicIcon'
 import { SearchIcon } from '../icons/SearchIcon'
@@ -31,6 +31,16 @@ const mediaInfoVariants = cva('pointer-events-none absolute inset-x-0 bottom-0 f
 const mediaAudioThumbVariants = cva('absolute inset-0 flex items-center justify-center bg-shade text-scrim-fg')
 const mediaPdfLabelVariants = cva('text-base font-bold tracking-wide')
 const mediaSearchVariants = cva('absolute right-0 top-0 z-control flex')
+const potatoMediaVariants = cva('flex-none')
+const potatoCaptionVariants = cva('mb-0.5 flex items-center gap-1.5 text-xs text-secondary')
+const potatoLinkVariants = cva('group relative flex h-auto w-fit max-h-[220px] max-w-[220px] flex-none cursor-pointer items-center justify-center overflow-hidden bg-transparent p-0 text-accent max-[899px]:max-h-[110px] max-[899px]:max-w-[110px]', {
+  variants: {
+    bordered: { true: 'border border-dashed border-secondary' },
+  },
+})
+const potatoImgVariants = cva('relative block h-auto w-auto max-h-[220px] max-w-[220px] object-contain max-[899px]:max-h-[110px] max-[899px]:max-w-[110px]')
+const potatoBannedVariants = cva('block h-auto w-auto max-h-[220px] max-w-[220px] object-contain max-[899px]:max-h-[110px] max-[899px]:max-w-[110px]')
+const potatoBoxVariants = cva('flex size-[220px] max-[899px]:size-[110px] items-center justify-center bg-shade text-scrim-fg')
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`
@@ -54,7 +64,9 @@ function formatMime(mime: string): string {
 }
 
 export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: MediaInfo, rect?: SourceRect) => void }) {
-  const { t } = useI18n()
+  const { t, animateGifs } = useI18n()
+  const potato = useIsPotato()
+  const vista = useIsVista()
   const actions = useEntityActions()
   const [natW, setNatW] = createSignal<number | null>(null)
   const isVideo = () => props.m.mime.startsWith('video/')
@@ -62,6 +74,16 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
   const isDocument = () => props.m.mime === 'application/pdf'
   const isGif = () => props.m.mime === 'image/gif'
   const isImage = () => props.m.mime.startsWith('image/')
+  const thumbSrc = () => previewUrl(props.m, animateGifs())
+  const animated = () => thumbSrc() !== props.m.thumbUrl
+  const vistaFormatIcon = () => {
+    const mime = props.m.mime.toLowerCase()
+    if (mime.startsWith('image/')) return '/static/vista/icons/files.png'
+    if (mime.startsWith('video/')) return '/static/vista/icons/video.png'
+    if (mime.startsWith('audio/')) return '/static/vista/icons/audio.png'
+    if (mime === 'application/pdf') return '/static/vista/icons/folder.png'
+    return '/static/vista/icons/globe.png'
+  }
   const searchItems = (): MenuItem[] =>
     isImage() && !props.m.banned
       ? [
@@ -73,9 +95,99 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
       : []
   const banMedia = () => actions.runBanMedia(props.record.post, props.record.threadUid, [fromHex(props.m.hash)])
   const unbanMedia = () => actions.runUnbanMedia(props.record.post, props.record.threadUid, [fromHex(props.m.hash)])
+  const caption = () => {
+    const m = props.m
+    const dims = isAudio() || isDocument() ? '' : `, ${m.width}×${m.height}`
+    const dur = m.durationMs != null ? `, ${formatDuration(m.durationMs)}` : ''
+    return `${formatMime(m.mime)}, ${formatSize(m.size)}${dims}${dur}`
+  }
+  const openMedia = (e: MouseEvent & { currentTarget: HTMLAnchorElement }) => {
+    if (props.m.banned) {
+      e.preventDefault()
+      return
+    }
+    if (isDocument()) return
+    e.preventDefault()
+    const rect = e.currentTarget.getBoundingClientRect()
+    props.onOpen(props.m, { left: rect.left, top: rect.top, width: rect.width, height: rect.height })
+  }
+  const potatoView = () => (
+    <div data-media="" class={potatoMediaVariants()}>
+      <div class={potatoCaptionVariants()}>
+        <Show when={!props.m.banned}>
+          <span>{caption()}</span>
+        </Show>
+      </div>
+      <div class="group relative w-fit">
+        <a
+          class={potatoLinkVariants({ bordered: isVideo() })}
+          draggable={false}
+          href={props.m.banned ? undefined : props.m.fullUrl}
+          target={isDocument() ? '_blank' : undefined}
+          rel={isDocument() ? 'noopener noreferrer' : undefined}
+          onClick={openMedia}
+        >
+          <Show
+            when={!props.m.banned}
+            fallback={<img class={potatoBannedVariants()} src="/static/banned_media.png" alt="" />}
+          >
+            <Show
+              when={!isAudio() && !isDocument()}
+              fallback={<span class={potatoBoxVariants()}>{isDocument() ? 'PDF' : '♪'}</span>}
+            >
+              <img class={potatoImgVariants()} src={thumbSrc()} alt="" loading="lazy" decoding="async" draggable={false} onLoad={(e) => setNatW(e.currentTarget.naturalWidth)} />
+            </Show>
+          </Show>
+        </a>
+        <Show when={!props.m.banned && searchItems().length > 0}>
+          <div class={mediaSearchVariants()}>
+            <DropdownMenu
+              icon={<SearchIcon width={12} height={12} />}
+              ariaLabel={t('media.searchImage')}
+              triggerSize="xs"
+              triggerShape="square"
+              class="bg-shade opacity-70 hover:opacity-100 [&_svg]:text-scrim-fg [&_.potato-ascii-icon]:text-scrim-fg"
+              items={searchItems()}
+            />
+          </div>
+        </Show>
+        <Show when={props.record.canBanMedia && !props.m.banned}>
+          <button
+            type="button"
+            class={mediaModBtnVariants()}
+            title={t('mod.banMedia')}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              banMedia()
+            }}
+          >
+            <XIcon width={12} height={12} />
+          </button>
+        </Show>
+        <Show when={props.record.canUnbanMedia && props.m.banned}>
+          <button
+            type="button"
+            class={mediaModBtnVariants()}
+            title={t('mod.unbanMedia')}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              unbanMedia()
+            }}
+          >
+            ↺
+          </button>
+        </Show>
+      </div>
+    </div>
+  );
   return (
+    <Show when={!potato()} fallback={potatoView()}>
     <a
       data-media=""
+      data-vista-media={vista() ? '' : undefined}
+      data-vista-video={vista() && isVideo() && !props.m.banned ? '' : undefined}
       draggable={false}
       class={mediaCardVariants({ borderedUnbanned: (isVideo() || isGif() || isAudio() || isDocument()) && !props.m.banned })}
       href={props.m.banned ? undefined : props.m.fullUrl}
@@ -94,19 +206,39 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
       }}
     >
       <Show
-        when={!props.m.banned}
-        fallback={<img class={mediaBannedVariants()} src="/static/banned_media.png" alt="" />}
+        when={vista() && isVideo() && !props.m.banned}
+        fallback={
+          <Show
+            when={!props.m.banned}
+            fallback={<img class={mediaBannedVariants()} src="/static/banned_media.png" alt="" />}
+          >
+            <Show
+              when={!isAudio() && !isDocument()}
+              fallback={
+                <div class={mediaAudioThumbVariants()}>
+                  <Show when={isDocument()} fallback={<MusicIcon width={40} height={40} />}>
+                    <span class={mediaPdfLabelVariants()}>PDF</span>
+                  </Show>
+                </div>
+              }
+            >
+              <img class={mediaThumbBlurVariants()} src={props.m.thumbUrl} alt="" aria-hidden="true" draggable={false} onLoad={(e) => setNatW(e.currentTarget.naturalWidth)} />
+              <img
+                class={mediaThumbVariants()}
+                src={thumbSrc()}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                onLoad={(e) => {
+                  if (!animated()) setNatW(e.currentTarget.naturalWidth)
+                }}
+              />
+            </Show>
+          </Show>
+        }
       >
-        <Show
-          when={!isAudio() && !isDocument()}
-          fallback={
-            <div class={mediaAudioThumbVariants()}>
-              <Show when={isDocument()} fallback={<MusicIcon width={40} height={40} />}>
-                <span class={mediaPdfLabelVariants()}>PDF</span>
-              </Show>
-            </div>
-          }
-        >
+        <div data-vista-video-viewport="">
           <img class={mediaThumbBlurVariants()} src={props.m.thumbUrl} alt="" aria-hidden="true" draggable={false} />
           <img
             class={mediaThumbVariants()}
@@ -117,7 +249,7 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
             draggable={false}
             onLoad={(e) => setNatW(e.currentTarget.naturalWidth)}
           />
-        </Show>
+        </div>
       </Show>
       <Show when={!props.m.banned && (isVideo() || isAudio()) && props.m.durationMs != null}>
         <span class={mediaDurationVariants()}>{formatDuration(props.m.durationMs!)}</span>
@@ -129,7 +261,7 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
             ariaLabel={t('media.searchImage')}
             triggerSize="xs"
             triggerShape="square"
-            class="bg-shade opacity-70 hover:opacity-100 [&_svg]:text-scrim-fg"
+            class="bg-shade opacity-70 hover:opacity-100 [&_svg]:text-scrim-fg [&_.potato-ascii-icon]:text-scrim-fg"
             items={searchItems()}
           />
         </div>
@@ -174,6 +306,12 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
           </span>
         </div>
       </Show>
+      <Show when={vista() && !props.m.banned}>
+        <span class="vista-media-format-badge" aria-hidden="true">
+          <img src={vistaFormatIcon()} alt="" loading="lazy" decoding="async" />
+        </span>
+      </Show>
     </a>
+    </Show>
   )
 }

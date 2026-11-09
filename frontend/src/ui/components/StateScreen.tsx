@@ -7,7 +7,7 @@ const wrapVariants = cva('flex min-h-dvh items-center justify-center p-8 text-se
 export function StateScreen(props: { error?: string | null }) {
   const { t } = useI18n()
   return (
-    <div class={wrapVariants()}>
+    <div class={wrapVariants()} data-on-wallpaper="">
       <Show when={props.error} fallback={t('ui.loading')}>
         {(message) => <>{message()}</>}
       </Show>

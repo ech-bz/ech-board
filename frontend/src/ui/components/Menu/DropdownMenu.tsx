@@ -1,6 +1,7 @@
 import { createEffect, createSignal, onCleanup, Show, type JSX } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { cva } from 'class-variance-authority'
+import { clsx } from 'clsx'
 import { EllipsisIcon } from '../../icons/EllipsisIcon'
 import { IconButton } from '../IconButton'
 import { MenuItems, type MenuItem } from './MenuItems'
@@ -24,6 +25,7 @@ export function DropdownMenu(props: {
   triggerVariant?: 'glass'
   icon?: JSX.Element
   ariaLabel?: string
+  label?: string
 }) {
   const [open, setOpen] = createSignal(false)
   const [pos, setPos] = createSignal<Position | null>(null)
@@ -76,6 +78,12 @@ export function DropdownMenu(props: {
     if (top !== current.top || right !== current.right || left !== current.left) setPos({ top, right, left })
   })
 
+  const onTrigger = (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    toggle()
+  }
+
   const toggle = () => {
     const rect = button?.getBoundingClientRect()
     if (!open() && rect) setPos({ top: rect.bottom + 2, right: window.innerWidth - rect.right })
@@ -84,23 +92,34 @@ export function DropdownMenu(props: {
 
   return (
     <Show when={props.items.length > 0}>
-      <IconButton
-        ref={button}
-        size={props.triggerSize ?? 'lg'}
-        variant={props.triggerVariant}
-        shape={props.triggerShape}
-        class={props.class}
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          toggle()
-        }}
-        aria-label={props.ariaLabel ?? 'menu'}
+      <Show
+        when={props.label}
+        fallback={
+          <IconButton
+            ref={button}
+            size={props.triggerSize ?? 'lg'}
+            variant={props.triggerVariant}
+            shape={props.triggerShape}
+            class={props.class}
+            onClick={onTrigger}
+            aria-label={props.ariaLabel ?? 'menu'}
+          >
+            <Show when={props.icon} fallback={<EllipsisIcon width={props.iconSize ?? 16} height={props.iconSize ?? 16} />}>
+              {props.icon}
+            </Show>
+          </IconButton>
+        }
       >
-        <Show when={props.icon} fallback={<EllipsisIcon width={props.iconSize ?? 16} height={props.iconSize ?? 16} />}>
-          {props.icon}
-        </Show>
-      </IconButton>
+        <button
+          ref={button}
+          type="button"
+          class={clsx('cursor-pointer bg-transparent p-0 text-accent [font:inherit] hover:text-accent-hover hover:underline', props.class)}
+          onClick={onTrigger}
+          aria-label={props.ariaLabel ?? props.label}
+        >
+          {props.label}
+        </button>
+      </Show>
       <Show when={open() && pos()}>
         <Portal>
           <div

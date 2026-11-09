@@ -1,4 +1,4 @@
-import { createContext, createEffect, createSignal, useContext, type Accessor, type JSX } from 'solid-js'
+import { createContext, createEffect, createMemo, createSignal, useContext, type Accessor, type JSX } from 'solid-js'
 import { ru } from './ru'
 import type { Dict, MessageKey } from './ru'
 import { en } from './en'
@@ -6,22 +6,33 @@ import { setTitleTheme } from '../title'
 
 export type Lang = 'ru' | 'en'
 export type Theme = 'light' | 'dark'
+export type UiStyle = 'modern' | 'potato' | 'vista'
+export type PotatoHeader = 'peek' | 'hidden' | 'fixed'
+export type PotatoBoardsBar = 'pinned' | 'scroll'
+export type PotatoThreadTitle = 'above' | 'inline' | 'hidden'
+export type PostReplyPosition = 'header' | 'below' | 'hidden'
+export type PostBorderSide = 'top' | 'right' | 'bottom' | 'left'
+
+export const THREAD_SEPARATOR_MIN = 1
+export const THREAD_SEPARATOR_MAX = 12
 
 export const APPEARANCES: { id: string; label: string; file?: string; theme: Theme; enabled?: boolean }[] = [
   { id: 'default_dark', label: 'Default D', file: 'default_dark.css', theme: 'dark' },
   { id: 'default_light', label: 'Default L', file: 'default_light.css', theme: 'light' },
-  { id: 'yotsuba', label: 'Yotsuba', file: 'yotsuba.css', theme: 'light' },
+  { id: 'yotsuba_a', label: 'Yotsuba A', file: 'yotsuba_a.css', theme: 'light' },
   { id: 'matrix', label: 'Matrix', file: 'matrix.css', theme: 'dark' },
   { id: 'gurochan', label: 'Gurochan', file: 'gurochan.css', theme: 'light' },
   { id: 'neutron', label: 'Neutron', file: 'neutron.css', theme: 'dark' },
+  { id: 'jezowy', label: 'Jezowy', file: 'jezowy.css', theme: 'dark' },
   { id: 'dark_oled', label: 'Dark OLED', file: 'dark_oled.css', theme: 'dark' },
-  { id: 'yotsuba_b', label: 'Yotsuba B', file: 'yotsuba_b.css', theme: 'light', enabled: false },
+  { id: 'yotsuba_b', label: 'Yotsuba B', file: 'yotsuba_b.css', theme: 'light' },
   { id: 'futaba', label: 'Futaba', file: 'futaba.css', theme: 'light', enabled: false },
   { id: 'burichan', label: 'Burichan', file: 'burichan.css', theme: 'light', enabled: false },
   { id: 'tomorrow', label: 'Tomorrow', file: 'tomorrow.css', theme: 'dark', enabled: false },
   { id: 'lord_english', label: 'Lord English', file: 'lord_english.css', theme: 'dark', enabled: false },
-  { id: 'sosaka_light', label: 'Sosaka Light', file: 'sosaka light.css', theme: 'light', enabled: false },
-  { id: 'sosaka_dark', label: 'Sosaka Dark', file: 'sosaka dark.css', theme: 'dark', enabled: false },
+  { id: 'nowak', label: 'Nowak', file: 'nowak.css', theme: 'light' },
+  { id: 'sosaka_light', label: 'Sosaka A', file: 'sosaka_a.css', theme: 'light' },
+  { id: 'sosaka_dark', label: 'Sosaka B', file: 'sosaka_b.css', theme: 'dark' },
 ]
 
 const dicts: Record<Lang, Dict> = { ru, en }
@@ -34,6 +45,28 @@ const APPEARANCE_KEY = 'ech-board-appearance'
 const SHOW_DELETED_KEY = 'ech-board-show-deleted'
 const HIDE_THREADS_KEY = 'ech-board-hide-threads'
 const EXPAND_FOLDS_KEY = 'ech-board-expand-folds'
+const HIDE_REACTIONS_KEY = 'ech-board-hide-reactions'
+const POTATO_CENTER_THREADS_KEY = 'ech-board-potato-center-threads'
+const POTATO_CENTER_BOARDS_KEY = 'ech-board-potato-center-boards'
+const POTATO_HEADER_KEY = 'ech-board-potato-header'
+const POTATO_BOARDS_BAR_KEY = 'ech-board-potato-boards-bar'
+const POTATO_THREAD_TITLE_KEY = 'ech-board-potato-thread-title'
+const POTATO_ASCII_BUTTONS_KEY = 'ech-board-potato-ascii-buttons'
+const POTATO_CORNER_RADIUS_KEY = 'ech-board-potato-corner-radius'
+const POST_BORDER_SIDES_KEY = 'ech-board-post-border-sides'
+const OP_POST_BORDERS_KEY = 'ech-board-op-post-borders'
+const OP_POST_BACKGROUND_KEY = 'ech-board-op-post-background'
+const POST_REPLY_POSITION_KEY = 'ech-board-post-reply-position'
+const THREAD_SEPARATOR_KEY = 'ech-board-thread-separator'
+const THREAD_SEPARATOR_HEIGHT_KEY = 'ech-board-thread-separator-height'
+const SHOW_GALLERY_ON_OPEN_KEY = 'ech-board-show-gallery-on-open'
+const ANIMATE_GIFS_KEY = 'ech-board-animate-gifs'
+const UI_STYLE_KEY = 'ech-board-ui-style'
+const CORNER_RADIUS_KEY = 'ech-board-corner-radius'
+const REACTION_SIZE_KEY = 'ech-board-reaction-size'
+const VISTA_PALETTE_KEY = 'ech-board-vista-palette'
+const VISTA_BUBBLES_KEY = 'ech-board-vista-bubbles'
+const CORNER_RADIUS_VERSION_KEY = 'ech-board-corner-radius-version'
 
 function readString(key: string): string | null {
   try {
@@ -64,6 +97,16 @@ function initialTheme(): Theme {
 }
 
 export interface I18nValue {
+  uiStyle: Accessor<UiStyle>
+  setUiStyle: (style: UiStyle) => void
+  cornerRadius: Accessor<number>
+  setCornerRadius: (value: number) => void
+  reactionSize: Accessor<number>
+  setReactionSize: (value: number) => void
+  vistaPalette: Accessor<number>
+  setVistaPalette: (value: number) => void
+  vistaBubbles: Accessor<boolean>
+  setVistaBubbles: (value: boolean) => void
   lang: Accessor<Lang>
   setLang: (l: Lang) => void
   theme: Accessor<Theme>
@@ -76,9 +119,43 @@ export interface I18nValue {
   setHideThreadsCompletely: (v: boolean) => void
   expandFolds: Accessor<boolean>
   setExpandFolds: (v: boolean) => void
+  hideReactions: Accessor<boolean>
+  setHideReactions: (v: boolean) => void
+  centerPotatoThreads: Accessor<boolean>
+  setCenterPotatoThreads: (v: boolean) => void
+  centerPotatoBoards: Accessor<boolean>
+  setCenterPotatoBoards: (v: boolean) => void
+  potatoHeader: Accessor<PotatoHeader>
+  setPotatoHeader: (v: PotatoHeader) => void
+  potatoBoardsBar: Accessor<PotatoBoardsBar>
+  setPotatoBoardsBar: (v: PotatoBoardsBar) => void
+  potatoThreadTitle: Accessor<PotatoThreadTitle>
+  setPotatoThreadTitle: (v: PotatoThreadTitle) => void
+  potatoAsciiButtons: Accessor<boolean>
+  setPotatoAsciiButtons: (v: boolean) => void
+  postBorderSides: Accessor<readonly PostBorderSide[]>
+  setPostBorderSides: (v: readonly PostBorderSide[]) => void
+  opPostBorders: Accessor<boolean>
+  setOpPostBorders: (v: boolean) => void
+  opPostBackground: Accessor<boolean>
+  setOpPostBackground: (v: boolean) => void
+  postReplyPosition: Accessor<PostReplyPosition>
+  setPostReplyPosition: (v: PostReplyPosition) => void
+  threadSeparator: Accessor<boolean>
+  setThreadSeparator: (v: boolean) => void
+  threadSeparatorHeight: Accessor<number>
+  setThreadSeparatorHeight: (v: number) => void
+  showGalleryOnOpen: Accessor<boolean>
+  setShowGalleryOnOpen: (v: boolean) => void
+  animateGifs: Accessor<boolean>
+  setAnimateGifs: (v: boolean) => void
+  preset: Accessor<'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba' | 'operative'>
+  setPreset: (p: 'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba' | 'operative') => void
+  resetToDefaults: () => void
   t: (key: MessageKey, vars?: Record<string, string | number>) => string
   days: Accessor<readonly string[]>
   months: Accessor<readonly string[]>
+
 }
 
 const I18nContext = createContext<I18nValue>()
@@ -100,10 +177,125 @@ export function I18nProvider(props: { children: JSX.Element }) {
   const [showDeleted, setShowDeleted] = boolPref(SHOW_DELETED_KEY, false)
   const [hideThreadsCompletely, setHideThreadsCompletely] = boolPref(HIDE_THREADS_KEY, false)
   const [expandFolds, setExpandFolds] = boolPref(EXPAND_FOLDS_KEY, false)
+  const [hideReactions, setHideReactions] = boolPref(HIDE_REACTIONS_KEY, false)
+  const [centerPotatoThreads, setCenterPotatoThreads] = boolPref(POTATO_CENTER_THREADS_KEY, false)
+  const [centerPotatoBoards, setCenterPotatoBoards] = boolPref(POTATO_CENTER_BOARDS_KEY, false)
+  const storedHeader = readString(POTATO_HEADER_KEY)
+  const [potatoHeader, setPotatoHeaderSignal] = createSignal<PotatoHeader>(storedHeader === 'hidden' || storedHeader === 'fixed' ? storedHeader : 'peek')
+  const setPotatoHeader = (v: PotatoHeader) => {
+    writeString(POTATO_HEADER_KEY, v)
+    setPotatoHeaderSignal(v)
+  }
+  const [potatoBoardsBar, setPotatoBoardsBarSignal] = createSignal<PotatoBoardsBar>(readString(POTATO_BOARDS_BAR_KEY) === 'scroll' ? 'scroll' : 'pinned')
+  const setPotatoBoardsBar = (v: PotatoBoardsBar) => {
+    writeString(POTATO_BOARDS_BAR_KEY, v)
+    setPotatoBoardsBarSignal(v)
+  }
+  const storedThreadTitle = readString(POTATO_THREAD_TITLE_KEY)
+  const [potatoThreadTitle, setPotatoThreadTitleSignal] = createSignal<PotatoThreadTitle>(
+    storedThreadTitle === 'inline' || storedThreadTitle === 'hidden' ? storedThreadTitle : 'above',
+  )
+  const setPotatoThreadTitle = (v: PotatoThreadTitle) => {
+    writeString(POTATO_THREAD_TITLE_KEY, v)
+    setPotatoThreadTitleSignal(v)
+  }
+  const [potatoAsciiButtons, setPotatoAsciiButtons] = boolPref(POTATO_ASCII_BUTTONS_KEY, true)
+  const [opPostBorders, setOpPostBorders] = boolPref(OP_POST_BORDERS_KEY, false)
+  const [opPostBackground, setOpPostBackground] = boolPref(OP_POST_BACKGROUND_KEY, true)
+  const savedReplyPosition = readString(POST_REPLY_POSITION_KEY)
+  const [postReplyPosition, setPostReplyPositionSignal] = createSignal<PostReplyPosition>(
+    savedReplyPosition === 'header' || savedReplyPosition === 'hidden' ? savedReplyPosition : 'below',
+  )
+  const setPostReplyPosition = (v: PostReplyPosition) => {
+    writeString(POST_REPLY_POSITION_KEY, v)
+    setPostReplyPositionSignal(v)
+  }
+  const validBorderSides = new Set<PostBorderSide>(['top', 'right', 'bottom', 'left'])
+  const storedBorderSides = (readString(POST_BORDER_SIDES_KEY) ?? '')
+    .split(',')
+    .filter((side): side is PostBorderSide => validBorderSides.has(side as PostBorderSide))
+  const [postBorderSides, setPostBorderSidesSignal] = createSignal<readonly PostBorderSide[]>([...new Set(storedBorderSides)])
+  const setPostBorderSides = (v: readonly PostBorderSide[]) => {
+    const next = [...new Set(v.filter((side) => validBorderSides.has(side)))]
+    writeString(POST_BORDER_SIDES_KEY, next.join(','))
+    setPostBorderSidesSignal(next)
+  }
+  const [threadSeparator, setThreadSeparator] = boolPref(THREAD_SEPARATOR_KEY, true)
+  const clampSeparatorHeight = (value: number) =>
+    Number.isFinite(value) ? Math.max(THREAD_SEPARATOR_MIN, Math.min(THREAD_SEPARATOR_MAX, Math.round(value))) : THREAD_SEPARATOR_MIN
+  const savedSeparatorHeight = readString(THREAD_SEPARATOR_HEIGHT_KEY)
+  const [threadSeparatorHeight, setThreadSeparatorHeightSignal] = createSignal<number>(
+    clampSeparatorHeight(savedSeparatorHeight === null ? THREAD_SEPARATOR_MIN : Number(savedSeparatorHeight)),
+  )
+  const setThreadSeparatorHeight = (value: number) => {
+    const next = clampSeparatorHeight(value)
+    writeString(THREAD_SEPARATOR_HEIGHT_KEY, String(next))
+    setThreadSeparatorHeightSignal(next)
+  }
+  const [showGalleryOnOpen, setShowGalleryOnOpen] = boolPref(SHOW_GALLERY_ON_OPEN_KEY, false)
+  const [animateGifs, setAnimateGifs] = boolPref(ANIMATE_GIFS_KEY, false)
+  const storedStyle = readString(UI_STYLE_KEY)
+  const [uiStyle, setUiStyleSignal] = createSignal<UiStyle>(storedStyle === 'potato' || storedStyle === 'vista' ? storedStyle : 'modern')
+  const savedRadius = readString(CORNER_RADIUS_KEY)
+  const radiusVersion = readString(CORNER_RADIUS_VERSION_KEY)
+  const storedRadiusValue = savedRadius === null ? 100 : Number(savedRadius)
+  const validStoredRadius = Number.isFinite(storedRadiusValue) ? Math.max(0, Math.min(100, storedRadiusValue)) : 100
+  const migratedRadius = radiusVersion === '2' || savedRadius === null
+    ? validStoredRadius
+    : Math.max(0, Math.min(100, validStoredRadius * 2))
+  const storedRadius = Math.round(migratedRadius / 10) * 10
+  writeString(CORNER_RADIUS_VERSION_KEY, '2')
+  if (savedRadius !== null && radiusVersion !== '2') writeString(CORNER_RADIUS_KEY, String(storedRadius))
+  const [modernCornerRadius, setModernCornerRadiusSignal] = createSignal<number>(storedRadius)
+  const savedPotatoRadius = readString(POTATO_CORNER_RADIUS_KEY)
+  const potatoRadiusValue = savedPotatoRadius === null ? 100 : Number(savedPotatoRadius)
+  const [potatoCornerRadius, setPotatoCornerRadiusSignal] = createSignal<number>(
+    Math.round(Math.max(0, Math.min(100, Number.isFinite(potatoRadiusValue) ? potatoRadiusValue : 100)) / 10) * 10,
+  )
+  const cornerRadius: Accessor<number> = () => (uiStyle() === 'potato' ? potatoCornerRadius() : uiStyle() === 'vista' ? 100 : modernCornerRadius())
+  const savedReactionSize = readString(REACTION_SIZE_KEY)
+  const reactionSizeValue = savedReactionSize === null ? 100 : Number(savedReactionSize)
+  const [reactionSize, setReactionSizeSignal] = createSignal<number>(
+    Math.round(Math.max(0, Math.min(100, Number.isFinite(reactionSizeValue) ? reactionSizeValue : 100)) / 10) * 10,
+  )
+  const savedVistaPalette = readString(VISTA_PALETTE_KEY)
+  const parsedVistaPalette = savedVistaPalette === null ? 0 : Number(savedVistaPalette)
+  const [vistaPalette, setVistaPaletteSignal] = createSignal<number>(
+    Math.round(Math.max(0, Math.min(100, Number.isFinite(parsedVistaPalette) ? parsedVistaPalette : 0)) / 5) * 5,
+  )
+  const [vistaBubbles, setVistaBubbles] = boolPref(VISTA_BUBBLES_KEY, false)
 
   const setLang = (value: Lang) => {
     writeString(LANG_KEY, value)
     setLangSignal(value)
+  }
+
+  const setUiStyle = (style: UiStyle) => {
+    writeString(UI_STYLE_KEY, style)
+    setUiStyleSignal(style)
+  }
+
+  const setCornerRadius = (value: number) => {
+    const next = Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value / 10) * 10)) : 100
+    if (uiStyle() === 'modern') {
+      writeString(CORNER_RADIUS_KEY, String(next))
+      setModernCornerRadiusSignal(next)
+    } else if (uiStyle() === 'potato') {
+      writeString(POTATO_CORNER_RADIUS_KEY, String(next))
+      setPotatoCornerRadiusSignal(next)
+    }
+  }
+
+  const setReactionSize = (value: number) => {
+    const next = Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value / 10) * 10)) : 100
+    writeString(REACTION_SIZE_KEY, String(next))
+    setReactionSizeSignal(next)
+  }
+
+  const setVistaPalette = (value: number) => {
+    const next = Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value / 5) * 5)) : 0
+    writeString(VISTA_PALETTE_KEY, String(next))
+    setVistaPaletteSignal(next)
   }
 
   const setTheme = (value: Theme) => {
@@ -124,8 +316,29 @@ export function I18nProvider(props: { children: JSX.Element }) {
   }
 
   createEffect(() => {
+    document.documentElement.setAttribute('data-ui-style', uiStyle())
+    const radius = cornerRadius()
+    document.documentElement.setAttribute('data-corner-radius', String(radius))
+    const cornerScale = radius / 100
+    document.documentElement.style.setProperty('--corner-scale', String(cornerScale))
+    document.documentElement.style.setProperty('--toggle-corner-scale', String(Math.sqrt(cornerScale)))
+    document.documentElement.style.setProperty('--reaction-size', `${12 + reactionSize() * 0.12}px`)
+    document.documentElement.style.setProperty('--reaction-glyph-size', `${12 + reactionSize() * (uiStyle() === 'potato' ? 0.12 : 0.04)}px`)
+    document.documentElement.style.setProperty('--reaction-picker-size', `${12 + reactionSize() * 0.08}px`)
+    document.documentElement.style.setProperty('--vista-hue-shift', String(vistaPalette() * 3.6))
+  })
+
+  createEffect(() => {
+    const root = document.documentElement
+    root.setAttribute('data-thread-separator', threadSeparator() ? 'on' : 'off')
+    root.style.setProperty('--thread-separator-h', `${threadSeparatorHeight()}px`)
+  })
+
+  createEffect(() => {
     const found = APPEARANCES.find((item) => item.id === appearance())
-    const href = found?.file ? APPEARANCE_CSS[`../appearances/${found.file}`] : null
+    const vista = uiStyle() === 'vista'
+    document.documentElement.setAttribute('data-appearance', vista ? 'vista' : (found?.id ?? appearance()))
+    const href = !vista && found?.file ? APPEARANCE_CSS[`../appearances/${found.file}`] : null
     let link = document.querySelector<HTMLLinkElement>('link[data-appearance]')
     if (!href) {
       link?.remove()
@@ -143,8 +356,9 @@ export function I18nProvider(props: { children: JSX.Element }) {
   createEffect(() => {
     const found = APPEARANCES.find((item) => item.id === appearance())
     if (!found) return
-    document.documentElement.setAttribute('data-theme', found.theme)
-    setTitleTheme(found.theme)
+    const theme = uiStyle() === 'vista' ? 'light' : found.theme
+    document.documentElement.setAttribute('data-theme', theme)
+    setTitleTheme(theme)
   })
 
   const t = (key: MessageKey, vars?: Record<string, string | number>) => {
@@ -155,7 +369,368 @@ export function I18nProvider(props: { children: JSX.Element }) {
     return s
   }
 
+
+  const isDefaultConfig = createMemo(() => {
+    return (
+      appearance() === "default_dark" &&
+      !hideReactions() &&
+      !centerPotatoThreads() &&
+      !centerPotatoBoards() &&
+      potatoHeader() === "peek" &&
+      potatoBoardsBar() === "pinned" &&
+      potatoThreadTitle() === "above" &&
+      potatoAsciiButtons() &&
+      !opPostBorders() &&
+      opPostBackground() &&
+      postReplyPosition() === "below" &&
+      postBorderSides().length === 0 &&
+      threadSeparator() &&
+      threadSeparatorHeight() === THREAD_SEPARATOR_MIN &&
+      uiStyle() === "modern" &&
+      modernCornerRadius() === 100 &&
+      potatoCornerRadius() === 100 &&
+      reactionSize() === 100 &&
+      vistaPalette() === 0 &&
+      !vistaBubbles()
+    )
+  })
+
+  const isEscapismConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "default_dark" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      !centerPotatoBoards() &&
+      potatoHeader() === "peek" &&
+      potatoThreadTitle() === "inline" &&
+      !potatoAsciiButtons() &&
+      !hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "below" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 1 &&
+      potatoCornerRadius() === 50 &&
+      sides.length === 4 &&
+      sides.includes("top") &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      sides.includes("left") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
+  const isGuroConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "gurochan" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      !centerPotatoBoards() &&
+      potatoHeader() === "hidden" &&
+      potatoThreadTitle() === "inline" &&
+      !potatoAsciiButtons() &&
+      hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "header" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 3 &&
+      potatoCornerRadius() === 0 &&
+      sides.length === 2 &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
+  const isMootConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "yotsuba_a" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      centerPotatoBoards() &&
+      potatoBoardsBar() === "scroll" &&
+      potatoHeader() === "hidden" &&
+      potatoThreadTitle() === "inline" &&
+      !potatoAsciiButtons() &&
+      hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "below" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 1 &&
+      potatoCornerRadius() === 0 &&
+      sides.length === 2 &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
+  const isEndConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "yotsuba_b" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      centerPotatoBoards() &&
+      potatoBoardsBar() === "pinned" &&
+      potatoHeader() === "hidden" &&
+      potatoThreadTitle() === "inline" &&
+      potatoAsciiButtons() &&
+      hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "header" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 1 &&
+      potatoCornerRadius() === 0 &&
+      sides.length === 2 &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
+  const isAbobaConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "nowak" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      centerPotatoBoards() &&
+      potatoBoardsBar() === "scroll" &&
+      potatoHeader() === "fixed" &&
+      potatoThreadTitle() === "inline" &&
+      !potatoAsciiButtons() &&
+      hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "below" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 1 &&
+      potatoCornerRadius() === 0 &&
+      sides.length === 4 &&
+      sides.includes("top") &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      sides.includes("left") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
+  const isOperativeConfig = createMemo(() => {
+    const sides = postBorderSides()
+    return (
+      appearance() === "jezowy" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      !centerPotatoBoards() &&
+      potatoHeader() === "hidden" &&
+      potatoThreadTitle() === "inline" &&
+      !potatoAsciiButtons() &&
+      hideReactions() &&
+      reactionSize() === 50 &&
+      postReplyPosition() === "below" &&
+      threadSeparator() &&
+      threadSeparatorHeight() === 1 &&
+      potatoCornerRadius() === 100 &&
+      sides.length === 4 &&
+      sides.includes("top") &&
+      sides.includes("right") &&
+      sides.includes("bottom") &&
+      sides.includes("left") &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
+  const preset = createMemo(() => {
+    if (isDefaultConfig()) return "default"
+    if (isEscapismConfig()) return "escapism"
+    if (isGuroConfig()) return "guro"
+    if (isMootConfig()) return "moot"
+    if (isEndConfig()) return "end"
+    if (isAbobaConfig()) return "aboba"
+    if (isOperativeConfig()) return "operative"
+    return "custom"
+  })
+
+  const resetToDefaults = () => {
+    setAppearance("default_dark")
+    setHideReactions(false)
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(false)
+    setPotatoHeader("peek")
+    setPotatoBoardsBar("pinned")
+    setPotatoThreadTitle("above")
+    setPotatoAsciiButtons(true)
+    setOpPostBorders(false)
+    setOpPostBackground(true)
+    setPostReplyPosition("below")
+    setPostBorderSides([])
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(THREAD_SEPARATOR_MIN)
+    setUiStyle("modern")
+    writeString(CORNER_RADIUS_KEY, "100")
+    setModernCornerRadiusSignal(100)
+    writeString(POTATO_CORNER_RADIUS_KEY, "100")
+    setPotatoCornerRadiusSignal(100)
+    setReactionSize(100)
+    setVistaPalette(0)
+    setVistaBubbles(false)
+  }
+
+  const applyEscapism = () => {
+    setAppearance("default_dark")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(false)
+    setPotatoHeader("peek")
+    setPotatoBoardsBar("pinned")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(false)
+    setHideReactions(false)
+    setReactionSize(50)
+    setPostReplyPosition("below")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(1)
+    writeString(POTATO_CORNER_RADIUS_KEY, "50")
+    setPotatoCornerRadiusSignal(50)
+    setPostBorderSides(["top", "right", "bottom", "left"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const applyGuro = () => {
+    setAppearance("gurochan")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(false)
+    setPotatoHeader("hidden")
+    setPotatoBoardsBar("pinned")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(false)
+    setHideReactions(true)
+    setReactionSize(50)
+    setPostReplyPosition("header")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(3)
+    writeString(POTATO_CORNER_RADIUS_KEY, "0")
+    setPotatoCornerRadiusSignal(0)
+    setPostBorderSides(["right", "bottom"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const applyMoot = () => {
+    setAppearance("yotsuba_a")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(true)
+    setPotatoHeader("hidden")
+    setPotatoBoardsBar("scroll")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(false)
+    setHideReactions(true)
+    setReactionSize(50)
+    setPostReplyPosition("below")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(1)
+    writeString(POTATO_CORNER_RADIUS_KEY, "0")
+    setPotatoCornerRadiusSignal(0)
+    setPostBorderSides(["right", "bottom"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const applyEnd = () => {
+    setAppearance("yotsuba_b")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(true)
+    setPotatoHeader("hidden")
+    setPotatoBoardsBar("pinned")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(true)
+    setHideReactions(true)
+    setReactionSize(50)
+    setPostReplyPosition("header")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(1)
+    writeString(POTATO_CORNER_RADIUS_KEY, "0")
+    setPotatoCornerRadiusSignal(0)
+    setPostBorderSides(["right", "bottom"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const applyAboba = () => {
+    setAppearance("nowak")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(true)
+    setPotatoHeader("fixed")
+    setPotatoBoardsBar("scroll")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(false)
+    setHideReactions(true)
+    setReactionSize(50)
+    setPostReplyPosition("below")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(1)
+    writeString(POTATO_CORNER_RADIUS_KEY, "0")
+    setPotatoCornerRadiusSignal(0)
+    setPostBorderSides(["top", "right", "bottom", "left"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const applyOperative = () => {
+    setAppearance("jezowy")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(false)
+    setPotatoHeader("hidden")
+    setPotatoBoardsBar("pinned")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(false)
+    setHideReactions(true)
+    setReactionSize(50)
+    setPostReplyPosition("below")
+    setThreadSeparator(true)
+    setThreadSeparatorHeight(1)
+    writeString(POTATO_CORNER_RADIUS_KEY, "100")
+    setPotatoCornerRadiusSignal(100)
+    setPostBorderSides(["top", "right", "bottom", "left"])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const setPreset = (p: "default" | "custom" | "escapism" | "guro" | "moot" | "end" | "aboba" | "operative") => {
+    if (p === "default") resetToDefaults()
+    else if (p === "escapism") applyEscapism()
+    else if (p === "guro") applyGuro()
+    else if (p === "moot") applyMoot()
+    else if (p === "end") applyEnd()
+    else if (p === "aboba") applyAboba()
+    else if (p === "operative") applyOperative()
+  }
+
   const value: I18nValue = {
+    uiStyle,
+    setUiStyle,
+    cornerRadius,
+    setCornerRadius,
+    reactionSize,
+    setReactionSize,
+    vistaPalette,
+    setVistaPalette,
+    vistaBubbles,
+    setVistaBubbles,
     lang,
     setLang,
     theme,
@@ -168,6 +743,39 @@ export function I18nProvider(props: { children: JSX.Element }) {
     setHideThreadsCompletely,
     expandFolds,
     setExpandFolds,
+    hideReactions,
+    setHideReactions,
+    centerPotatoThreads,
+    setCenterPotatoThreads,
+    centerPotatoBoards,
+    setCenterPotatoBoards,
+    potatoHeader,
+    setPotatoHeader,
+    potatoBoardsBar,
+    setPotatoBoardsBar,
+    potatoThreadTitle,
+    setPotatoThreadTitle,
+    potatoAsciiButtons,
+    setPotatoAsciiButtons,
+    postBorderSides,
+    setPostBorderSides,
+    opPostBorders,
+    setOpPostBorders,
+    opPostBackground,
+    setOpPostBackground,
+    postReplyPosition,
+    setPostReplyPosition,
+    threadSeparator,
+    setThreadSeparator,
+    threadSeparatorHeight,
+    setThreadSeparatorHeight,
+    showGalleryOnOpen,
+    setShowGalleryOnOpen,
+    animateGifs,
+    setAnimateGifs,
+    preset,
+    setPreset,
+    resetToDefaults,
     t,
     days: () => dicts[lang()].days,
     months: () => dicts[lang()].months,
@@ -176,8 +784,19 @@ export function I18nProvider(props: { children: JSX.Element }) {
   return <I18nContext.Provider value={value}>{props.children}</I18nContext.Provider>
 }
 
+export function useIsPotato(): Accessor<boolean> {
+  const { uiStyle } = useI18n()
+  return () => uiStyle() === 'potato'
+}
+
+export function useIsVista(): Accessor<boolean> {
+  const { uiStyle } = useI18n()
+  return () => uiStyle() === 'vista'
+}
+
 export function useI18n(): I18nValue {
   const value = useContext(I18nContext)
   if (!value) throw new Error('useI18n must be used within I18nProvider')
   return value
 }
+

@@ -18,7 +18,7 @@ const overlineVariants = cva('overline')
 const spoilerVariants = cva('post-spoiler')
 const linkCardVariants = cva('link-card inline-flex h-linkcard w-linkcard cursor-pointer items-center justify-center overflow-hidden break-words rounded-sm bg-panel2 p-1.5 text-center font-semibold text-accent hover:bg-hover')
 const linkRowVariants = cva('inline-flex flex-wrap gap-1.5')
-const refLinkVariants = cva('cursor-pointer text-accent')
+const refLinkVariants = cva('post-ref cursor-pointer text-accent')
 
 const URL_RE = /https?:\/\/[^\s<>"')\]}]+/g
 const URL_TRAIL = /[.,;:!?]+$/

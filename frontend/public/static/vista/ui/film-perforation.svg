@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="10" height="100" viewBox="0 0 10 100" preserveAspectRatio="none">
+  <defs>
+    <mask id="film-holes" maskUnits="userSpaceOnUse" x="0" y="0" width="10" height="100">
+      <rect width="10" height="100" fill="#fff"/>
+      <rect x="1.5" y="7" width="7" height="7" rx="1.8" fill="#000"/>
+      <rect x="1.5" y="32" width="7" height="7" rx="1.8" fill="#000"/>
+      <rect x="1.5" y="57" width="7" height="7" rx="1.8" fill="#000"/>
+      <rect x="1.5" y="82" width="7" height="7" rx="1.8" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="10" height="100" fill="#454c54" mask="url(#film-holes)"/>
+</svg>

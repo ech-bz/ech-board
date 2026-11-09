@@ -5,9 +5,12 @@ import { IconButton } from '../components/IconButton'
 import { PageHeader } from '../components/PageHeader'
 import { TabBar } from '../components/TabBar'
 import { SquarePenIcon } from '../icons/SquarePenIcon'
+import { ChevronDownIcon } from '../icons/ChevronDownIcon'
 import { DropdownMenu, type MenuItem } from '../components/Menu/DropdownMenu'
 import { useBoardInfo, useLoadingMore, useRows, useStore } from '../store'
-import { useI18n } from '../i18n'
+import { useI18n, useIsPotato, useIsVista } from '../i18n'
+import { useRestart } from '../restart'
+import { composePath } from '../route'
 import { useEntityActions } from '../entityActions'
 import { useIsMobile } from '../components/Gallery/useIsMobile'
 import { useMobileTabs } from '../mobileNav'
@@ -17,15 +20,20 @@ import { useNav } from '../nav'
 const pageVariants = cva('flex min-h-screen min-w-0 flex-col')
 const screenVariants = cva('flex min-h-dvh flex-col')
 const headerIconBtnVariants = cva('px-1 py-2 hover:bg-hover')
-const boardMenuTriggerVariants = cva('px-1 py-2 hover:bg-hover')
 const listVariants = cva('px-6 pb-12 pt-4')
 const listMobileVariants = cva('pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1.25rem+env(safe-area-inset-right,0px))] pb-[calc(var(--mobile-tab)+80px)] pt-2.5')
 const sentinelVariants = cva('h-px')
+const potatoListVariants = cva('pb-12')
+const potatoCreateVariants = cva('cursor-pointer text-accent hover:text-accent-hover hover:underline')
 const moreVariants = cva('py-3 text-center text-md text-secondary')
 
-export function BoardPage(props: { forumId: string; slug: string; heading: string; host?: string }) {
+export function BoardPage(props: { forumId: string; slug: string; heading: string; host?: string; boardTitle?: string }) {
   const { t, showDeleted } = useI18n()
-  const mobile = useIsMobile()
+  const potato = useIsPotato()
+  const vista = useIsVista()
+  const phone = useIsMobile()
+  const mobile = () => phone() && !potato()
+  const restart = useRestart()
   const tabs = useMobileTabs()
   const rows = useRows(showDeleted)
   const info = useBoardInfo()
@@ -62,31 +70,51 @@ export function BoardPage(props: { forumId: string; slug: string; heading: strin
     <section class={mobile() ? screenVariants() : pageVariants()}>
       <PageHeader
         title={props.heading}
-        subtitle={props.host ?? ''}
-        onBack={mobile() ? () => nav.back() : undefined}
+        subtitle={potato() ? undefined : (props.host ?? '')}
+        onBack={mobile() || vista() ? () => nav.back() : undefined}
+        onTitle={restart}
         trailing={
-          <>
-            <IconButton size="lg" variant="glass" class={headerIconBtnVariants()} onClick={compose}>
-              <SquarePenIcon width={20} height={20} />
-            </IconButton>
-            <DropdownMenu items={boardMenu()} triggerVariant="glass" class={boardMenuTriggerVariants()} />
-          </>
+          <Show
+            when={potato()}
+            fallback={
+              <>
+                <IconButton size="lg" variant="glass" class={headerIconBtnVariants()} onClick={compose}>
+                  <SquarePenIcon width={20} height={20} />
+                </IconButton>
+                <DropdownMenu items={boardMenu()} triggerSize="lg" icon={vista() ? <ChevronDownIcon width={20} height={20} /> : undefined} />
+              </>
+            }
+          >
+            <a
+              class={potatoCreateVariants()}
+              href={composePath(props.forumId, props.slug)}
+              onClick={(e) => {
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
+                e.preventDefault()
+                compose()
+              }}
+            >
+              {t('ui.createThread')}
+            </a>
+            <DropdownMenu items={boardMenu()} label={t('ui.menu')} />
+          </Show>
         }
       />
-      <div class={mobile() ? listMobileVariants() : listVariants()}>
+      <div class={potato() ? potatoListVariants() : mobile() ? listMobileVariants() : listVariants()}>
         <For each={rows()}>
           {(row) => (
             <ThreadPreview
               row={row}
               forumId={props.forumId}
               slug={props.slug}
+              boardTitle={props.boardTitle}
               onOpen={() => nav.navigate({ page: 'thread', forumId: props.forumId, slug: props.slug, threadNum: row.number })}
             />
           )}
         </For>
         <div ref={sentinel} class={sentinelVariants()} />
         <Show when={loadingMore()}>
-          <div class={moreVariants()}>{t('common.loading')}</div>
+          <div class={moreVariants()} data-on-wallpaper="">{t('common.loading')}</div>
         </Show>
       </div>
       <Show when={mobile()}>

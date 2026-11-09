@@ -6,7 +6,8 @@ import { PostComposer } from '../components/PostComposer/PostComposer'
 import { ThreadNavDown, ThreadNavUp } from '../components/ThreadNav'
 import { PageHeader } from '../components/PageHeader'
 import { usePage, usePosts, useStore } from '../store'
-import { useI18n } from '../i18n'
+import { useI18n, useIsPotato } from '../i18n'
+import { useRestart } from '../restart'
 import { useEntityActions } from '../entityActions'
 import { useIsMobile } from '../components/Gallery/useIsMobile'
 import { PostSelectionProvider } from '../postSelection/PostSelectionProvider'
@@ -19,12 +20,12 @@ import { canBanByUid, canPostAction } from '../../core/intent/capabilities'
 
 const pageVariants = cva('flex min-h-screen min-w-0 flex-col')
 const screenVariants = cva('flex min-h-dvh flex-col')
-const menuTriggerVariants = cva('ml-auto px-1 py-2 hover:bg-hover')
 const listVariants = cva('pl-4 pr-3.5')
+const potatoListVariants = cva('px-3 pb-4')
 const listMobileVariants = cva('pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] pb-0 pt-2.5')
 const markerVariants = cva('my-3 w-full border-t-2 border-dashed border-accent will-change-transform')
 
-export function ThreadPage(props: { forumId: string; slug: string; threadNum: number }) {
+export function ThreadPage(props: { forumId: string; slug: string; threadNum: number; boardTitle?: string }) {
   const { showDeleted, t } = useI18n()
   const [editingUid, setEditingUid] = createSignal<string | null>(null)
   const posts = usePosts(showDeleted)
@@ -46,6 +47,7 @@ export function ThreadPage(props: { forumId: string; slug: string; threadNum: nu
         forumId={props.forumId}
         slug={props.slug}
         threadNum={props.threadNum}
+        boardTitle={props.boardTitle}
         posts={posts}
         threadMenu={threadMenu}
         editingUid={editingUid()}
@@ -60,21 +62,26 @@ function ThreadBody(props: {
   forumId: string
   slug: string
   threadNum: number
+  boardTitle?: string
   posts: () => readonly string[]
   threadMenu: () => ReturnType<typeof threadModItems>
   editingUid: string | null
   onEdit: (uid: string) => void
   onEditDone: () => void
 }) {
-  const { t } = useI18n()
+  const { t, potatoThreadTitle } = useI18n()
   const store = useStore()
   const nav = useNav()
-  const mobile = useIsMobile()
+  const potato = useIsPotato()
+  const phone = useIsMobile()
+  const mobile = () => phone() && !potato()
+  const restart = useRestart()
   const page = usePage()
   const location = useLocation()
   const posts = props.posts
-  const heading = () => store.threadTitle() || `#${props.threadNum}`
-  const sub = () => (store.threadTitle() ? `/${props.slug}/ - ${t('ui.threadLabel', { n: props.threadNum })}` : `/${props.slug}/`)
+  const headTitle = () => (potato() && potatoThreadTitle() !== 'above' ? '' : store.threadTitle())
+  const heading = () => headTitle() || `#${props.threadNum}`
+  const sub = () => (headTitle() ? `/${props.slug}/ - ${t('ui.threadLabel', { n: props.threadNum })}` : `/${props.slug}/`)
   const back = () => nav.back()
   const unread = createThreadUnread(
     () => posts().length,
@@ -207,10 +214,12 @@ function ThreadBody(props: {
       <PageHeader
         title={heading()}
         subtitle={sub()}
+        topic={!!headTitle()}
         onBack={back}
+        onTitle={restart}
         trailing={
           <Show when={page()}>
-            <ThreadSelectionMenu items={props.threadMenu()} variant="glass" class={menuTriggerVariants()} />
+            <ThreadSelectionMenu items={props.threadMenu()} size="lg" label={potato() ? t('ui.menu') : undefined} />
           </Show>
         }
         below={
@@ -219,7 +228,12 @@ function ThreadBody(props: {
           </Show>
         }
       />
-      <div data-thread-scroll="" data-post-column="" class={mobile() ? listMobileVariants() : listVariants()}>
+      <div
+        data-thread-scroll=""
+        data-post-column=""
+        data-potato-thread-list={potato() ? '' : undefined}
+        class={potato() ? potatoListVariants() : mobile() ? listMobileVariants() : listVariants()}
+      >
         <For each={posts()}>
           {(uid, index) => (
             <>
@@ -234,6 +248,7 @@ function ThreadBody(props: {
                 threadBroom={page()!.opAdmin}
                 slug={props.slug}
                 threadNum={props.threadNum}
+                boardTitle={props.boardTitle}
                 onEdit={props.onEdit}
               />
             </>

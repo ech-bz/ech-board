@@ -4,7 +4,7 @@ import { IconButton } from '../components/IconButton'
 import { PageHeader } from '../components/PageHeader'
 import { PostComposer } from '../components/PostComposer/PostComposer'
 import { EllipsisVerticalIcon } from '../icons/EllipsisVerticalIcon'
-import { useI18n } from '../i18n'
+import { useI18n, useIsPotato } from '../i18n'
 import { useIsMobile } from '../components/Gallery/useIsMobile'
 import { useNav } from '../nav'
 
@@ -16,7 +16,9 @@ const threadContentVariants = cva('pl-4')
 export function ComposePage(props: { forumId: string; slug: string; heading: string }) {
   const { t } = useI18n()
   const nav = useNav()
-  const mobile = useIsMobile()
+  const potato = useIsPotato()
+  const phone = useIsMobile()
+  const mobile = () => phone() && !potato()
   const back = () => nav.back()
   return (
     <Show

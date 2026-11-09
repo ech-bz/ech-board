@@ -1,7 +1,7 @@
 import { Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
 import { A } from '@solidjs/router'
-import { useI18n } from '../i18n'
+import { useI18n, useIsPotato } from '../i18n'
 import { AppearanceView } from '../components/AppearanceView'
 import { MasterKeyView } from '../components/MasterKeyView'
 import { PageHeader } from '../components/PageHeader'
@@ -34,7 +34,9 @@ const SETTING_KEYS: Record<SettingSlug, string> = { key: 'Master Key', appearanc
 export function SettingsPage(props: { setting: SettingSlug | null; baseHref: string }) {
   const { t } = useI18n()
   const nav = useNav()
-  const mobile = useIsMobile()
+  const potato = useIsPotato()
+  const phone = useIsMobile()
+  const mobile = () => phone() && !potato()
   const tabs = useMobileTabs()
   const key = () => (props.setting ? SETTING_KEYS[props.setting] : null)
   const label = () => (key() ? settingLabel(key()!, t) : t('ui.settings'))
@@ -70,7 +72,7 @@ export function SettingsPage(props: { setting: SettingSlug | null; baseHref: str
       <section class={screenVariants()}>
         <PageHeader title={label()} onBack={props.setting ? () => nav.navigate({ page: 'settings' }) : undefined} />
         <Show when={key()} fallback={<SettingsList baseHref={props.baseHref} />}>
-          <div class={mobilePadVariants()}>{view()}</div>
+          <div class={`${mobilePadVariants()} settings-mobile-content`}>{view()}</div>
         </Show>
         <TabBar boardsActive={false} settingsActive onGoHome={tabs.goHome} onOpenSettings={tabs.openSettings} />
       </section>

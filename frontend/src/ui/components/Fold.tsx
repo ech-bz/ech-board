@@ -7,7 +7,7 @@ const FoldContext = createContext<{ depth: number; parentOpen: () => boolean }>(
 const foldVariants = cva('relative inline-block w-full align-top my-0.5 rounded-sm pl-2.5 overflow-hidden', {
   variants: { depth: { even: 'bg-panel2', odd: 'bg-[var(--post-bg)]' } },
 })
-const foldRailVariants = cva('absolute top-0 bottom-0 left-0 w-0.5 rounded-full bg-accent/80 transition-all duration-200')
+const foldRailVariants = cva('fold-rail absolute top-0 bottom-0 left-0 w-0.5 rounded-full bg-accent/80 transition-all duration-200')
 const foldTriggerVariants = cva(
   'grid min-h-8 w-full cursor-pointer grid-cols-[minmax(0,1fr)_16px] items-center rounded-sm border-0 bg-transparent py-0 pr-1.5 pl-2 text-left font-semibold text-fg text-xl',
 )
@@ -23,15 +23,16 @@ const foldPanelVariants = cva('grid transition-[grid-template-rows,opacity] dura
 const foldPanelInnerVariants = cva('min-h-0 overflow-hidden')
 const foldBodyVariants = cva('py-0.5 pr-6 pl-2 text-base text-fg')
 
-export function Fold(props: { title: string; children: JSX.Element }) {
+export function Fold(props: { title: string; children: JSX.Element; defaultOpen?: boolean; followExpandFolds?: boolean }) {
   const { expandFolds } = useI18n()
   const parent = useContext(FoldContext)
-  const [open, setOpen] = createSignal(expandFolds())
+  const follow = () => props.followExpandFolds ?? true
+  const [open, setOpen] = createSignal(props.defaultOpen ?? (follow() && expandFolds()))
   createEffect(
     on(
       expandFolds,
       (value) => {
-        if (value) setOpen(true)
+        if (value && follow()) setOpen(true)
       },
       { defer: true },
     ),

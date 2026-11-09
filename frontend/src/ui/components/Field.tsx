@@ -2,7 +2,7 @@ import { splitProps, type JSX } from 'solid-js'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { clsx } from 'clsx'
 
-const fieldVariants = cva('bg-panel2 text-fg text-md border-0 outline-none px-3 py-2 rounded-md appearance-none', {
+const fieldVariants = cva('bg-active text-fg text-md border-0 outline-none px-3 py-2 rounded-md appearance-none', {
   variants: {
     bordered: {
       true: 'border border-separator',

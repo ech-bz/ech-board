@@ -5,3 +5,7 @@ traces
 Cargo.lock
 node_modules
 dist
+frontend/frontend.zip
+frontend/frontend.zip
+frontend/.vite/deps/_metadata.json
+frontend/.vite/deps/package.json

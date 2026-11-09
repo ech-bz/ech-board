@@ -1,6 +1,6 @@
 import { createSignal, For, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
-import { useI18n } from '../i18n'
+import { useI18n, useIsVista } from '../i18n'
 import { boardPath, settingKeyToSlug, type SettingSlug } from '../route'
 import type { Section } from '../nav'
 import { CheckIcon } from '../icons/CheckIcon'
@@ -9,12 +9,15 @@ import { KeyRoundIcon } from '../icons/KeyRoundIcon'
 import { PaletteIcon } from '../icons/PaletteIcon'
 import { PanelLeftCloseIcon } from '../icons/PanelLeftCloseIcon'
 import { PanelLeftOpenIcon } from '../icons/PanelLeftOpenIcon'
+import { PlayIcon } from '../icons/PlayIcon'
+import { BoardIcon } from '../vista/BoardIcon'
 import { BoardsIcon } from '../icons/BoardsIcon'
 import { SettingsIcon } from '../icons/SettingsIcon'
 import { Capsule } from './Capsule'
 import { IconButton } from './IconButton'
 import { settingLabel } from '../settings'
 import type { BoardInfo, ForumInfo } from '../../core/views'
+import { VISTA_LOGO, logoFor } from '../vista/boardIcons'
 
 const navScrollVariants = cva('flex-1 min-h-0 overflow-y-auto')
 const navInnerVariants = cva('flex min-h-full flex-col pb-3')
@@ -89,72 +92,105 @@ export function NavPanel(props: {
   settingsHref: string
   onNavigateSection: (section: Section) => void
 }) {
-  const { t } = useI18n()
+  const { t, appearance, preset } = useI18n()
+  const vista = useIsVista()
   const [forumMenuOpen, setForumMenuOpen] = createSignal(false)
   const isActiveSetting = (name: string) => settingKeyToSlug(name) === props.setting
   const title = () => (props.section === 'boards' ? t('ui.boards') : t('ui.settings'))
+  const logoSrc = () => (vista() ? VISTA_LOGO : logoFor(appearance(), preset()))
+  const forumSelect = () => (
+    <div class={forumSelectWrapVariants()} data-nav="forum">
+      <button
+        class={forumSelectBtnVariants()}
+        onClick={(e) => {
+          e.stopPropagation()
+          setForumMenuOpen(!forumMenuOpen())
+        }}
+      >
+        <div class={logoVariants()}>
+          <img class={logoImgVariants()} src={logoSrc()} alt="" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div class={strongVariants()} data-nav="forum-host">{props.forum ? props.forum.host : ''}</div>
+          <div class={subVariants()} data-nav="forum-sub">{t('ui.currentForum')}</div>
+        </div>
+        <div class={chevronVariants()}>
+          <ChevronDownIcon width={18} height={18} />
+        </div>
+      </button>
+      <div class={forumMenuVariants({ open: forumMenuOpen() })} onClick={(e) => e.stopPropagation()}>
+        <For each={props.forums}>
+          {(forum) => (
+            <button class={forumMenuItemVariants()} onClick={() => props.onSelectForum(forum)}>
+              <div class={logoVariants()}>
+                <img class={logoImgVariants()} src={logoSrc()} alt="" />
+              </div>
+              <div>
+                <div class={strongVariants()}>{forum.host}</div>
+                <div class={forumItemSubVariants()}>{forum.forumId.slice(0, 8)}</div>
+              </div>
+              <div class={forumItemCheckVariants()}>
+                <Show when={props.forum && forum.forumId === props.forum.forumId}>
+                  <CheckIcon width={16} height={16} />
+                </Show>
+              </div>
+            </button>
+          )}
+        </For>
+      </div>
+    </div>
+  )
   return (
     <div class={navScrollVariants()}>
       <div class={navInnerVariants()}>
-        <div class={navPanelHeaderVariants()}>
-          <Capsule class="px-3 w-full collapsed:hidden">
-            <h2 class={navH2Variants()}>{title()}</h2>
-          </Capsule>
-          <IconButton
-            size="lg"
-            variant="glass"
-            class={navPanelCollapseBtnVariants()}
-            aria-label={props.collapsed ? t('ui.expand') : t('ui.collapse')}
-            onClick={props.onToggleCollapsed}
+        <div class={navPanelHeaderVariants()} data-nav="header">
+          <Show
+            when={vista()}
+            fallback={
+              <>
+                <Capsule class="px-3 w-full collapsed:hidden">
+                  <h2 class={navH2Variants()}>{title()}</h2>
+                </Capsule>
+                <IconButton
+                  size="lg"
+                  variant="glass"
+                  class={navPanelCollapseBtnVariants()}
+                  aria-label={props.collapsed ? t('ui.expand') : t('ui.collapse')}
+                  onClick={props.onToggleCollapsed}
+                >
+                  <Show when={props.collapsed} fallback={<PanelLeftCloseIcon width={18} height={18} />}>
+                    <PanelLeftOpenIcon width={18} height={18} />
+                  </Show>
+                </IconButton>
+              </>
+            }
           >
-            <Show when={props.collapsed} fallback={<PanelLeftCloseIcon width={18} height={18} />}>
-              <PanelLeftOpenIcon width={18} height={18} />
+            <IconButton
+              size="lg"
+              shape="rounded"
+              data-nav="toggle"
+              data-collapsed={props.collapsed ? '' : undefined}
+              aria-label={props.collapsed ? t('ui.expand') : t('ui.collapse')}
+              onClick={props.onToggleCollapsed}
+            >
+              <PlayIcon width={22} height={22} />
+            </IconButton>
+            <Show
+              when={props.section === 'boards'}
+              fallback={
+                <div data-nav="title" class="collapsed:hidden">
+                  {title()}
+                </div>
+              }
+            >
+              {forumSelect()}
             </Show>
-          </IconButton>
+          </Show>
         </div>
         <section class={navSectionVariants({ active: props.section === 'boards' })}>
-          <div class={forumSelectWrapVariants()}>
-            <button
-              class={forumSelectBtnVariants()}
-              onClick={(e) => {
-                e.stopPropagation()
-                setForumMenuOpen(!forumMenuOpen())
-              }}
-            >
-              <div class={logoVariants()}>
-                <img class={logoImgVariants()} src="/static/logo.svg" alt="" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div class={strongVariants()}>{props.forum ? props.forum.host : ''}</div>
-                <div class={subVariants()}>{t('ui.currentForum')}</div>
-              </div>
-              <div class={chevronVariants()}>
-                <ChevronDownIcon width={18} height={18} />
-              </div>
-            </button>
-            <div class={forumMenuVariants({ open: forumMenuOpen() })} onClick={(e) => e.stopPropagation()}>
-              <For each={props.forums}>
-                {(forum) => (
-                  <button class={forumMenuItemVariants()} onClick={() => props.onSelectForum(forum)}>
-                    <div class={logoVariants()}>
-                      <img class={logoImgVariants()} src="/static/logo.svg" alt="" />
-                    </div>
-                    <div>
-                      <div class={strongVariants()}>{forum.host}</div>
-                      <div class={forumItemSubVariants()}>{forum.forumId.slice(0, 8)}</div>
-                    </div>
-                    <div class={forumItemCheckVariants()}>
-                      <Show when={props.forum && forum.forumId === props.forum.forumId}>
-                        <CheckIcon width={16} height={16} />
-                      </Show>
-                    </div>
-                  </button>
-                )}
-              </For>
-            </div>
-          </div>
-          <div class={sectionLabelVariants()}>{t('ui.boards')}</div>
-          <div class={navListVariants()}>
+          <Show when={!vista()}>{forumSelect()}</Show>
+          <div class={sectionLabelVariants()} data-nav="label">{t('ui.boards')}</div>
+          <div class={navListVariants()} data-nav="list">
             <For each={props.boards}>
               {(board) => (
                 <a
@@ -167,7 +203,11 @@ export function NavPanel(props: {
                     props.onSelectBoard(board)
                   }}
                 >
-                  <div class={navItemIconVariants()}>/{board.slug}/</div>
+                  <div class={navItemIconVariants()}>
+                    <Show when={vista()} fallback={<>/{board.slug}/</>}>
+                      <BoardIcon slug={board.slug} title={board.title} />
+                    </Show>
+                  </div>
                   <div class={navItemLabelVariants()}>{board.title}</div>
                   <div class={navItemMetaVariants()}>{board.count.toLocaleString()}</div>
                 </a>
@@ -176,8 +216,8 @@ export function NavPanel(props: {
           </div>
         </section>
         <section class={navSectionVariants({ active: props.section === 'settings' })}>
-          <div class={sectionLabelVariants()}>{t('ui.security')}</div>
-          <div class={navListVariants()}>
+          <div class={sectionLabelVariants()} data-nav="label">{t('ui.security')}</div>
+          <div class={navListVariants()} data-nav="list">
             <For each={SECURITY_SECTIONS}>
               {(name) => (
                 <a
@@ -199,8 +239,8 @@ export function NavPanel(props: {
               )}
             </For>
           </div>
-          <div class={sectionLabelVariants()}>{t('ui.application')}</div>
-          <div class={navListVariants()}>
+          <div class={sectionLabelVariants()} data-nav="label">{t('ui.application')}</div>
+          <div class={navListVariants()} data-nav="list">
             <For each={APP_SECTIONS}>
               {(name) => (
                 <a
@@ -223,7 +263,7 @@ export function NavPanel(props: {
             </For>
           </div>
         </section>
-        <div class={globalBarCapsuleVariants({ collapsed: props.collapsed })}>
+        <div class={globalBarCapsuleVariants({ collapsed: props.collapsed })} data-nav="bar">
           <IconButton
             size="xl"
             variant={props.section === 'boards' ? 'glass' : undefined}

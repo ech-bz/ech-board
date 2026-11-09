@@ -1,7 +1,6 @@
 import type { IconProps } from './IconProps'
+import { AppIcon } from './AppIcon'
 
 export function PlayIcon(props: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" {...props}><use href="#icon-play" /></svg>
-  )
+  return <AppIcon {...props} href="#icon-play" glyph=">" filled />
 }

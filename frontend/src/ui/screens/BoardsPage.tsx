@@ -7,7 +7,8 @@ import { TabBar } from '../components/TabBar'
 import { ChevronRightIcon } from '../icons/ChevronRightIcon'
 import type { MenuItem } from '../components/Menu/DropdownMenu'
 import { useEntityActions } from '../entityActions'
-import { useI18n } from '../i18n'
+import { useI18n, useIsPotato } from '../i18n'
+import { logoFor } from '../vista/boardIcons'
 import { useIsMobile } from '../components/Gallery/useIsMobile'
 import { useMobileTabs } from '../mobileNav'
 import { boardPath } from '../route'
@@ -27,7 +28,7 @@ const chipVariants = cva('flex cursor-pointer items-center gap-1.5 whitespace-no
 })
 const chipLogoVariants = cva('inline-flex h-logo-mobile items-center')
 const contentPadVariants = cva('pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] pb-[calc(var(--mobile-tab)+18px)] pt-2.5')
-const listVariants = cva('overflow-hidden rounded-lg bg-panel1')
+const listVariants = cva('overflow-hidden rounded-lg bg-panel1 vista-surface')
 const rowVariants = cva('mx-4 grid min-h-row cursor-pointer grid-cols-[64px_1fr_auto_auto] items-center gap-2 border-b border-separator py-2.5 text-fg last:border-b-0 no-underline')
 const slugVariants = cva('text-xl font-semibold text-accent leading-none')
 const nameVariants = cva('text-xl text-fg leading-none')
@@ -40,9 +41,11 @@ export function BoardsPage(props: {
   forums: ForumInfo[]
   onSelectForum: (forum: ForumInfo) => void
 }) {
-  const { t } = useI18n()
+  const { t, appearance, preset } = useI18n()
   const ea = useEntityActions()
-  const mobile = useIsMobile()
+  const potato = useIsPotato()
+  const phone = useIsMobile()
+  const mobile = () => phone() && !potato()
   const tabs = useMobileTabs()
   const forumMenu = (): MenuItem[] => [
     { label: t('mod.debug'), onClick: () => ea.openLogs('forum') },
@@ -52,7 +55,15 @@ export function BoardsPage(props: {
   const totalPosts = () => props.boards.reduce((sum, board) => sum + board.count, 0)
   const forumPage = () => <ForumPage boardsCount={props.boards.length} totalPosts={totalPosts()} menu={forumMenu()} />
   return (
-    <Show when={mobile()} fallback={<section class={pageVariants()}>{forumPage()}</section>}>
+    <Show when={mobile()} fallback={
+        <section class={pageVariants()}>
+          <Show when={potato()}>
+            <PageHeader title={t('ui.boards')} />
+          </Show>
+          {forumPage()}
+        </section>
+      }
+    >
       <section class={screenVariants()}>
         <PageHeader title={t('ui.boards')} />
         <div class={chipsRowVariants()}>
@@ -64,7 +75,7 @@ export function BoardsPage(props: {
                 onClick={() => props.onSelectForum(forum)}
               >
                 <span class={chipLogoVariants()}>
-                  <img class="h-full w-auto" src="/static/logo.svg" alt="" />
+                  <img class="h-full w-auto" src={logoFor(appearance(), preset())} alt="" />
                 </span>
                 {forum.host}
               </button>
