@@ -59,7 +59,6 @@ export function PotatoLayout(props: {
   }
   const forumId = () => props.forum?.forumId ?? ''
   let layoutEl: HTMLDivElement | undefined
-  // Отмечаем, сдвинулась ли страница и «прилип» ли блок досок: темы могут делать их прозрачными, пока они стоят на месте.
   onMount(() => {
     let raf = 0
     const update = () => {

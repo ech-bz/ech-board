@@ -161,7 +161,7 @@ export function PostBody(props: {
   const vista = useIsVista()
   const staticInfo = useStaticInfo()
   const nav = useNav()
-  const { t, months, expandFolds, hideReactions, potatoThreadTitle, potatoAsciiButtons, postBorderSides, opPostBorders, opPostBackground, postReplyPosition } = useI18n()
+  const { t, months, expandFolds, textboard, hideReactions, potatoThreadTitle, potatoAsciiButtons, postBorderSides, opPostBorders, opPostBackground, postReplyPosition } = useI18n()
   const { openMedia } = useGallery()
   const selection = usePostSelection()
   const composer = useComposerBridge()
@@ -616,7 +616,10 @@ export function PostBody(props: {
         <Show when={postReplyPosition() === 'header'}>{refs('header')}</Show>
       </div>
       <Show when={props.record.media.length > 0}>
-        <div class={potatoMediaRowVariants({ single: props.record.media.length === 1 })} data-potato-single-media={props.record.media.length === 1 ? '' : undefined}>
+        <div
+          class={potatoMediaRowVariants({ single: props.record.media.length === 1 && !textboard() })}
+          data-potato-single-media={props.record.media.length === 1 && !textboard() ? '' : undefined}
+        >
           <For each={props.record.media}>{(item) => <MediaBox m={item} record={props.record} onOpen={openMedia} />}</For>
         </div>
       </Show>
@@ -742,6 +745,14 @@ export function PostBody(props: {
         </Show>
       </div>
       <Show when={props.record.media.length > 0}>
+        <Show
+          when={!textboard()}
+          fallback={
+            <div class={`${mediaWrapVariants()} flex flex-wrap items-center gap-x-3 gap-y-1`}>
+              <For each={props.record.media}>{(item) => <MediaBox m={item} record={props.record} onOpen={openMedia} />}</For>
+            </div>
+          }
+        >
         <div class={mediaWrapVariants()}>
           <div
             ref={setMediaEl}
@@ -770,6 +781,7 @@ export function PostBody(props: {
             )}
           </Show>
         </div>
+        </Show>
       </Show>
       {body()}
       <Show when={long()}>

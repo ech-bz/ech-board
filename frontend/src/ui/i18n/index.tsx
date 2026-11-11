@@ -12,6 +12,7 @@ export type PotatoBoardsBar = 'pinned' | 'scroll'
 export type PotatoThreadTitle = 'above' | 'inline' | 'hidden'
 export type PostReplyPosition = 'header' | 'below' | 'hidden'
 export type PostBorderSide = 'top' | 'right' | 'bottom' | 'left'
+export type Preset = 'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba' | 'operative' | 'oldpc'
 
 export const THREAD_SEPARATOR_MIN = 1
 export const THREAD_SEPARATOR_MAX = 12
@@ -61,6 +62,7 @@ const THREAD_SEPARATOR_KEY = 'ech-board-thread-separator'
 const THREAD_SEPARATOR_HEIGHT_KEY = 'ech-board-thread-separator-height'
 const SHOW_GALLERY_ON_OPEN_KEY = 'ech-board-show-gallery-on-open'
 const ANIMATE_GIFS_KEY = 'ech-board-animate-gifs'
+const TEXTBOARD_KEY = 'ech-board-textboard'
 const UI_STYLE_KEY = 'ech-board-ui-style'
 const CORNER_RADIUS_KEY = 'ech-board-corner-radius'
 const REACTION_SIZE_KEY = 'ech-board-reaction-size'
@@ -149,8 +151,10 @@ export interface I18nValue {
   setShowGalleryOnOpen: (v: boolean) => void
   animateGifs: Accessor<boolean>
   setAnimateGifs: (v: boolean) => void
-  preset: Accessor<'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba' | 'operative'>
-  setPreset: (p: 'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba' | 'operative') => void
+  textboard: Accessor<boolean>
+  setTextboard: (v: boolean) => void
+  preset: Accessor<Preset>
+  setPreset: (p: Preset) => void
   resetToDefaults: () => void
   t: (key: MessageKey, vars?: Record<string, string | number>) => string
   days: Accessor<readonly string[]>
@@ -234,6 +238,7 @@ export function I18nProvider(props: { children: JSX.Element }) {
   }
   const [showGalleryOnOpen, setShowGalleryOnOpen] = boolPref(SHOW_GALLERY_ON_OPEN_KEY, false)
   const [animateGifs, setAnimateGifs] = boolPref(ANIMATE_GIFS_KEY, false)
+  const [textboard, setTextboard] = boolPref(TEXTBOARD_KEY, false)
   const storedStyle = readString(UI_STYLE_KEY)
   const [uiStyle, setUiStyleSignal] = createSignal<UiStyle>(storedStyle === 'potato' || storedStyle === 'vista' ? storedStyle : 'modern')
   const savedRadius = readString(CORNER_RADIUS_KEY)
@@ -548,6 +553,29 @@ export function I18nProvider(props: { children: JSX.Element }) {
     )
   })
 
+  const isOldPcConfig = createMemo(() => {
+    return (
+      !showGalleryOnOpen() &&
+      !animateGifs() &&
+      textboard() &&
+      appearance() === "neutron" &&
+      uiStyle() === "potato" &&
+      !centerPotatoThreads() &&
+      !centerPotatoBoards() &&
+      potatoHeader() === "hidden" &&
+      potatoThreadTitle() === "inline" &&
+      potatoAsciiButtons() &&
+      !hideReactions() &&
+      reactionSize() === 0 &&
+      postReplyPosition() === "below" &&
+      !threadSeparator() &&
+      potatoCornerRadius() === 0 &&
+      postBorderSides().length === 0 &&
+      !opPostBorders() &&
+      !opPostBackground()
+    )
+  })
+
   const preset = createMemo(() => {
     if (isDefaultConfig()) return "default"
     if (isEscapismConfig()) return "escapism"
@@ -556,6 +584,7 @@ export function I18nProvider(props: { children: JSX.Element }) {
     if (isEndConfig()) return "end"
     if (isAbobaConfig()) return "aboba"
     if (isOperativeConfig()) return "operative"
+    if (isOldPcConfig()) return "oldpc"
     return "custom"
   })
 
@@ -710,7 +739,31 @@ export function I18nProvider(props: { children: JSX.Element }) {
     setOpPostBackground(false)
   }
 
-  const setPreset = (p: "default" | "custom" | "escapism" | "guro" | "moot" | "end" | "aboba" | "operative") => {
+  const applyOldPc = () => {
+    setShowGalleryOnOpen(false)
+    setAnimateGifs(false)
+    setTextboard(true)
+    setAppearance("yotsuba_b")
+    setUiStyle("potato")
+    setCenterPotatoThreads(false)
+    setCenterPotatoBoards(false)
+    setPotatoHeader("hidden")
+    setPotatoBoardsBar("scroll")
+    setPotatoThreadTitle("inline")
+    setPotatoAsciiButtons(true)
+    setHideReactions(true)
+    setReactionSize(0)
+    setPostReplyPosition("below")
+    setThreadSeparator(false)
+    setThreadSeparatorHeight(THREAD_SEPARATOR_MIN)
+    writeString(POTATO_CORNER_RADIUS_KEY, "0")
+    setPotatoCornerRadiusSignal(0)
+    setPostBorderSides([])
+    setOpPostBorders(false)
+    setOpPostBackground(false)
+  }
+
+  const setPreset = (p: Preset) => {
     if (p === "default") resetToDefaults()
     else if (p === "escapism") applyEscapism()
     else if (p === "guro") applyGuro()
@@ -718,6 +771,7 @@ export function I18nProvider(props: { children: JSX.Element }) {
     else if (p === "end") applyEnd()
     else if (p === "aboba") applyAboba()
     else if (p === "operative") applyOperative()
+    else if (p === "oldpc") applyOldPc()
   }
 
   const value: I18nValue = {
@@ -773,6 +827,8 @@ export function I18nProvider(props: { children: JSX.Element }) {
     setShowGalleryOnOpen,
     animateGifs,
     setAnimateGifs,
+    textboard,
+    setTextboard,
     preset,
     setPreset,
     resetToDefaults,

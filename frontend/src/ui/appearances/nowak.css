@@ -1,39 +1,35 @@
 :root {
   color-scheme: light;
 
-  /* Фон страницы и панели */
   --color-bg: #f0ffe0;
-  --color-panel1: #e8f5e9; /* посты-ответы (.reply) */
-  --color-panel2: #c8e6c9; /* кнопки/блоки поверх постов */
+  --color-panel1: #e8f5e9; 
+  --color-panel2: #c8e6c9; 
   --color-panel3: #f4fbef;
   --color-hover: #a5d6a7;
-  --color-active: #c8e6c9; /* подсветка поста (.replyhl) */
+  --color-active: #c8e6c9; 
   --color-mine: #c3e6c5;
   --color-replied-mine: #d4ecd0;
   --color-spoiler: #013220;
 
-  /* Текст */
   --color-fg: #013220;
   --color-secondary: #2e8b57;
   --color-omitted: #2e8b57;
-  --color-thread-title: #006400; /* тема треда (.filetitle) */
+  --color-thread-title: #006400; 
   --color-subject: #006400;
-  --color-post-name: #006400; /* имя (.postername) */
+  --color-post-name: #006400; 
   --color-postnum: #013220;
-  --color-special-text: #228b22; /* трипкод (.postertrip) */
+  --color-special-text: #228b22;
   --color-trip: #228b22;
-  --color-capcode: #800080; /* ## Admin ## */
+  --color-capcode: #800080;
 
-  /* Ссылки и акценты */
   --color-accent: #006400;
   --color-accent-hover: #228b22;
   --color-accent-ink: #fff;
   --color-success: #2e8b57;
   --color-danger: #c0392b;
   --color-warn: #b45309;
-  --color-quote: #2e8b57; /* .unkfunc */
+  --color-quote: #2e8b57;
 
-  /* Прозрачные слои */
   --color-glass1: rgba(240, 255, 224, 0.9);
   --color-glass2: rgba(165, 214, 167, 0.35);
   --color-chip: rgba(1, 50, 32, 0.06);
@@ -61,7 +57,6 @@
   --report-modal-border: rgba(1, 50, 32, 0.25);
 }
 
-/* Potato: верхняя панель всегда сплошная, цвета --color-header (без прозрачности) */
 :root[data-appearance='nowak'][data-ui-style='potato'] [data-potato-topbar] {
   background: var(--color-header) !important;
 }

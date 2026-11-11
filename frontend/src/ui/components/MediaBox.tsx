@@ -40,6 +40,8 @@ const potatoLinkVariants = cva('group relative flex h-auto w-fit max-h-[220px] m
 })
 const potatoImgVariants = cva('relative block h-auto w-auto max-h-[220px] max-w-[220px] object-contain max-[899px]:max-h-[110px] max-[899px]:max-w-[110px]')
 const potatoBannedVariants = cva('block h-auto w-auto max-h-[220px] max-w-[220px] object-contain max-[899px]:max-h-[110px] max-[899px]:max-w-[110px]')
+const textboardLinkVariants = cva('cursor-pointer text-accent hover:text-accent-hover hover:underline')
+const textboardModBtnVariants = cva('cursor-pointer border-0 bg-transparent p-0 text-secondary [font:inherit] hover:text-accent')
 const potatoBoxVariants = cva('flex size-[220px] max-[899px]:size-[110px] items-center justify-center bg-shade text-scrim-fg')
 
 function formatSize(bytes: number): string {
@@ -64,7 +66,7 @@ function formatMime(mime: string): string {
 }
 
 export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: MediaInfo, rect?: SourceRect) => void }) {
-  const { t, animateGifs } = useI18n()
+  const { t, animateGifs, textboard } = useI18n()
   const potato = useIsPotato()
   const vista = useIsVista()
   const actions = useEntityActions()
@@ -111,6 +113,40 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
     const rect = e.currentTarget.getBoundingClientRect()
     props.onOpen(props.m, { left: rect.left, top: rect.top, width: rect.width, height: rect.height })
   }
+  const openTextMedia = (e: MouseEvent) => {
+    if (props.m.banned) {
+      e.preventDefault()
+      return
+    }
+    if (isDocument()) return
+    e.preventDefault()
+    props.onOpen(props.m)
+  }
+  const textView = () => (
+    <span data-media-text="" class="inline-flex items-baseline gap-1.5">
+      <a
+        class={props.m.banned ? 'text-secondary line-through' : textboardLinkVariants()}
+        draggable={false}
+        href={props.m.banned ? undefined : props.m.fullUrl}
+        target={isDocument() ? '_blank' : undefined}
+        rel={isDocument() ? 'noopener noreferrer' : undefined}
+        title={caption()}
+        onClick={openTextMedia}
+      >
+        {t('media.viewAttachment')}
+      </a>
+      <Show when={props.record.canBanMedia && !props.m.banned}>
+        <button type="button" class={textboardModBtnVariants()} title={t('mod.banMedia')} onClick={banMedia}>
+          ×
+        </button>
+      </Show>
+      <Show when={props.record.canUnbanMedia && props.m.banned}>
+        <button type="button" class={textboardModBtnVariants()} title={t('mod.unbanMedia')} onClick={unbanMedia}>
+          ↺
+        </button>
+      </Show>
+    </span>
+  )
   const potatoView = () => (
     <div data-media="" class={potatoMediaVariants()}>
       <div class={potatoCaptionVariants()}>
@@ -183,6 +219,7 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
     </div>
   );
   return (
+    <Show when={!textboard()} fallback={textView()}>
     <Show when={!potato()} fallback={potatoView()}>
     <a
       data-media=""
@@ -312,6 +349,7 @@ export function MediaBox(props: { m: MediaInfo; record: PostRecord; onOpen: (m: 
         </span>
       </Show>
     </a>
+    </Show>
     </Show>
   )
 }

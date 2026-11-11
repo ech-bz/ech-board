@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
-import { THREAD_SEPARATOR_MAX, THREAD_SEPARATOR_MIN, useI18n, type Lang, type PotatoBoardsBar, type PotatoHeader, type PotatoThreadTitle, type PostBorderSide, type PostReplyPosition, type UiStyle } from '../i18n'
+import { THREAD_SEPARATOR_MAX, THREAD_SEPARATOR_MIN, useI18n, type Lang, type Preset, type PotatoBoardsBar, type PotatoHeader, type PotatoThreadTitle, type PostBorderSide, type PostReplyPosition, type UiStyle } from '../i18n'
 import { haptic } from '../haptic'
 import { Field } from './Field'
 import { Fold } from './Fold'
@@ -74,6 +74,8 @@ export function AppearanceView() {
     setShowGalleryOnOpen,
     animateGifs,
     setAnimateGifs,
+    textboard,
+    setTextboard,
     appearance,
     setAppearance,
     uiStyle,
@@ -136,11 +138,12 @@ export function AppearanceView() {
         <ToggleRow label={t('settings.expandFolds')} checked={expandFolds()} onToggle={() => setExpandFolds(!expandFolds())} />
         <ToggleRow label={t('settings.showGalleryOnOpen')} checked={showGalleryOnOpen()} onToggle={() => setShowGalleryOnOpen(!showGalleryOnOpen())} />
         <ToggleRow label={t('settings.animateGifs')} checked={animateGifs()} onToggle={() => setAnimateGifs(!animateGifs())} />
+        <ToggleRow label={t('settings.textboard')} checked={textboard()} onToggle={() => setTextboard(!textboard())} />
       </Fold>
       <Fold title={t('settings.groupAppearance')} defaultOpen followExpandFolds={false}>
         <div class={settingRowVariants()}>
           <span>{t('settings.presets')}</span>
-          <Field as="select" bordered select value={preset()} onInput={(e) => setPreset(e.currentTarget.value as 'default' | 'custom' | 'escapism' | 'guro' | 'moot' | 'end' | 'aboba' | 'operative')}>
+          <Field as="select" bordered select value={preset()} onInput={(e) => setPreset(e.currentTarget.value as Preset)}>
             <option value="default">{t('settings.presetDefault')}</option>
             <option value="escapism">{t('settings.presetEscapism')}</option>
             <option value="guro">{t('settings.presetGuro')}</option>
@@ -148,6 +151,7 @@ export function AppearanceView() {
             <option value="end">{t('settings.presetEnd')}</option>
             <option value="aboba">{t('settings.presetAboba')}</option>
             <option value="operative">{t('settings.presetOperative')}</option>
+            <option value="oldpc">{t('settings.presetOldPc')}</option>
             <option value="custom">{t('settings.presetCustom')}</option>
           </Field>
         </div>

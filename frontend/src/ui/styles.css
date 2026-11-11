@@ -131,7 +131,6 @@
   color: var(--color-postnum, var(--color-quote, #789922));
 }
 
-/* Цвета, которые задаёт только тема (если переменной нет — наследуется обычный цвет) */
 .post-name {
   color: var(--color-post-name, inherit);
 }
@@ -154,7 +153,6 @@
   color: var(--color-omitted, var(--color-secondary));
 }
 
-/* Разделитель между тредами: включение и высота (настройки внешнего вида) */
 :root {
   --thread-separator-h: 1px;
 }
@@ -1115,7 +1113,6 @@
   font: inherit !important;
 }
 
-/* OP post background/border overrides must not be forced back by theme rules */
 :root[data-ui-style='potato'] [data-op-post][style*='transparent'],
 :root[data-ui-style='modern'] [data-op-post].bg-transparent {
   background-color: transparent !important;
