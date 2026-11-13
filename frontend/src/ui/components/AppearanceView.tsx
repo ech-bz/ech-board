@@ -4,6 +4,7 @@ import { useI18n, type Lang } from '../i18n'
 import { haptic } from '../haptic'
 import { Field } from './Field'
 import { playerPrefs } from './Player/playerPrefs'
+import { useIsMobile } from './Gallery/useIsMobile'
 
 const pageVariants = cva('max-w-settings p-6')
 const settingRowVariants = cva('flex items-center justify-between gap-3 border-b border-separator px-0.5 py-3 text-lg')
@@ -11,6 +12,8 @@ const toggleWrapVariants = cva('inline-flex flex-none cursor-pointer')
 const toggleVariants = cva('settings-checkbox relative h-toggle w-toggle flex-none cursor-pointer appearance-none rounded-full bg-toggle-track checked:bg-toggle-on transition-colors')
 
 export function AppearanceView() {
+  const mobile = useIsMobile()
+  const browserPlayerForced = () => mobile() || window.matchMedia('(pointer: coarse)').matches
   const {
     t,
     lang,
@@ -76,6 +79,22 @@ export function AppearanceView() {
           }}
         >
           <input type="checkbox" class={toggleVariants()} checked={expandFolds()} readOnly />
+        </span>
+      </label>
+      <label class={settingRowVariants()}>
+        <span>{t('settings.standardPlayer')}</span>
+        <span
+          ref={(el) => haptic(el)}
+          role="checkbox"
+          aria-checked={browserPlayerForced() || playerPrefs.standardPlayer()}
+          aria-disabled={browserPlayerForced()}
+          class={toggleWrapVariants()}
+          onClick={(e) => {
+            e.preventDefault()
+            if (!browserPlayerForced()) playerPrefs.setStandardPlayer(!playerPrefs.standardPlayer())
+          }}
+        >
+          <input type="checkbox" class={toggleVariants()} checked={browserPlayerForced() || playerPrefs.standardPlayer()} readOnly disabled={browserPlayerForced()} />
         </span>
       </label>
       <label class={settingRowVariants()}>

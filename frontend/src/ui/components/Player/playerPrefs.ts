@@ -4,6 +4,7 @@ const MUTED_KEY = 'ech-board-video-muted'
 const VOLUME_KEY = 'ech-board-video-volume'
 const PIP_WIDTH_KEY = 'ech-board-pip-width'
 const AUTO_PIP_KEY = 'ech-board-auto-pip'
+const STANDARD_PLAYER_KEY = 'ech-board-standard-player'
 
 export const PIP_MIN_WIDTH = 240
 export const PIP_MAX_WIDTH = 640
@@ -43,6 +44,14 @@ function loadAutoPip(): boolean {
   }
 }
 
+function loadStandardPlayer(): boolean {
+  try {
+    return localStorage.getItem(STANDARD_PLAYER_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
 function loadPipWidth(): number {
   try {
     const n = Number(localStorage.getItem(PIP_WIDTH_KEY))
@@ -58,12 +67,18 @@ const [muted, setMutedSignal] = createSignal(initial.muted)
 const [volume, setVolumeSignal] = createSignal(initial.vol)
 const [pipWidth, setPipWidthSignal] = createSignal(loadPipWidth())
 const [autoPip, setAutoPipSignal] = createSignal(loadAutoPip())
+const [standardPlayer, setStandardPlayerSignal] = createSignal(loadStandardPlayer())
 
 export const playerPrefs = {
   muted,
   volume,
   pipWidth,
   autoPip,
+  standardPlayer,
+  setStandardPlayer(v: boolean) {
+    setStandardPlayerSignal(v)
+    save(STANDARD_PLAYER_KEY, String(v))
+  },
   setAutoPip(v: boolean) {
     setAutoPipSignal(v)
     save(AUTO_PIP_KEY, String(v))

@@ -55,6 +55,7 @@ export const en: Dict = {
   'settings.showHidden': 'Show hidden',
   'settings.expandFolds': 'Expand [fold] tags',
   'settings.autoPip': 'Open video and audio directly in Picture-in-picture mode',
+  'settings.standardPlayer': 'Browser’s native player',
   'settings.theme': 'Theme',
   'settings.language': 'Language',
   'settings.themeDefaultDark': 'Default dark',

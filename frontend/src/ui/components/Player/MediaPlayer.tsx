@@ -51,6 +51,7 @@ const spinnerVariants = cva('animate-spin rounded-full border-[3px] border-track
 })
 const resizeGripVariants = cva('absolute right-0 bottom-0 z-1 size-7 cursor-nwse-resize opacity-60 hover:opacity-100 [touch-action:none] after:absolute after:right-1.5 after:bottom-1.5 after:size-2.5 after:border-r-2 after:border-b-2 after:border-scrim-fg after:content-[""]')
 const mediaVariants = cva('relative z-1 block size-full select-none object-contain')
+const browserMediaVariants = cva('pointer-events-auto block max-h-full max-w-full object-contain')
 const mediaBackdropVariants = cva('pointer-events-none absolute inset-0 z-0 size-full scale-[1.15] object-cover blur-[28px] brightness-[0.65]')
 const mediaBackdropShadeVariants = cva('pointer-events-none absolute inset-0 z-0 bg-black/25')
 const placeholderVariants = cva('pointer-events-none absolute inset-0 flex items-center justify-center text-scrim-fg', {
@@ -134,6 +135,7 @@ export function MediaPlayer(props: MediaPlayerProps) {
   const isVideo = props.item.mime.startsWith('video/')
   const media: HTMLMediaElement = props.adopt ?? createMedia(props.item, props.active ?? true)
   const ratio = isVideo && props.item.width > 0 && props.item.height > 0 ? props.item.width / props.item.height : 16 / 9
+  const browserPlayer = () => mobile() || window.matchMedia('(pointer: coarse)').matches || playerPrefs.standardPlayer()
 
   const [playing, setPlaying] = createSignal(!media.paused)
   const [time, setTime] = createSignal(media.currentTime)
@@ -152,6 +154,7 @@ export function MediaPlayer(props: MediaPlayerProps) {
   let volTrack: HTMLDivElement | undefined
   let handedOff = false
   let autoPipRequested = false
+  let nativePipNotified = false
   let seeking = false
   let seekingVol = false
   let seekPaused = false
@@ -211,15 +214,30 @@ export function MediaPlayer(props: MediaPlayerProps) {
     props.onPip?.(props.item, media)
   }
 
+  const isNativePipActive = () => {
+    const webkit = media as HTMLVideoElement & { webkitPresentationMode?: string }
+    return document.pictureInPictureElement === media || webkit.webkitPresentationMode === 'picture-in-picture'
+  }
+
+  const notifyNativePip = () => {
+    if (!isNativePipActive() || nativePipNotified) return
+    nativePipNotified = true
+    props.onNativePip?.(media)
+  }
+
+  const startNativePip = () => {
+    if (!isVideo || !canUseNativePip(media)) return
+    void enterNativePip(media as HTMLVideoElement).then((ok) => {
+      if (ok) notifyNativePip()
+    })
+  }
+
   const startPip = () => {
-    if (!canUseNativePip(media)) {
-      startCustomPip()
+    if (browserPlayer()) {
+      startNativePip()
       return
     }
-    void enterNativePip(media as HTMLVideoElement).then((ok) => {
-      if (ok) props.onNativePip?.(media)
-      else startCustomPip()
-    })
+    startCustomPip()
   }
 
   const retry = () => {
@@ -312,7 +330,7 @@ export function MediaPlayer(props: MediaPlayerProps) {
 
   const menuItems = (): MenuItem[] => {
     const items: MenuItem[] = []
-    if (!props.floating) items.push({ label: t('player.pip'), onClick: startPip })
+    if (!props.floating && !browserPlayer()) items.push({ label: t('player.pip'), onClick: startPip })
     if (props.floating && props.onToGallery) items.push({ label: t('player.toGallery'), onClick: toGallery })
     if (props.floating) items.push({ label: t('player.close'), onClick: () => props.onClose?.() })
     items.push({ label: t('player.reportBug'), onClick: reportBug })
@@ -336,11 +354,29 @@ export function MediaPlayer(props: MediaPlayerProps) {
       autoPipRequested = false
       return
     }
-    if (!props.autoPip || autoPipRequested || !props.onPip) return
+    if (!props.autoPip || autoPipRequested || (browserPlayer() ? !props.onNativePip : !props.onPip)) return
     autoPipRequested = true
     queueMicrotask(() => {
       if ((props.active ?? true) && props.autoPip && !handedOff) startPip()
     })
+  })
+
+  createEffect(() => {
+    const native = browserPlayer()
+    media.controls = native
+    if (media instanceof HTMLVideoElement) {
+      media.disablePictureInPicture = false
+      media.playsInline = true
+      media.className = native ? browserMediaVariants() : mediaVariants()
+      media.style.width = native ? 'auto' : ''
+      media.style.height = native ? 'auto' : ''
+      media.style.maxHeight = native ? 'calc(100dvh - 180px)' : ''
+      media.style.maxWidth = native ? '100%' : ''
+    } else {
+      media.className = native ? 'pointer-events-auto block w-full max-w-[480px]' : ''
+      media.style.width = native ? '100%' : ''
+      media.style.maxWidth = native ? '480px' : ''
+    }
   })
 
   createEffect(() => {
@@ -386,14 +422,24 @@ export function MediaPlayer(props: MediaPlayerProps) {
       setDur(Number.isFinite(media.duration) ? media.duration : 0)
       syncState()
     }
+    const onNativePipChange = () => {
+      if (isNativePipActive()) notifyNativePip()
+      else nativePipNotified = false
+    }
     const stateEvents = ['play', 'pause', 'loadstart', 'loadeddata', 'canplay', 'playing', 'waiting', 'stalled', 'seeking', 'seeked', 'progress', 'emptied', 'error']
     for (const name of stateEvents) media.addEventListener(name, syncState)
+    media.addEventListener('enterpictureinpicture', onNativePipChange)
+    media.addEventListener('leavepictureinpicture', onNativePipChange)
+    media.addEventListener('webkitpresentationmodechanged', onNativePipChange)
     media.addEventListener('timeupdate', onTime)
     media.addEventListener('loadedmetadata', onMeta)
     media.addEventListener('durationchange', onMeta)
     syncState()
     onCleanup(() => {
       for (const name of stateEvents) media.removeEventListener(name, syncState)
+      media.removeEventListener('enterpictureinpicture', onNativePipChange)
+      media.removeEventListener('leavepictureinpicture', onNativePipChange)
+      media.removeEventListener('webkitpresentationmodechanged', onNativePipChange)
       media.removeEventListener('timeupdate', onTime)
       media.removeEventListener('loadedmetadata', onMeta)
       media.removeEventListener('durationchange', onMeta)
@@ -446,8 +492,14 @@ export function MediaPlayer(props: MediaPlayerProps) {
   }
 
   const stopGesture = (e: Event) => e.stopPropagation()
+  const stopNativeMediaGesture = (e: Event) => {
+    if (e.target === media) e.stopPropagation()
+  }
 
   return (
+    <Show
+      when={browserPlayer()}
+      fallback={
     <div
       ref={(el) => {
         root = el
@@ -598,5 +650,25 @@ export function MediaPlayer(props: MediaPlayerProps) {
         <DropdownMenu items={menuItems()} triggerSize="md" class={ctrlBtnVariants()} ariaLabel={t('player.options')} />
       </div>
     </div>
+      }
+    >
+      <div
+        ref={(el) => {
+          root = el
+          screen = el
+          props.rootRef?.(el)
+        }}
+        data-index={props.index}
+        data-player=""
+        class="pointer-events-auto flex max-h-full max-w-full items-center justify-center"
+        style={isVideo ? { 'max-width': '100%', 'max-height': '100%' } : { width: 'min(480px, calc(100vw - 32px))' }}
+        onTouchStart={stopNativeMediaGesture}
+        onTouchMove={stopNativeMediaGesture}
+        onTouchEnd={stopNativeMediaGesture}
+        onMouseDown={stopNativeMediaGesture}
+      >
+        {props.adopt ? undefined : media}
+      </div>
+    </Show>
   )
 }

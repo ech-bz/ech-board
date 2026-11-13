@@ -6,7 +6,6 @@ interface WebkitVideo extends HTMLVideoElement {
 
 export function canUseNativePip(media: HTMLMediaElement): boolean {
   if (!(media instanceof HTMLVideoElement)) return false
-  if (!window.matchMedia('(pointer: coarse)').matches) return false
   if (media.disablePictureInPicture) return false
   if (document.pictureInPictureEnabled) return true
   return !!(media as WebkitVideo).webkitSupportsPresentationMode?.('picture-in-picture')
