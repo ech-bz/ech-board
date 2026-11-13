@@ -1,42 +1,23 @@
 import { createEffect, createSignal, on, onCleanup, For, Show } from 'solid-js'
 import { cva } from 'class-variance-authority'
-import { Capsule } from '../Capsule'
-import { IconButton } from '../IconButton'
 import type { GalleryItem, SourceRect } from './context'
-import { PauseIcon } from '../../icons/PauseIcon'
 import { PlayIcon } from '../../icons/PlayIcon'
-import { VolumeIcon } from '../../icons/VolumeIcon'
-import { VolumeOffIcon } from '../../icons/VolumeOffIcon'
 import { MusicIcon } from '../../icons/MusicIcon'
-import { useIsMobile } from './useIsMobile'
+import { MediaPlayer, isPlayableMime } from '../Player/MediaPlayer'
+import { playerPrefs } from '../Player/playerPrefs'
 
-const galleryOverlayVariants = cva('fixed inset-0 z-overlay flex flex-col bg-scrim transition-colors duration-200')
+const galleryOverlayVariants = cva('fixed inset-0 z-overlay flex flex-col bg-scrim transition-colors duration-200', {
+  variants: {
+    hidden: {
+      true: 'pointer-events-none opacity-0',
+    },
+  },
+})
 const galleryStageVariants = cva('pointer-events-auto min-h-0 flex-1 overflow-hidden [touch-action:none]')
 const galleryTrackVariants = cva('pointer-events-none flex h-full w-full gap-4 transition-transform duration-200')
 const gallerySlideVariants = cva('pointer-events-none flex h-full flex-[0_0_100%] items-center justify-center')
 const galleryMediaVariants = cva('pointer-events-auto max-h-full max-w-full touch-none select-none object-contain [transform-origin:center]')
 const galleryBottomVariants = cva('pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-3')
-const galleryControlsVariants = cva('gap-3 px-4 opacity-0 transition-opacity duration-200')
-const galleryCtrlBtnVariants = cva('[&_svg]:size-4 [&_svg]:text-scrim-fg')
-const gallerySeekBarVariants = cva('relative h-1 w-seek flex-none cursor-pointer rounded-sm bg-track [touch-action:none] before:absolute before:-inset-x-2.5 before:-inset-y-2 before:content-[""]')
-const gallerySeekFillVariants = cva('absolute inset-y-0 left-0 rounded-sm bg-scrim-fg')
-const galleryTimeVariants = cva('flex-none whitespace-nowrap text-sm text-scrim-fg [font-variant-numeric:tabular-nums]')
-const galleryVolWrapVariants = cva('relative flex flex-none items-center', {
-  variants: {
-    open: {
-      true: 'before:absolute before:inset-x-0 before:bottom-full before:h-25 before:content-[""]',
-    },
-  },
-})
-const galleryVolBarVariants = cva('absolute bottom-[calc(100%+8px)] left-1/2 w-1 -translate-x-1/2 cursor-pointer rounded-sm bg-track opacity-0 transition-all duration-200 [touch-action:none]', {
-  variants: {
-    open: {
-      true: 'h-volbar opacity-100 before:absolute before:-inset-x-4 before:-top-2 before:bottom-0 before:content-[""]',
-      false: 'h-0',
-    },
-  },
-})
-const galleryVolFillVariants = cva('absolute inset-x-0 bottom-0 rounded-sm bg-scrim-fg')
 const galleryThumbsVariants = cva('flex w-full gap-2 overflow-x-auto bg-shade px-3 pt-2.5 pb-[calc(10px+env(safe-area-inset-bottom,0px))] opacity-0 transition-opacity duration-150', {
   variants: {
     visible: {
@@ -58,40 +39,6 @@ const galleryThumbPlayVariants = cva('pointer-events-none absolute left-1/2 top-
 const galleryThumbAudioVariants = cva('flex size-full items-center justify-center bg-bg text-fg [&_svg]:size-5')
 const galleryThumbPdfVariants = cva('flex size-full items-center justify-center bg-bg text-xs font-bold text-fg')
 const galleryPdfCardVariants = cva('pointer-events-auto flex max-h-full max-w-full flex-col items-center justify-center rounded-lg bg-panel1 px-10 py-8 text-2xl font-bold text-accent no-underline')
-
-const MUTED_KEY = 'ech-board-video-muted'
-const VOLUME_KEY = 'ech-board-video-volume'
-
-interface MediaPrefs {
-  muted: boolean
-  vol: number
-}
-
-function loadMediaPrefs(): MediaPrefs {
-  let muted = true
-  let vol = 1
-  try {
-    const m = localStorage.getItem(MUTED_KEY)
-    if (m != null) muted = m === 'true'
-    const v = localStorage.getItem(VOLUME_KEY)
-    if (v != null) {
-      const n = Number(v)
-      if (Number.isFinite(n)) vol = n
-    }
-  } catch {
-    return { muted: true, vol: 1 }
-  }
-  return { muted, vol }
-}
-
-function saveMediaPrefs(prefs: MediaPrefs) {
-  try {
-    localStorage.setItem(MUTED_KEY, String(prefs.muted))
-    localStorage.setItem(VOLUME_KEY, String(prefs.vol))
-  } catch {
-    return
-  }
-}
 
 function findMediaRect(thumbUrl: string): SourceRect | null {
   const nodes = document.querySelectorAll<HTMLImageElement>('[data-media] img')
@@ -131,24 +78,25 @@ function flingVelocity(samples: { t: number; x: number; y: number }[]): { vx: nu
   return { vx: (last.x - first.x) / dt, vy: (last.y - first.y) / dt }
 }
 
-function fmtTime(s: number): string {
-  if (!Number.isFinite(s) || s <= 0) return '0:00'
-  const m = Math.floor(s / 60)
-  const sec = Math.floor(s % 60)
-  return `${m}:${String(sec).padStart(2, '0')}`
-}
-
-export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sourceRect: SourceRect | null; onClose: () => void }) {
-  const mobile = useIsMobile()
+export function GalleryOverlay(props: {
+  items: GalleryItem[]
+  index: number
+  sourceRect: SourceRect | null
+  onClose: () => void
+  onPip: (item: GalleryItem, media: HTMLMediaElement) => void
+  onNativePip: (media: HTMLMediaElement) => void
+  hidden?: boolean
+  resume?: { index: number; media: HTMLMediaElement } | null
+}) {
+  let resume = props.resume ?? null
+  const takeResume = (index: number): HTMLMediaElement | undefined => {
+    if (!resume || resume.index !== index) return undefined
+    const media = resume.media
+    resume = null
+    return media
+  }
   const [cur, setCur] = createSignal(props.index)
   const [thumbs, setThumbs] = createSignal(true)
-  const [playing, setPlaying] = createSignal(false)
-  const [muted, setMuted] = createSignal(loadMediaPrefs().muted)
-  const [vol, setVol] = createSignal(loadMediaPrefs().vol)
-  const [vtime, setVtime] = createSignal(0)
-  const [vdur, setVdur] = createSignal(0)
-  const [volOpen, setVolOpen] = createSignal(false)
-  const [scrubT, setScrubT] = createSignal<number | null>(null)
 
   let overlay: HTMLDivElement | undefined
   let stage: HTMLDivElement | undefined
@@ -175,12 +123,8 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
   let lastTouch = 0
   let settleAnim: Animation | null = null
   let inertiaRaf: number | null = null
-  let seeking = false
-  let seekingVol = false
   let dragOnStage = false
-  let seekPaused = false
-  let scrubRatio = 0
-  let lastSeekAt = 0
+  let zoomEnabled = true
 
   const applyTransform = () => {
     const el = activeMedia
@@ -305,7 +249,7 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
   }
 
   const doubleTapZoom = (x: number, y: number) => {
-    if (!stage) return
+    if (!stage || !zoomEnabled) return
     const rect = stage.getBoundingClientRect()
     const cx = rect.left + rect.width / 2
     const cy = rect.top + rect.height / 2
@@ -528,45 +472,12 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
     drag = null
   }
 
-  const scrubTo = (clientX: number, bar: HTMLElement) => {
-    const duration = vdur()
-    if (duration <= 0) return
-    const rect = bar.getBoundingClientRect()
-    const ratio = clamp((clientX - rect.left) / rect.width, 0, 1)
-    scrubRatio = ratio
-    setScrubT(ratio * duration)
-    const now = performance.now()
-    if (now - lastSeekAt >= 200) {
-      lastSeekAt = now
-      const v = activeMedia as HTMLVideoElement | null
-      if (v) v.currentTime = ratio * duration
-    }
-  }
-
-  const setVolFromY = (clientY: number, bar: HTMLElement) => {
-    const rect = bar.getBoundingClientRect()
-    const ratio = clamp(1 - (clientY - rect.top) / rect.height, 0, 1)
-    setVol(ratio)
-    setMuted(ratio === 0)
-  }
-
-  const releaseSeek = () => {
-    seeking = false
-    setScrubT(null)
-    const v = activeMedia as HTMLVideoElement | null
-    if (v && vdur() > 0) v.currentTime = scrubRatio * vdur()
-    if (seekPaused) {
-      seekPaused = false
-      if (v) v.play().catch(() => undefined)
-    }
-  }
-
   const onStageTouchStart = (e: TouchEvent) => {
     lastTouch = Date.now()
     dragOnStage = e.target === stage
     if (e.touches.length === 1) {
       beginDrag(e.touches[0].clientX, e.touches[0].clientY)
-    } else if (e.touches.length === 2) {
+    } else if (e.touches.length === 2 && zoomEnabled) {
       cancelTransitions()
       drag = null
       releaseTrack(false)
@@ -635,7 +546,11 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
   }
 
   createEffect(() => {
-    document.body.style.overflow = 'hidden'
+    if (overlay) overlay.inert = props.hidden ?? false
+  })
+
+  createEffect(() => {
+    document.body.style.overflow = props.hidden ? '' : 'hidden'
     onCleanup(() => {
       document.body.style.overflow = ''
     })
@@ -646,65 +561,17 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
       () => cur(),
       (index) => {
         if (!stage) return
-        const media = Array.from(stage.querySelectorAll<HTMLMediaElement>('video, audio'))
-        const active = stage.querySelector<HTMLElement>(`[data-index="${index}"]`)
-        activeMedia = active
+        activeMedia = stage.querySelector<HTMLElement>(`[data-index="${index}"]`)
+        const item = props.items[index]
+        zoomEnabled = !(item && isPlayableMime(item.mime))
         resetTransform()
-        for (const v of media) {
-          if (v === active) v.play().catch(() => undefined)
-          else v.pause()
-        }
       },
     ),
   )
-
-  createEffect(
-    on(
-      () => cur(),
-      () => {
-        setVolOpen(false)
-        const v = activeMedia
-        if (!(v instanceof HTMLMediaElement)) {
-          setPlaying(false)
-          setVtime(0)
-          setVdur(0)
-          return
-        }
-        const onPlay = () => setPlaying(true)
-        const onPause = () => setPlaying(false)
-        const onTime = () => setVtime(v.currentTime)
-        const onMeta = () => setVdur(Number.isFinite(v.duration) ? v.duration : 0)
-        v.addEventListener('play', onPlay)
-        v.addEventListener('pause', onPause)
-        v.addEventListener('timeupdate', onTime)
-        v.addEventListener('loadedmetadata', onMeta)
-        setPlaying(!v.paused)
-        setVtime(v.currentTime)
-        setVdur(Number.isFinite(v.duration) ? v.duration : 0)
-        onCleanup(() => {
-          v.removeEventListener('play', onPlay)
-          v.removeEventListener('pause', onPause)
-          v.removeEventListener('timeupdate', onTime)
-          v.removeEventListener('loadedmetadata', onMeta)
-        })
-      },
-    ),
-  )
-
-  createEffect(
-    on(
-      () => [vol(), cur()] as const,
-      () => {
-        const v = activeMedia
-        if (v instanceof HTMLMediaElement) v.volume = vol()
-      },
-    ),
-  )
-
-  createEffect(on(() => [muted(), vol()] as const, () => saveMediaPrefs({ muted: muted(), vol: vol() })))
 
   createEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (props.hidden) return
       const count = props.items.length
       if (e.key === 'Escape') {
         props.onClose()
@@ -725,7 +592,7 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
     if (!el) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      if (!stage) return
+      if (!stage || !zoomEnabled) return
       const rect = stage.getBoundingClientRect()
       const cx = rect.left + rect.width / 2
       const cy = rect.top + rect.height / 2
@@ -767,16 +634,9 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
     if (settleAnim) settleAnim.cancel()
   })
 
-  const currentItem = () => props.items[cur()]
-  const isPlayable = () => {
-    const item = currentItem()
-    return !!item && (item.mime.startsWith('video/') || item.mime.startsWith('audio/'))
-  }
-  const displayTime = () => scrubT() ?? vtime()
-
   return (
     <div
-      class={galleryOverlayVariants()}
+      class={galleryOverlayVariants({ hidden: !!props.hidden })}
       ref={overlay}
       onClick={(e) => {
         if (e.target === e.currentTarget) props.onClose()
@@ -800,60 +660,47 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
               <div class={gallerySlideVariants()}>
                 <Show when={Math.abs(i() - cur()) <= 1}>
                   <Show
-                    when={m.mime.startsWith('audio/')}
+                    when={isPlayableMime(m.mime)}
                     fallback={
                       <Show
-                        when={m.mime.startsWith('video/')}
+                        when={m.mime === 'application/pdf'}
                         fallback={
-                          <Show
-                            when={m.mime === 'application/pdf'}
-                            fallback={
-                              <img
-                                ref={(el) => {
-                                  if (i() === cur()) activeMedia = el
-                                }}
-                                data-index={i()}
-                                class={galleryMediaVariants()}
-                                src={m.fullUrl}
-                                alt=""
-                                draggable={false}
-                              />
-                            }
-                          >
-                            <a class={galleryPdfCardVariants()} href={m.fullUrl} target="_blank" rel="noreferrer">
-                              PDF
-                            </a>
-                          </Show>
+                          <img
+                            ref={(el) => {
+                              if (i() === cur()) activeMedia = el
+                            }}
+                            data-index={i()}
+                            class={galleryMediaVariants()}
+                            src={m.fullUrl}
+                            alt=""
+                            draggable={false}
+                          />
                         }
                       >
-                        <video
-                          ref={(el) => {
-                            if (i() === cur()) activeMedia = el
-                          }}
-                          data-index={i()}
-                          class={galleryMediaVariants()}
-                          src={m.fullUrl}
-                          preload="auto"
-                          autoplay={i() === cur()}
-                          loop
-                          muted={muted()}
-                          playsinline
-                        />
+                        <a class={galleryPdfCardVariants()} href={m.fullUrl} target="_blank" rel="noreferrer">
+                          PDF
+                        </a>
                       </Show>
                     }
                   >
-                    <audio
-                      ref={(el) => {
-                        if (i() === cur()) activeMedia = el
-                      }}
-                      data-index={i()}
-                      class={galleryMediaVariants()}
-                      src={m.fullUrl}
-                      preload="auto"
-                      autoplay={i() === cur()}
-                      loop
-                      muted={muted()}
-                    />
+                    {(() => {
+                      const adopted = takeResume(i())
+                      return (
+                        <MediaPlayer
+                          item={m}
+                          index={i()}
+                          active={i() === cur()}
+                          autoPip={playerPrefs.autoPip() && !adopted}
+                          adopt={adopted}
+                          rootRef={(el) => {
+                            if (i() === cur()) activeMedia = el
+                          }}
+                          onPip={props.onPip}
+                          onNativePip={props.onNativePip}
+                          onLeave={props.onClose}
+                        />
+                      )
+                    })()}
                   </Show>
                 </Show>
               </div>
@@ -862,103 +709,6 @@ export function GalleryOverlay(props: { items: GalleryItem[]; index: number; sou
         </div>
       </div>
       <div data-gallery-bottom="" class={galleryBottomVariants()}>
-        <Show when={isPlayable()}>
-          <Capsule visible={thumbs()} class={galleryControlsVariants()}>
-            <IconButton
-              size="sm"
-              class={galleryCtrlBtnVariants()}
-              aria-label="play"
-              onClick={() => {
-                const v = activeMedia as HTMLVideoElement | null
-                if (!v) return
-                if (v.paused) v.play().catch(() => undefined)
-                else v.pause()
-              }}
-            >
-              <Show when={playing()} fallback={<PlayIcon />}>
-                <PauseIcon />
-              </Show>
-            </IconButton>
-            <div
-              class={gallerySeekBarVariants()}
-              onPointerDown={(e) => {
-                const v = activeMedia as HTMLVideoElement | null
-                if (v && !v.paused) {
-                  seekPaused = true
-                  v.pause()
-                }
-                seeking = true
-                lastSeekAt = 0
-                scrubTo(e.clientX, e.currentTarget)
-                try {
-                  e.currentTarget.setPointerCapture(e.pointerId)
-                } catch {
-                  seeking = true
-                }
-              }}
-              onPointerMove={(e) => {
-                if (seeking) scrubTo(e.clientX, e.currentTarget)
-              }}
-              onPointerUp={releaseSeek}
-              onPointerCancel={releaseSeek}
-            >
-              <div class={gallerySeekFillVariants()} style={{ width: `${vdur() > 0 ? (displayTime() / vdur()) * 100 : 0}%` }} />
-            </div>
-            <span class={galleryTimeVariants()}>
-              {fmtTime(displayTime())} / {fmtTime(vdur())}
-            </span>
-            <div
-              class={galleryVolWrapVariants({ open: volOpen() })}
-              onMouseEnter={() => {
-                if (!mobile()) setVolOpen(true)
-              }}
-              onMouseLeave={() => {
-                if (!mobile()) setVolOpen(false)
-              }}
-            >
-              <div
-                class={galleryVolBarVariants({ open: volOpen() })}
-                onPointerDown={(e) => {
-                  seekingVol = true
-                  setVolFromY(e.clientY, e.currentTarget)
-                  try {
-                    e.currentTarget.setPointerCapture(e.pointerId)
-                  } catch {
-                    seekingVol = true
-                  }
-                }}
-                onPointerMove={(e) => {
-                  if (seekingVol) setVolFromY(e.clientY, e.currentTarget)
-                }}
-                onPointerUp={() => {
-                  seekingVol = false
-                }}
-                onPointerCancel={() => {
-                  seekingVol = false
-                }}
-              >
-                <div class={galleryVolFillVariants()} style={{ height: `${vol() * 100}%` }} />
-              </div>
-              <IconButton
-                size="sm"
-                class={galleryCtrlBtnVariants()}
-                aria-label="mute"
-                onClick={() => {
-                  if (mobile()) {
-                    setVol(1)
-                    setMuted(!muted())
-                    return
-                  }
-                  setMuted(!muted())
-                }}
-              >
-                <Show when={muted() || vol() === 0} fallback={<VolumeIcon />}>
-                  <VolumeOffIcon />
-                </Show>
-              </IconButton>
-            </div>
-          </Capsule>
-        </Show>
         <div ref={carousel} class={galleryThumbsVariants({ visible: thumbs() })}>
           <For each={props.items}>
             {(m, i) => (

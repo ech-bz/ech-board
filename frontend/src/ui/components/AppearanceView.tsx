@@ -3,6 +3,7 @@ import { cva } from 'class-variance-authority'
 import { useI18n, type Lang } from '../i18n'
 import { haptic } from '../haptic'
 import { Field } from './Field'
+import { playerPrefs } from './Player/playerPrefs'
 
 const pageVariants = cva('max-w-settings p-6')
 const settingRowVariants = cva('flex items-center justify-between gap-3 border-b border-separator px-0.5 py-3 text-lg')
@@ -75,6 +76,21 @@ export function AppearanceView() {
           }}
         >
           <input type="checkbox" class={toggleVariants()} checked={expandFolds()} readOnly />
+        </span>
+      </label>
+      <label class={settingRowVariants()}>
+        <span>{t('settings.autoPip')}</span>
+        <span
+          ref={(el) => haptic(el)}
+          role="checkbox"
+          aria-checked={playerPrefs.autoPip()}
+          class={toggleWrapVariants()}
+          onClick={(e) => {
+            e.preventDefault()
+            playerPrefs.setAutoPip(!playerPrefs.autoPip())
+          }}
+        >
+          <input type="checkbox" class={toggleVariants()} checked={playerPrefs.autoPip()} readOnly />
         </span>
       </label>
       <div class={settingRowVariants()}>
